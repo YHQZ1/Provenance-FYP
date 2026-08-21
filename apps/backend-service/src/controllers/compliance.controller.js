@@ -88,6 +88,15 @@ export const complianceController = {
     }
   },
 
+  async getRegulatoryReview(req, res, next) {
+    try {
+      const data = await complianceService.getRegulatoryReview(req.user.id, req.body);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getQuarterlyReport(req, res, next) {
     try {
       const data = await complianceService.generateQuarterlyReport(

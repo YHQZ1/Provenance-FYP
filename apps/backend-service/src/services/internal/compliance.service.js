@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../config/database.js";
+import { regulatoryService } from "../external/regulatory.service.js";
 
 const MATERIAL_COLUMNS = {
   PET: "total_pet_kg",
@@ -332,6 +333,29 @@ export const complianceService = {
       .limit(limit);
 
     return { recent_uploads: docs || [] };
+  },
+
+  async getRegulatoryReview(userId, input = {}) {
+    const materials = input.materials && typeof input.materials === "object" ? input.materials : {};
+    const materialSummary = Object.entries(materials)
+      .map(([code, quantity]) => `${code}: ${Number(quantity) || 0} kg`)
+      .join(", ") || "No verified material totals";
+    const documentsCount = Number(input.documents_count) || 0;
+    const pendingReview = Number(input.pending_review) || 0;
+    const query = [
+      "Review this plastic EPR compliance report against the applicable CPCB requirements.",
+      `Verified material totals: ${materialSummary}.`,
+      `Documents in the report: ${documentsCount}. Documents pending review: ${pendingReview}.`,
+      "Identify the most relevant obligations, evidence gaps, and reporting considerations for this report.",
+      "Keep the answer concise and cite the supplied source documents.",
+    ].join(" ");
+
+    const result = await regulatoryService.query(query);
+    return {
+      ...result,
+      query,
+      generated_at: new Date().toISOString(),
+    };
   },
 
   async generateQuarterlyReport(userId, year, quarter) {
