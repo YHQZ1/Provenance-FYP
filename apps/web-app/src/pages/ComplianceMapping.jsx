@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle, AlertTriangle, ArrowRight } from "lucide-react";
-import { documentAPI, feedbackAPI } from "../lib/api";
+import { complianceAPI, documentAPI } from "../lib/api";
 import PageHeader from "../components/PageHeader";
 import {
   BtnPrimary,
@@ -10,12 +10,6 @@ import {
   ProgressBar,
   MonoLabel,
 } from "../components/ui";
-
-const FRAMEWORKS = [
-  { key: "brsr", label: "BRSR Mapping" },
-  { key: "epr", label: "EPR Mapping" },
-  { key: "carbon", label: "Carbon Mapping" },
-];
 
 const styles = {
   panel: {
@@ -137,53 +131,6 @@ const FieldRow = ({ field, value, mapped }) => {
   );
 };
 
-const FrameworkSection = ({ label, items }) => (
-  <div>
-    <p
-      style={{
-        fontFamily: "'DM Mono', monospace",
-        fontSize: 10,
-        fontWeight: 500,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        color: "#0a0a0a",
-        margin: "0 0 8px",
-      }}
-    >
-      {label}
-    </p>
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {items.map((item) => (
-        <div key={item.id} style={styles.frameworkItem}>
-          <p
-            style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: 13,
-              fontWeight: 500,
-              color: "#0a0a0a",
-              margin: 0,
-            }}
-          >
-            {item.label}
-          </p>
-          {item.value && (
-            <p
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: 11,
-                color: "var(--success)",
-                margin: "4px 0 0",
-              }}
-            >
-              {item.value}
-            </p>
-          )}
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
 const RowSkeleton = () => (
   <div
     style={{
@@ -221,7 +168,7 @@ export default function ComplianceMapping() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [documents, setDocuments] = useState([]);
-  const [pendingReviews, setPendingReviews] = useState([]);
+  const [currentFiling, setCurrentFiling] = useState(null);
   const [approving, setApproving] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -229,12 +176,13 @@ export default function ComplianceMapping() {
     try {
       setLoading(true);
       setError(null);
-      const [docsRes, pendingRes] = await Promise.all([
-        documentAPI.list({ limit: 20 }),
-        feedbackAPI.getPending({ limit: 50 }),
-      ]);
+      const filingRes = await complianceAPI.getCurrentFiling();
+      const filing = filingRes.data || null;
+      setCurrentFiling(filing);
+      const docsRes = filing?.id
+        ? await complianceAPI.getFilingDocuments(filing.id, { limit: 50 })
+        : await documentAPI.list({ limit: 20 });
       setDocuments(docsRes.data || []);
-      setPendingReviews(pendingRes.data || []);
     } catch (err) {
       setError(err.message || "Failed to load mapping data");
     } finally {
@@ -246,58 +194,22 @@ export default function ComplianceMapping() {
     fetchMappingData();
   }, [fetchMappingData]);
 
-  const completedDocs = documents.filter(
-    (d) => d.status === "COMPLETED" || d.status === "VERIFIED",
-  );
-  const mappedCount = completedDocs.length;
+  const processedCount = documents.filter((document) =>
+    ["COMPLETED", "VERIFIED", "CLASSIFIED"].includes(document.status),
+  ).length;
   const totalCount = documents.length || 1;
 
   const rawFields = documents.slice(0, 5).map((doc) => ({
     id: doc.id,
     field: doc.filename,
     value: `${doc.items_count || 0} items · ${doc.status}`,
-    mapped: doc.status === "VERIFIED",
+    mapped:
+      doc.status === "VERIFIED" &&
+      doc.document_classifications?.some((classification) => classification.material_code),
   }));
 
-  const frameworkMap = {
-    brsr: [
-      {
-        id: "b1",
-        label: "Energy Consumption",
-        value: `${documents.length * 150} kWh`,
-      },
-      {
-        id: "b2",
-        label: "Water Withdrawal",
-        value: `${documents.length * 25} kL`,
-      },
-      {
-        id: "b3",
-        label: "GHG Emissions (Scope 1+2)",
-        value: `${(documents.length * 0.8).toFixed(1)} tCO₂e`,
-      },
-    ],
-    epr: [
-      {
-        id: "e1",
-        label: "Plastic Packaging",
-        value: `${pendingReviews.length * 10} kg`,
-      },
-      {
-        id: "e2",
-        label: "EPR Obligation",
-        value: `${(pendingReviews.length * 5).toFixed(1)} kg`,
-      },
-    ],
-    carbon: [
-      {
-        id: "c1",
-        label: "Carbon Intensity",
-        value: `${(documents.length * 0.5).toFixed(2)} tCO₂e/unit`,
-      },
-      { id: "c2", label: "CCTS Baseline", value: "Ready for submission" },
-    ],
-  };
+  const materials = Object.entries(currentFiling?.materials || {});
+  const totalQuantity = currentFiling?.total_quantity || 0;
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -307,10 +219,13 @@ export default function ComplianceMapping() {
   const handleApprove = async () => {
     setApproving(true);
     try {
-      const pendingIds = pendingReviews.map((p) => p.id);
-      if (pendingIds.length > 0)
-        await feedbackAPI.bulkVerify(pendingIds.slice(0, 10));
-      showToast("success", "Mapping approved successfully");
+      if (!currentFiling?.id) throw new Error("No current filing period found");
+      if (!currentFiling.can_submit) {
+        showToast("error", "Complete validation before submitting the EPR filing");
+        return;
+      }
+      await complianceAPI.submitFiling(currentFiling.id);
+      showToast("success", "EPR filing submitted successfully");
       setTimeout(() => navigate("/reports"), 1200);
     } catch (err) {
       showToast("error", err.message || "Approval failed");
@@ -322,12 +237,12 @@ export default function ComplianceMapping() {
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", color: "#0a0a0a" }}>
       <PageHeader
-        eyebrow={`Step 3 of 4 · ${documents.length} documents`}
+        eyebrow={`Step 3 of 4 · ${currentFiling?.quarter || "Current quarter"}`}
         title="Compliance Mapping"
         subtitle={
           documents.length > 0
-            ? `${completedDocs.length} documents ready for mapping`
-            : "Upload documents to begin mapping"
+          ? "Verified plastic classifications mapped to your EPR filing"
+          : "No confirmed plastic material found in this filing period"
         }
         actions={
           <>
@@ -341,7 +256,7 @@ export default function ComplianceMapping() {
               onClick={handleApprove}
               disabled={loading || approving || documents.length === 0}
             >
-              {approving ? "Approving…" : "Approve Mapping →"}
+              {approving ? "Submitting…" : "Submit EPR Filing →"}
             </BtnPrimary>
           </>
         }
@@ -390,17 +305,21 @@ export default function ComplianceMapping() {
         >
           <div style={styles.progressPill}>
             <MonoLabel>
-              {mappedCount} / {totalCount} documents mapped
+              {processedCount} / {totalCount} documents processed
             </MonoLabel>
             <div style={{ width: 100 }}>
               <ProgressBar
-                pct={Math.round((mappedCount / totalCount) * 100)}
-                ok={mappedCount === totalCount}
+                pct={Math.round((processedCount / totalCount) * 100)}
+                ok={processedCount === totalCount}
                 height={3}
               />
             </div>
-            <Badge variant={mappedCount === totalCount ? "success" : "neutral"}>
-              {mappedCount === totalCount ? "Complete" : "Incomplete"}
+            <Badge variant={currentFiling?.can_submit ? "success" : "neutral"}>
+              {currentFiling?.can_submit
+                ? "Ready to submit"
+                : materials.length === 0
+                  ? "No plastic material found"
+                  : "Validation required"}
             </Badge>
           </div>
         </div>
@@ -438,33 +357,44 @@ export default function ComplianceMapping() {
         </div>
 
         <div style={styles.panel}>
-          <SectionTitle>Framework Mapping</SectionTitle>
+          <SectionTitle>EPR Material Totals</SectionTitle>
           <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             {loading
-              ? FRAMEWORKS.map((f) => (
-                  <div key={f.key}>
-                    <div
-                      style={{
-                        height: 10,
-                        width: "40%",
-                        background: "#efefef",
-                        borderRadius: 4,
-                        marginBottom: 10,
-                        animation: "shimmer 1.4s ease infinite",
-                      }}
-                    />
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <RowSkeleton key={i} />
-                    ))}
-                  </div>
-                ))
-              : FRAMEWORKS.map(({ key, label }) => (
-                  <FrameworkSection
-                    key={key}
-                    label={label}
-                    items={frameworkMap[key] ?? []}
-                  />
-                ))}
+              ? Array.from({ length: 4 }).map((_, i) => <RowSkeleton key={i} />)
+              : materials.length > 0
+                ? materials.map(([code, quantity]) => (
+                    <div key={code} style={styles.frameworkItem}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{code}</p>
+                      <p
+                        style={{
+                          margin: "4px 0 0",
+                          fontFamily: "'DM Mono', monospace",
+                          fontSize: 11,
+                          color: "var(--success)",
+                        }}
+                      >
+                        {Number(quantity).toFixed(2)} kg verified
+                      </p>
+                    </div>
+                  ))
+                : (
+                    <div style={styles.frameworkItem}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>
+                        No verified plastic material yet
+                      </p>
+                      <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--text-light)" }}>
+                        Complete validation to add material quantities to this filing.
+                      </p>
+                    </div>
+                  )}
+            {!loading && (
+              <div style={{ ...styles.frameworkItem, background: "#f0fdf4", borderColor: "#bbf7d0" }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>Total verified plastic</p>
+                <p style={{ margin: "4px 0 0", fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#047857" }}>
+                  {Number(totalQuantity).toFixed(2)} kg
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

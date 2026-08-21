@@ -29,6 +29,23 @@ export const ragService = {
       .eq("id", documentId);
 
     try {
+      if (!items || items.length === 0) {
+        const { error: emptyDocumentError } = await supabaseAdmin
+          .from("documents")
+          .update({
+            status: "REVIEW_PENDING",
+            rag_confidence: 0,
+            requires_human_review: true,
+            verified_by_user: false,
+            reasoning: "No line items were available for material classification.",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", documentId);
+
+        if (emptyDocumentError) throw emptyDocumentError;
+        return [];
+      }
+
       const classifications = env.USE_MOCK_SERVICES
         ? this.mockClassifyItems(items)
         : await this.classifyItems(items);

@@ -101,10 +101,18 @@ export const complianceService = {
         .single();
 
       if (!latest) return null;
+      await this.recalculatePeriod(latest.id, userId);
       return this.enrichFiling(latest, userId);
     }
 
-    return this.enrichFiling(period, userId);
+    await this.recalculatePeriod(period.id, userId);
+    const { data: refreshed } = await supabaseAdmin
+      .from("filing_periods")
+      .select("*")
+      .eq("id", period.id)
+      .single();
+
+    return this.enrichFiling(refreshed || period, userId);
   },
 
   async getFilingDetails(filingId, userId) {
@@ -116,7 +124,13 @@ export const complianceService = {
       .single();
 
     if (error || !data) throw new Error("Filing not found");
-    return this.enrichFiling(data, userId);
+    await this.recalculatePeriod(data.id, userId);
+    const { data: refreshed } = await supabaseAdmin
+      .from("filing_periods")
+      .select("*")
+      .eq("id", data.id)
+      .single();
+    return this.enrichFiling(refreshed || data, userId);
   },
 
   async getFilingDocuments(filingId, userId, options = {}) {
@@ -136,7 +150,7 @@ export const complianceService = {
     const { data, error, count } = await supabaseAdmin
       .from("documents")
       .select(
-        "*, document_classifications(id, material_code, quantity_kg, verified_by_user)",
+        "*, document_classifications(id, material_code, quantity_kg, corrected_material_code, corrected_quantity_kg, verified_by_user)",
         { count: "exact" },
       )
       .eq("company_id", userId)
@@ -151,7 +165,8 @@ export const complianceService = {
       data: (data || []).map((doc) => ({
         ...doc,
         total_quantity: doc.document_classifications?.reduce(
-          (sum, c) => sum + (c.quantity_kg || 0),
+          (sum, c) =>
+            sum + (c.corrected_quantity_kg ?? c.quantity_kg ?? 0),
           0,
         ),
       })),
@@ -212,7 +227,7 @@ export const complianceService = {
     const { data: docs } = await supabaseAdmin
       .from("documents")
       .select(
-        "id, document_classifications!inner(material_code, quantity_kg, verified_by_user)",
+        "id, document_classifications!inner(material_code, quantity_kg, corrected_material_code, corrected_quantity_kg, verified_by_user)",
       )
       .eq("company_id", userId)
       .gte("created_at", period.start_date)
@@ -225,8 +240,11 @@ export const complianceService = {
     for (const doc of docs || []) {
       docCount++;
       for (const cls of doc.document_classifications) {
-        totals[cls.material_code] =
-          (totals[cls.material_code] || 0) + (cls.quantity_kg || 0);
+        const materialCode =
+          cls.corrected_material_code || cls.material_code;
+        const quantity = cls.corrected_quantity_kg ?? cls.quantity_kg ?? 0;
+        if (!materialCode) continue;
+        totals[materialCode] = (totals[materialCode] || 0) + quantity;
       }
     }
 

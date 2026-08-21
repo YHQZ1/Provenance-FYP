@@ -117,7 +117,7 @@ export const documentService = {
     let query = supabaseAdmin
       .from("documents")
       .select(
-        `id, filename, status, created_at, updated_at, ocr_confidence, rag_confidence, requires_human_review, document_classifications(id)`,
+        `id, filename, status, created_at, updated_at, ocr_confidence, rag_confidence, requires_human_review, verified_by_user, document_classifications(id)`,
         { count: "exact" },
       )
       .eq("company_id", userId)

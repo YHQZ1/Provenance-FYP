@@ -153,9 +153,13 @@ export const feedbackService = {
     const { data: updated, error: updateError } = await supabaseAdmin
       .from("document_classifications")
       .update({
+        material_code:
+          corrected_material_code || original.material_code,
+        quantity_kg: corrected_quantity_kg ?? original.quantity_kg,
         corrected_material_code:
           corrected_material_code || original.material_code,
-        corrected_quantity_kg: corrected_quantity_kg || original.quantity_kg,
+        corrected_quantity_kg:
+          corrected_quantity_kg ?? original.quantity_kg,
         verified_by_user: true,
         requires_human_review: false,
         reviewer_notes: notes,

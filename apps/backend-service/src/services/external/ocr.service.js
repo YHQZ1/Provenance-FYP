@@ -38,9 +38,11 @@ export const ocrService = {
             metadata: result.metadata || {},
           },
           ocr_confidence: result.confidence,
-          status: "COMPLETED",
-          requires_human_review: Boolean(result.warnings?.length),
-          reasoning: "Items extracted via OCR and ready for material classification.",
+          status: items.length > 0 ? "COMPLETED" : "REVIEW_PENDING",
+          requires_human_review: items.length === 0 || Boolean(result.warnings?.length),
+          reasoning: items.length > 0
+            ? "Items extracted via OCR and ready for material classification."
+            : "OCR completed without extracting line items; manual review is required.",
           updated_at: new Date().toISOString(),
         })
         .eq("id", documentId);
@@ -61,6 +63,19 @@ export const ocrService = {
           requires_human_review: true,
           verified_by_user: false,
         }));
+
+      if (items.length === 0) {
+        classifications.push({
+          document_id: documentId,
+          material_code: null,
+          quantity_kg: null,
+          confidence_score: 0,
+          reasoning: "No line items were extracted from the document.",
+          matched_synonym: null,
+          requires_human_review: true,
+          verified_by_user: false,
+        });
+      }
 
       if (classifications.length > 0) {
         const { error: insertError } = await supabaseAdmin

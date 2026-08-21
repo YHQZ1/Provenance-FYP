@@ -17,6 +17,14 @@ INVOICE_2_TEXT = """Tax Invoice
 To, Hindalco Industries Limited Date:- Invoice No.- AMC/2122/FA/0019 28-09-2021
 Sr.NoParticulars 1Sale of Old Car of Lalit Kumar Apparao Kodi HSN 87032291 Amount"""
 
+INVOICE_3_TEXT = """Tax Invoice
+S Description of Goods HSN/SAC Quantity Rate Amount No
+2 Plastic Compounds Plastic Compounds 3902 3902 11,000.00KG 7,000.00KG 63.50 62.00 KG KG"""
+
+INVOICE_4_TEXT = """Tax Invoice
+No. DESCRIPTION OF GOODS UNIT HSN CODE QTY RATE Amount
+1PLASTIC SCRAP KGS 3915 2375.000 15.00 35625.00"""
+
 
 def test_tokens_are_reconstructed_per_page():
     tokens = [
@@ -74,3 +82,21 @@ def test_invoice_fixture_layouts_produce_line_items():
     assert invoice_one[0]["unit"] == "nos"
     assert "Sale of Old Car" in invoice_two[0]["description"]
     assert invoice_two[0]["quantity"] == 1
+
+
+def test_hsn_rows_extract_multiple_quantities_from_flattened_invoice_table():
+    items = parse_line_items(INVOICE_3_TEXT, 0.9)
+
+    assert len(items) == 2
+    assert all(item["description"] == "Plastic Compounds" for item in items)
+    assert [item["quantity"] for item in items] == [11000.0, 7000.0]
+    assert all(item["unit"] == "kg" for item in items)
+
+
+def test_hsn_rows_extract_quantity_when_unit_precedes_hsn_code():
+    items = parse_line_items(INVOICE_4_TEXT, 0.9)
+
+    assert len(items) == 1
+    assert items[0]["description"] == "PLASTIC SCRAP"
+    assert items[0]["quantity"] == 2375.0
+    assert items[0]["unit"] == "kgs"
