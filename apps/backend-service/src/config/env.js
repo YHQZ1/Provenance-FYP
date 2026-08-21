@@ -49,6 +49,8 @@ export const env = {
   OCR_TIMEOUT_MS: parseInt(process.env.OCR_TIMEOUT_MS, 10) || 120000,
   RAG_SERVICE_URL: process.env.RAG_SERVICE_URL,
   RAG_TIMEOUT_MS: parseInt(process.env.RAG_TIMEOUT_MS, 10) || 180000,
+  REGULATORY_RAG_URL: process.env.REGULATORY_RAG_URL,
+  REGULATORY_RAG_TIMEOUT_MS: parseInt(process.env.REGULATORY_RAG_TIMEOUT_MS, 10) || 180000,
   BACKEND_WEBHOOK_URL: process.env.BACKEND_WEBHOOK_URL,
 
   UPLOAD_TEMP_DIR: process.env.UPLOAD_TEMP_DIR || "./uploads",

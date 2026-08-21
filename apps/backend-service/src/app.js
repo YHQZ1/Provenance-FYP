@@ -8,6 +8,7 @@ import documentRoutes from "./routes/document.routes.js";
 import companyRoutes from "./routes/company.routes.js";
 import feedbackRoutes from "./routes/feedback.routes.js";
 import complianceRoutes from "./routes/compliance.routes.js";
+import regulatoryRoutes from "./routes/regulatory.routes.js";
 
 const app = express();
 const configuredOrigins = env.CORS_ORIGIN.split(",")
@@ -54,6 +55,7 @@ app.use("/api/company", companyRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/compliance", complianceRoutes);
+app.use("/api/regulatory", regulatoryRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
