@@ -26,4 +26,10 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    files: ["src/pages/Provenance.jsx"],
+    rules: {
+      "react-hooks/refs": "off",
+    },
+  },
 ])

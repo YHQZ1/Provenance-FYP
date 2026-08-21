@@ -10,10 +10,23 @@ import feedbackRoutes from "./routes/feedback.routes.js";
 import complianceRoutes from "./routes/compliance.routes.js";
 
 const app = express();
+const configuredOrigins = env.CORS_ORIGIN.split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const localOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 app.use(
   cors({
-    origin: env.CORS_ORIGIN.split(",").map((origin) => origin.trim()),
+    origin: (origin, callback) => {
+      const isConfigured = !origin || configuredOrigins.includes(origin);
+      const isLocalDevelopment =
+        configuredOrigins.some((configuredOrigin) =>
+          configuredOrigin.startsWith("http://localhost:"),
+        ) &&
+        origin &&
+        localOriginPattern.test(origin);
+      callback(null, isConfigured || isLocalDevelopment);
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: [
@@ -23,6 +36,7 @@ app.use(
       "X-User-Email",
       "X-Gateway-Verified",
     ],
+    optionsSuccessStatus: 204,
   }),
 );
 

@@ -35,6 +35,9 @@ export const ragService = {
           .delete()
           .eq("document_id", documentId);
 
+        const requiresHumanReview = classifications.some(
+          (cls) => cls.confidence_score < 0.85,
+        );
         const classificationInserts = classifications.map((cls) => ({
           document_id: documentId,
           material_code: cls.material_code,
@@ -44,25 +47,30 @@ export const ragService = {
           matched_synonym: cls.matched_synonym,
           vector_similarity: cls.vector_similarity,
           requires_human_review: cls.confidence_score < 0.85,
-          verified_by_user: false,
+          verified_by_user: !requiresHumanReview && cls.confidence_score >= 0.85,
         }));
 
         await supabaseAdmin
           .from("document_classifications")
           .insert(classificationInserts);
 
-        const avgConfidence =
-          classifications.reduce((sum, c) => sum + c.confidence_score, 0) /
-          classifications.length;
+        const avgConfidence = classifications.length
+          ? classifications.reduce((sum, c) => sum + c.confidence_score, 0) /
+            classifications.length
+          : 1;
+        const status = classifications.length === 0
+          ? "COMPLETED"
+          : requiresHumanReview
+            ? "CLASSIFIED"
+            : "VERIFIED";
 
         await supabaseAdmin
           .from("documents")
           .update({
             rag_confidence: avgConfidence,
-            status: "CLASSIFIED",
-            requires_human_review: classifications.some(
-              (c) => c.confidence_score < 0.85,
-            ),
+            status,
+            verified_by_user: !requiresHumanReview,
+            requires_human_review: requiresHumanReview,
             updated_at: new Date().toISOString(),
           })
           .eq("id", documentId);

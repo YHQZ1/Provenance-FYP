@@ -9,6 +9,7 @@ router.use(authenticate);
 router.get("/pending", feedbackController.getPending);
 router.get("/:id", feedbackController.getById);
 router.post("/:id/verify", feedbackController.verify);
+router.post("/:id/reject", feedbackController.reject);
 router.post("/:id/correct", feedbackController.correct);
 router.post("/bulk-verify", feedbackController.bulkVerify);
 

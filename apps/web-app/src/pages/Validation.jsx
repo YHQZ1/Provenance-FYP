@@ -20,16 +20,24 @@ import {
 
 const statusVariant = {
   COMPLETED: "ok",
+  CLASSIFIED: "warn",
+  REVIEW_PENDING: "warn",
   VERIFIED: "success",
   PENDING: "neutral",
   PROCESSING: "warn",
+  OCR_PROCESSING: "warn",
+  RAG_PROCESSING: "warn",
   FAILED: "dark",
 };
 const statusLabel = {
-  COMPLETED: "Completed",
+  COMPLETED: "Processed",
+  CLASSIFIED: "Needs review",
+  REVIEW_PENDING: "Needs review",
   VERIFIED: "Verified",
   PENDING: "Pending",
   PROCESSING: "Processing",
+  OCR_PROCESSING: "OCR processing",
+  RAG_PROCESSING: "Classification processing",
   FAILED: "Failed",
 };
 
@@ -80,8 +88,8 @@ const SortIcon = ({ direction }) => {
 const FilterBar = ({ active, onChange, counts }) => {
   const filters = [
     { key: "all", label: "All", count: counts.all },
-    { key: "PENDING", label: "Pending", count: counts.pending },
-    { key: "COMPLETED", label: "Completed", count: counts.completed },
+    { key: "PROCESSING", label: "Processing", count: counts.processing },
+    { key: "REVIEW", label: "Needs review", count: counts.review },
     { key: "VERIFIED", label: "Verified", count: counts.verified },
   ];
   return (
@@ -148,6 +156,13 @@ export default function DataValidation() {
   const [selected, setSelected] = useState(new Set());
   const [toast, setToast] = useState({ visible: false, message: "", ok: true });
   const [viewMode, setViewMode] = useState("documents");
+  const [reviewItem, setReviewItem] = useState(null);
+  const [reviewMaterial, setReviewMaterial] = useState("");
+  const [reviewQuantity, setReviewQuantity] = useState("");
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewDocument, setReviewDocument] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -169,23 +184,48 @@ export default function DataValidation() {
     fetchData();
   }, [fetchData]);
 
-  const counts = useMemo(
-    () => ({
+  const counts = useMemo(() => {
+    const processingStatuses = new Set([
+      "PENDING",
+      "PROCESSING",
+      "OCR_PROCESSING",
+      "RAG_PROCESSING",
+    ]);
+    const reviewStatuses = new Set(["CLASSIFIED", "REVIEW_PENDING"]);
+
+    return {
       all: documents.length,
-      pending: documents.filter(
-        (d) => d.status === "PENDING" || d.status === "PROCESSING",
+      processing: documents.filter((d) => processingStatuses.has(d.status)).length,
+      review: documents.filter(
+        (d) => reviewStatuses.has(d.status) || d.requires_human_review,
       ).length,
-      completed: documents.filter((d) => d.status === "COMPLETED").length,
-      verified: documents.filter((d) => d.status === "VERIFIED").length,
-    }),
-    [documents],
-  );
+      verified: documents.filter(
+        (d) => d.status === "VERIFIED" || d.verified_by_user,
+      ).length,
+    };
+  }, [documents]);
 
   const visible = useMemo(() => {
     let rows = viewMode === "documents" ? documents : classifications;
     if (!rows) return [];
     if (viewMode === "documents") {
-      rows = filter === "all" ? rows : rows.filter((r) => r.status === filter);
+      if (filter === "PROCESSING") {
+        rows = rows.filter((r) =>
+          ["PENDING", "PROCESSING", "OCR_PROCESSING", "RAG_PROCESSING"].includes(
+            r.status,
+          ),
+        );
+      } else if (filter === "REVIEW") {
+        rows = rows.filter(
+          (r) =>
+            ["CLASSIFIED", "REVIEW_PENDING"].includes(r.status) ||
+            r.requires_human_review,
+        );
+      } else if (filter === "VERIFIED") {
+        rows = rows.filter(
+          (r) => r.status === "VERIFIED" || r.verified_by_user,
+        );
+      }
     }
     if (sortCol) {
       rows = [...rows].sort((a, b) => {
@@ -214,13 +254,101 @@ export default function DataValidation() {
     setTimeout(() => setToast((t) => ({ ...t, visible: false })), 3000);
   };
 
-  const handleVerify = async (classificationId) => {
+  const openReview = async (item) => {
+    setReviewItem(item);
+    setReviewMaterial(item.material_code || "");
+    setReviewQuantity(String(item.quantity_kg ?? ""));
+    setReviewNotes("");
+    setReviewDocument(null);
+    setReviewLoading(true);
     try {
-      await feedbackAPI.verify(classificationId);
-      showToast("Classification verified");
+      const response = await documentAPI.getById(item.document_id);
+      setReviewDocument(response.data);
+    } catch (err) {
+      showToast(`Original document unavailable: ${err.message}`, false);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const closeReview = () => {
+    if (reviewSaving) return;
+    setReviewItem(null);
+    setReviewDocument(null);
+  };
+
+  const handleNextReview = () => {
+    if (!reviewItem) return;
+    const index = visible.findIndex((item) => item.id === reviewItem.id);
+    const nextItem = visible[index + 1];
+    if (nextItem) openReview(nextItem);
+  };
+
+  const handleReviewVerify = async () => {
+    if (!reviewItem) return;
+    setReviewSaving(true);
+    try {
+      await feedbackAPI.verify(reviewItem.id, reviewNotes);
+      showToast("Review approved");
+      const index = visible.findIndex((item) => item.id === reviewItem.id);
+      const nextItem = visible[index + 1];
+      setReviewSaving(false);
+      if (nextItem) openReview(nextItem);
+      else closeReview();
       fetchData();
     } catch (err) {
       showToast(`Verification failed: ${err.message}`, false);
+    } finally {
+      setReviewSaving(false);
+    }
+  };
+
+  const handleReviewCorrection = async () => {
+    if (!reviewItem || !reviewMaterial || !reviewQuantity) {
+      showToast("Add a material and quantity before saving a correction", false);
+      return;
+    }
+    setReviewSaving(true);
+    try {
+      await feedbackAPI.correct(reviewItem.id, {
+        corrected_material_code: reviewMaterial,
+        corrected_quantity_kg: Number(reviewQuantity),
+        feedback_type: "HUMAN_REVIEW",
+        notes: reviewNotes,
+      });
+      showToast("Correction saved and review approved");
+      const index = visible.findIndex((item) => item.id === reviewItem.id);
+      const nextItem = visible[index + 1];
+      setReviewSaving(false);
+      if (nextItem) openReview(nextItem);
+      else closeReview();
+      fetchData();
+    } catch (err) {
+      showToast(`Correction failed: ${err.message}`, false);
+    } finally {
+      setReviewSaving(false);
+    }
+  };
+
+  const handleReviewReject = async () => {
+    if (!reviewItem || !reviewNotes.trim()) {
+      showToast("Add a note explaining what needs correction", false);
+      return;
+    }
+    setReviewSaving(true);
+    try {
+      await feedbackAPI.reject(reviewItem.id, reviewNotes);
+      showToast("Item returned for correction");
+      const index = visible.findIndex((item) => item.id === reviewItem.id);
+      const nextItem = visible[index + 1];
+      setReviewSaving(false);
+      if (nextItem) openReview(nextItem);
+      else closeReview();
+      fetchData();
+    } catch (err) {
+      showToast(`Could not return item: ${err.message}`, false);
+    } finally {
+      setReviewSaving(false);
     }
   };
 
@@ -310,8 +438,8 @@ export default function DataValidation() {
         style={{ display: "flex", gap: 14, marginBottom: 24, flexWrap: "wrap" }}
       >
         <StatTile label="Total" value={counts.all} variant="neutral" />
-        <StatTile label="Pending" value={counts.pending} variant="warn" />
-        <StatTile label="Completed" value={counts.completed} variant="ok" />
+        <StatTile label="Processing" value={counts.processing} variant="warn" />
+        <StatTile label="Needs review" value={counts.review} variant="warn" />
         <StatTile label="Verified" value={counts.verified} variant="ok" />
       </div>
 
@@ -324,7 +452,9 @@ export default function DataValidation() {
         }}
       >
         <FilterBar active={filter} onChange={setFilter} counts={counts} />
-        <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto" }}>
+          <MonoLabel color="#737373">View</MonoLabel>
+          <div style={{ display: "flex", gap: 4, marginTop: 5 }}>
           <button
             onClick={() => setViewMode("documents")}
             style={{
@@ -356,9 +486,29 @@ export default function DataValidation() {
               cursor: "pointer",
             }}
           >
-            Classifications ({classifications.length})
+            Review items ({classifications.length})
           </button>
+          </div>
         </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "8px 20px",
+          padding: "12px 16px",
+          marginBottom: 16,
+          border: "1px solid #e5e5e5",
+          borderRadius: 10,
+          background: "#fafafa",
+          fontSize: 12,
+          color: "#525252",
+        }}
+      >
+        <span><strong>Processing:</strong> still running</span>
+        <span><strong>Needs review:</strong> low-confidence classification</span>
+        <span><strong>Verified:</strong> ready for reporting</span>
       </div>
 
       <div
@@ -669,22 +819,21 @@ export default function DataValidation() {
                         <div style={{ display: "flex", gap: 4 }}>
                           {viewMode === "classifications" && (
                             <button
-                              onClick={() => handleVerify(item.id)}
+                              onClick={() => openReview(item)}
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: 28,
-                                height: 28,
-                                borderRadius: 8,
-                                border: "none",
+                                padding: "7px 12px",
+                                borderRadius: 7,
+                                border: "1px solid #d1fae5",
                                 cursor: "pointer",
-                                background: "transparent",
-                                color: "var(--success)",
+                                background: "#ecfdf5",
+                                color: "#047857",
+                                fontFamily: "'DM Sans', sans-serif",
+                                fontSize: 12,
+                                fontWeight: 600,
                               }}
-                              aria-label="Verify"
+                              aria-label="Review item"
                             >
-                              <Check style={{ width: 14, height: 14 }} />
+                              Review
                             </button>
                           )}
                           {viewMode === "documents" && (
@@ -717,6 +866,299 @@ export default function DataValidation() {
           </div>
         )}
       </div>
+
+      {reviewItem && (
+        <div
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeReview();
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            display: "flex",
+            justifyContent: "flex-end",
+            background: "rgba(10,10,10,0.28)",
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="review-title"
+            style={{
+              width: "min(560px, 100%)",
+              height: "100%",
+              overflowY: "auto",
+              background: "#fff",
+              padding: 28,
+              boxShadow: "-8px 0 30px rgba(0,0,0,0.12)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 16,
+                marginBottom: 24,
+              }}
+            >
+              <div>
+                <MonoLabel color="#059669">Human review</MonoLabel>
+                <h2
+                  id="review-title"
+                  style={{ fontSize: 24, margin: "8px 0 6px" }}
+                >
+                  {reviewItem.document_filename}
+                </h2>
+                <p style={{ margin: 0, color: "#737373", fontSize: 13 }}>
+                  Check the source evidence, then approve or correct the classification.
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={handleNextReview}
+                  disabled={!visible[visible.findIndex((item) => item.id === reviewItem.id) + 1]}
+                  style={{
+                    padding: "8px 11px",
+                    border: "1px solid #e5e5e5",
+                    borderRadius: 8,
+                    background: "#fff",
+                    color: "#525252",
+                    cursor: "pointer",
+                    opacity: visible[visible.findIndex((item) => item.id === reviewItem.id) + 1] ? 1 : 0.45,
+                  }}
+                >
+                  Next item
+                </button>
+                <button
+                  type="button"
+                  onClick={closeReview}
+                  aria-label="Close review"
+                  style={{
+                    border: "none",
+                    background: "#f5f5f5",
+                    borderRadius: 8,
+                    width: 32,
+                    height: 32,
+                    cursor: "pointer",
+                  }}
+                >
+                  <X style={{ width: 15, height: 15 }} />
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+                marginBottom: 20,
+              }}
+            >
+              <div style={{ border: "1px solid #e5e5e5", borderRadius: 10, padding: 14 }}>
+                <MonoLabel>Detected material</MonoLabel>
+                <strong style={{ display: "block", marginTop: 8, fontSize: 18 }}>
+                  {reviewItem.material_code || "Unknown"}
+                </strong>
+              </div>
+              <div style={{ border: "1px solid #e5e5e5", borderRadius: 10, padding: 14 }}>
+                <MonoLabel>Confidence</MonoLabel>
+                <strong style={{ display: "block", marginTop: 8, fontSize: 18 }}>
+                  {reviewItem.confidence_score
+                    ? `${(reviewItem.confidence_score * 100).toFixed(0)}%`
+                    : "Unknown"}
+                </strong>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <MonoLabel>Why it was classified</MonoLabel>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  padding: 12,
+                  background: "#fafafa",
+                  border: "1px solid #e5e5e5",
+                  borderRadius: 8,
+                  color: "#525252",
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                }}
+              >
+                {reviewItem.reasoning || "No reasoning was recorded."}
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+                marginBottom: 20,
+              }}
+            >
+              <div>
+                <MonoLabel>Original document</MonoLabel>
+                <div
+                  style={{
+                    height: 220,
+                    marginTop: 8,
+                    border: "1px solid #e5e5e5",
+                    borderRadius: 8,
+                    background: "#fafafa",
+                    overflow: "hidden",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {reviewLoading ? (
+                    <MonoLabel color="#a3a3a3">Loading preview…</MonoLabel>
+                  ) : reviewDocument?.file_url && reviewDocument.mime_type?.startsWith("image/") ? (
+                    <img
+                      src={reviewDocument.file_url}
+                      alt={`Original ${reviewItem.document_filename}`}
+                      style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                    />
+                  ) : reviewDocument?.file_url && reviewDocument.mime_type === "application/pdf" ? (
+                    <iframe
+                      title={`Original ${reviewItem.document_filename}`}
+                      src={reviewDocument.file_url}
+                      style={{ width: "100%", height: "100%", border: "none" }}
+                    />
+                  ) : reviewDocument?.file_url ? (
+                    <a href={reviewDocument.file_url} target="_blank" rel="noreferrer">
+                      Open original document
+                    </a>
+                  ) : (
+                    <MonoLabel color="#a3a3a3">Preview unavailable</MonoLabel>
+                  )}
+                </div>
+              </div>
+              <div>
+                <MonoLabel>OCR source text</MonoLabel>
+                <pre
+                  style={{
+                    height: 220,
+                    overflow: "auto",
+                    whiteSpace: "pre-wrap",
+                    margin: "8px 0 0",
+                    padding: 12,
+                    background: "#0a0a0a",
+                    color: "#d4d4d4",
+                    borderRadius: 8,
+                    fontFamily: "'DM Mono', monospace",
+                    fontSize: 11,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {reviewItem.raw_text || "No OCR text available."}
+                </pre>
+              </div>
+            </div>
+
+            <div
+              style={{
+                borderTop: "1px solid #e5e5e5",
+                paddingTop: 20,
+                marginTop: 20,
+              }}
+            >
+              <MonoLabel>Review decision</MonoLabel>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 12,
+                  marginTop: 10,
+                }}
+              >
+                <label style={{ fontSize: 12, color: "#525252" }}>
+                  Material code
+                  <select
+                    value={reviewMaterial}
+                    onChange={(event) => setReviewMaterial(event.target.value)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 6,
+                      padding: "10px 12px",
+                      border: "1px solid #e5e5e5",
+                      borderRadius: 8,
+                      background: "#fafafa",
+                    }}
+                  >
+                    <option value="">Select material</option>
+                    {['PET', 'HDPE', 'PVC', 'LDPE', 'PP', 'PS', 'MLP', 'OTHER'].map((code) => (
+                      <option key={code} value={code}>{code}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ fontSize: 12, color: "#525252" }}>
+                  Quantity (kg)
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={reviewQuantity}
+                    onChange={(event) => setReviewQuantity(event.target.value)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      marginTop: 6,
+                      padding: "10px 12px",
+                      border: "1px solid #e5e5e5",
+                      borderRadius: 8,
+                      background: "#fafafa",
+                    }}
+                  />
+                </label>
+              </div>
+              <label
+                style={{ display: "block", marginTop: 14, fontSize: 12, color: "#525252" }}
+              >
+                Reviewer notes
+                <textarea
+                  value={reviewNotes}
+                  onChange={(event) => setReviewNotes(event.target.value)}
+                  placeholder="Explain why you approved or corrected this item."
+                  rows={4}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    marginTop: 6,
+                    padding: "10px 12px",
+                    border: "1px solid #e5e5e5",
+                    borderRadius: 8,
+                    background: "#fafafa",
+                    resize: "vertical",
+                    fontFamily: "inherit",
+                  }}
+                />
+              </label>
+              <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+                <BtnSecondary
+                  onClick={handleReviewReject}
+                  disabled={reviewSaving}
+                  style={{ color: "#b91c1c", borderColor: "#fecaca" }}
+                >
+                  Request correction
+                </BtnSecondary>
+                <BtnSecondary onClick={handleReviewCorrection} disabled={reviewSaving}>
+                  {reviewSaving ? "Saving…" : "Save correction"}
+                </BtnSecondary>
+                <BtnPrimary onClick={handleReviewVerify} disabled={reviewSaving}>
+                  {reviewSaving ? "Saving…" : "Approve as detected"}
+                </BtnPrimary>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
 
       <Toast
         visible={toast.visible}

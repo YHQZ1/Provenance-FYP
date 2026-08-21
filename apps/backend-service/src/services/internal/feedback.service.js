@@ -7,7 +7,7 @@ export const feedbackService = {
     let query = supabaseAdmin
       .from("document_classifications")
       .select(
-        `id, document_id, material_code, quantity_kg, confidence_score, reasoning, matched_synonym, created_at, documents!inner(id, filename, company_id)`,
+        `id, document_id, material_code, quantity_kg, confidence_score, reasoning, matched_synonym, created_at, documents!inner(id, filename, company_id, raw_text, extracted_data)`,
         { count: "exact" },
       )
       .eq("documents.company_id", userId)
@@ -49,6 +49,8 @@ export const feedbackService = {
           confidence_score: item.confidence_score,
           reasoning: item.reasoning,
           matched_synonym: item.matched_synonym,
+          raw_text: item.documents?.raw_text,
+          extracted_data: item.documents?.extracted_data,
           created_at: item.created_at,
         });
       }
@@ -91,6 +93,43 @@ export const feedbackService = {
       throw new Error(`Verification failed: ${updateError.message}`);
 
     await this.updateDocumentReviewStatus(classification.document_id);
+    return updated;
+  },
+
+  async rejectClassification(classificationId, userId, notes = "") {
+    const { data: classification, error: fetchError } = await supabaseAdmin
+      .from("document_classifications")
+      .select("*, documents!inner(company_id)")
+      .eq("id", classificationId)
+      .eq("documents.company_id", userId)
+      .single();
+
+    if (fetchError || !classification) throw new Error("Access denied");
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("document_classifications")
+      .update({
+        verified_by_user: false,
+        requires_human_review: true,
+        reviewer_notes: notes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", classificationId)
+      .select()
+      .single();
+
+    if (updateError) throw new Error(`Review rejection failed: ${updateError.message}`);
+
+    await supabaseAdmin
+      .from("documents")
+      .update({
+        status: "REVIEW_PENDING",
+        verified_by_user: false,
+        requires_human_review: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", classification.document_id);
+
     return updated;
   },
 

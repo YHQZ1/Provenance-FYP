@@ -53,6 +53,7 @@ export const documentAPI = {
 export const feedbackAPI = {
   getPending: (params) => api.get("/feedback/pending", { params }),
   verify: (id, notes) => api.post(`/feedback/${id}/verify`, { notes }),
+  reject: (id, notes) => api.post(`/feedback/${id}/reject`, { notes }),
   correct: (id, data) => api.post(`/feedback/${id}/correct`, data),
   bulkVerify: (ids) =>
     api.post("/feedback/bulk-verify", { classification_ids: ids }),

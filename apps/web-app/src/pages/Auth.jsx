@@ -46,10 +46,15 @@ const styles = {
     borderRadius: 8,
     overflow: "hidden",
     marginBottom: 28,
+    minHeight: 42,
   },
   modeButton: (active) => ({
     flex: 1,
-    padding: "10px 0",
+    minHeight: 40,
+    padding: "10px 16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     fontFamily: "'DM Mono', monospace",
     fontSize: 11,
     fontWeight: 500,
@@ -218,7 +223,10 @@ function AuthInput(props) {
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState(
+    () => new URLSearchParams(window.location.search).get("email") || "",
+  );
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [gstNumber, setGstNumber] = useState("");
@@ -370,7 +378,11 @@ export default function Auth() {
           email,
           password,
           options: {
-            data: { company_name: companyName, gst_number: gstNumber },
+            data: {
+              full_name: fullName,
+              company_name: companyName,
+              gst_number: gstNumber,
+            },
           },
         });
         if (error) throw new Error(error.message);
@@ -677,32 +689,37 @@ export default function Auth() {
           <form onSubmit={handleEmailAuth}>
             {!isLogin && (
               <>
-                <FieldWrap label="Company Name">
+                <FieldWrap label="Your name">
+                  <AuthInput
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                  />
+                </FieldWrap>
+                <FieldWrap label="Company name">
                   <AuthInput
                     type="text"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="Acme Industries Pvt Ltd"
                     required
                   />
                 </FieldWrap>
-                <FieldWrap label="GST Number">
+                <FieldWrap label="GST number">
                   <AuthInput
                     type="text"
                     value={gstNumber}
                     onChange={(e) => setGstNumber(e.target.value)}
-                    placeholder="22AAAAA0000A1Z5"
                     required
                   />
                 </FieldWrap>
               </>
             )}
-            <FieldWrap label="Work Email">
+            <FieldWrap label="Your email address">
               <AuthInput
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@enterprise.com"
                 required
               />
             </FieldWrap>
@@ -751,7 +768,6 @@ export default function Auth() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
                 required
                 minLength={6}
               />

@@ -1,37 +1,36 @@
-/* eslint-disable react-hooks/refs */
 import React, { useState, useEffect, useRef } from "react";
 
 const MODULES = [
   {
     id: "MOD-01",
-    label: "EPR Compliance",
-    title: "Deterministic CPCB Filings.",
-    body: "Transform raw SKUs and packaging data into standardized plastic EPR outputs. Provenance calculates quarterly targets and generates submission-ready draft CSVs. No heuristics, just traceable math.",
-    pills: ["Plastic PWM", "E-Waste", "Battery", "Tyres"],
+    label: "Plastic EPR",
+    title: "Turn messy records into CPCB-ready EPR outputs.",
+    body: "Upload registration records, purchase invoices, recycling certificates, and collection receipts. Provenance extracts the evidence, classifies material, and prepares traceable EPR outputs for review.",
+    pills: ["CPCB Categories", "Document OCR", "Review Queue"],
     preview: "epr",
   },
   {
     id: "MOD-02",
-    label: "BRSR Reporting",
-    title: "BRSR Core assurance requirements.",
-    body: "Every environmental indicator, auto-filled from your operational data. We map utilities, fuel logs, and purchase registers directly to SEBI-aligned metrics. Fully reproducible.",
+    label: "BRSR Core",
+    title: "Build assurance-ready BRSR inputs.",
+    body: "Extend the same governed data foundation into SEBI-aligned metrics for energy, water, waste, and emissions. Every value stays linked to its source and calculation.",
     pills: ["SEBI Aligned", "Principle 6", "Scope 1 & 2"],
     preview: "brsr",
   },
   {
     id: "MOD-03",
-    label: "Carbon BOM",
-    title: "Scope 3 Proxy Emissions.",
-    body: "Generate a product-level Carbon Bill of Materials. Provenance maps purchased goods and explicit transport factors to give you a transparent emissions intensity metric without SaaS dependencies.",
-    pills: ["Proxy Emissions", "Intensity Metrics", "Local-First"],
+    label: "Carbon Baseline",
+    title: "Build toward product-level carbon intelligence.",
+    body: "Use classified purchases and transparent factor libraries as the foundation for product and order-level emissions estimates. Designed as the next layer on top of your governed records.",
+    pills: ["Scope 3 Ready", "Factor Library", "Traceable Inputs"],
     preview: "analytics",
   },
   {
     id: "MOD-04",
     label: "Audit Provenance",
-    title: "Defensible traceability.",
-    body: "Every reported number traces back through: KPI → Input Row → Emission Factor → Formula Version. Structured provenance logs ensure you are always audit-defensible.",
-    pills: ["KPI Trace", "Versioned Factors", "Immutable Logs"],
+    title: "Every number has an evidence trail.",
+    body: "Trace uploaded evidence through extracted fields, material classifications, reviewer decisions, factors, and formulas. Keep the context behind every reported number.",
+    pills: ["Source Documents", "Reviewer Actions", "KPI Trace"],
     preview: "audit",
   },
 ];
@@ -39,18 +38,18 @@ const MODULES = [
 const STEPS = [
   {
     n: "01",
-    title: "Ingest Raw Records",
-    body: "Import GST purchase registers, utility consumption, and production output. Provenance normalizes all quantities to base units (kWh, kg, L) automatically.",
+    title: "Upload the records you already have",
+    body: "Start with invoices, EPR certificates, recycling proofs, collection receipts, and operational exports. Provenance turns scattered evidence into one governed workspace.",
   },
   {
     n: "02",
-    title: "Apply Deterministic Logic",
-    body: "The engine applies explicit, versioned emission factors to your data. No black boxes. Every calculation is transparent and stored in the KPI Trace table.",
+    title: "Extract, classify, and review",
+    body: "OCR extracts fields and line items, classification maps messy descriptions to material categories, and low-confidence results are flagged for human review.",
   },
   {
     n: "03",
-    title: "Generate Defensible Reports",
-    body: "Export BRSR Core-aligned tables, Scope 1-3 reports, and CPCB schemas. Everything is backed by an audit-grade provenance log ready for inspection.",
+    title: "Generate filing-ready outputs",
+    body: "Review the evidence, correct exceptions, and produce traceable EPR outputs. The same data foundation can expand into BRSR and carbon reporting as your program matures.",
   },
 ];
 
@@ -95,6 +94,13 @@ export default function Provenance() {
     }, 160);
   };
 
+  const handleSignup = (event) => {
+    event.preventDefault();
+    const params = new URLSearchParams({ mode: "signup" });
+    if (email.trim()) params.set("email", email.trim());
+    window.location.href = `/auth?${params.toString()}`;
+  };
+
   const hero = useInView(0.1);
   const dash = useInView(0.1);
   const mods = useInView(0.1);
@@ -114,11 +120,10 @@ export default function Provenance() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap');
 
-        html { scroll-behavior: smooth; }
+        html { scroll-behavior: smooth; scroll-padding-top: 80px; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::selection { background: #059669; color: #fff; }
 
-        /* Animation Classes */
         .fade-up { opacity: 0; transform: translateY(20px); transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
         .fade-up.visible { opacity: 1; transform: none; }
         .fade-up.d1 { transition-delay: 0.05s; }
@@ -138,7 +143,6 @@ export default function Provenance() {
 
         .mono { font-family: 'DM Mono', monospace; }
 
-        /* Components */
         .content-wrapper {
           max-width: 100%;
           margin: 0 auto;
@@ -226,7 +230,6 @@ export default function Provenance() {
         }
       `}</style>
 
-      {/* HEADER */}
       <header
         style={{
           position: "fixed",
@@ -286,7 +289,6 @@ export default function Provenance() {
         </div>
       </header>
 
-      {/* HERO */}
       <section style={{ width: "100%", padding: "160px 0 80px" }}>
         <div
           ref={hero.ref}
@@ -300,7 +302,7 @@ export default function Provenance() {
         >
           <div>
             <div className={`hero-enter ${mounted ? "mounted" : ""}`}>
-              <span className="tag">Deterministic Compliance Engine</span>
+              <span className="tag">India-first ESG compliance automation</span>
             </div>
             <h1
               className={`hero-enter ${mounted ? "mounted" : ""} d1`}
@@ -313,9 +315,9 @@ export default function Provenance() {
                 margin: "24px 0 24px",
               }}
             >
-              Correctness over
+              From messy records to
               <br />
-              <span style={{ color: "#059669" }}>convenience.</span>
+              <span style={{ color: "#059669" }}>filing-ready evidence.</span>
             </h1>
             <p
               className={`hero-enter ${mounted ? "mounted" : ""} d2`}
@@ -328,19 +330,20 @@ export default function Provenance() {
                 marginBottom: 40,
               }}
             >
-              Convert operational and finance data into regulator-ready reports
-              with full traceability, reproducible calculations, and audit-grade
-              provenance. No black boxes.
+              Convert invoices, certificates, receipts, and operational records
+              into reviewable, traceable ESG outputs. Start with Plastic EPR
+              compliance, then extend the same evidence foundation into BRSR and
+              carbon reporting.
             </p>
             <div
               className={`hero-enter ${mounted ? "mounted" : ""} d3`}
               style={{ display: "flex", gap: 12 }}
             >
               <a href="/auth?mode=signup" className="btn-dark">
-                Deploy System
+                Start with your documents
               </a>
               <a href="#architecture" className="btn-outline">
-                Read the Docs
+                See how it works
               </a>
             </div>
           </div>
@@ -596,7 +599,6 @@ export default function Provenance() {
         </div>
       </section>
 
-      {/* PLATFORM / DASHBOARD */}
       <section id="platform" style={{ width: "100%", padding: "40px 0 100px" }}>
         <div className="content-wrapper" ref={dash.ref}>
           <div
@@ -1033,7 +1035,6 @@ export default function Provenance() {
         </div>
       </section>
 
-      {/* SOLUTIONS / MODULES */}
       <section
         id="solutions"
         style={{
@@ -1236,7 +1237,7 @@ export default function Provenance() {
                     className="btn-green"
                     style={{ width: "100%", marginTop: 32 }}
                   >
-                    Initiate CPCB Transfer
+                    Review EPR output
                   </a>
                 </div>
               )}
@@ -1325,7 +1326,6 @@ export default function Provenance() {
         </div>
       </section>
 
-      {/* ARCHITECTURE / IMPLEMENTATION */}
       <section
         id="architecture"
         style={{ background: "#0a0a0a", width: "100%", padding: "100px 0" }}
@@ -1417,7 +1417,6 @@ export default function Provenance() {
         </div>
       </section>
 
-      {/* CTA */}
       <section
         style={{
           borderTop: "1px solid #e5e5e5",
@@ -1454,32 +1453,33 @@ export default function Provenance() {
                 marginBottom: 40,
               }}
             >
-              Deploy Provenance in your environment. Secure, verifiable
-              compliance.
+              Start with the records already in your business. Create a workspace,
+              upload your first document, and keep every decision reviewable.
             </p>
-            <div
+            <form
+              onSubmit={handleSignup}
               className={`fade-up d1 ${cta.inView ? "visible" : ""}`}
               style={{ display: "flex", gap: 12, maxWidth: 480 }}
             >
               <input
                 type="email"
-                placeholder="user@enterprise.com"
+                placeholder="Your work email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
-              <a
-                href="/auth?mode=signup"
+              <button
+                type="submit"
                 className="btn-dark"
                 style={{ flexShrink: 0 }}
               >
-                Initialize
-              </a>
-            </div>
+                Create workspace
+              </button>
+            </form>
           </div>
         </div>
       </section>
 
-      {/* FOOTER */}
       <footer
         style={{
           borderTop: "1px solid #e5e5e5",
@@ -1532,8 +1532,8 @@ export default function Provenance() {
                   fontWeight: 400,
                 }}
               >
-                Enterprise-grade EPR & ESG infrastructure. Deterministic
-                compliance without the chaos.
+                India-first EPR and ESG infrastructure for turning messy business
+                records into defensible reporting.
               </p>
             </div>
             <div
@@ -1545,21 +1545,27 @@ export default function Provenance() {
             >
               {[
                 {
-                  heading: "Architecture",
+                  heading: "Explore",
                   links: [
-                    "EPR Engine",
-                    "BRSR Automator",
-                    "Risk Telemetry",
-                    "Security",
+                    { label: "Platform", href: "#platform" },
+                    { label: "Solutions", href: "#solutions" },
+                    { label: "How it works", href: "#architecture" },
                   ],
                 },
                 {
-                  heading: "Entity",
-                  links: ["About", "Careers", "Documentation", "Contact"],
+                  heading: "Access",
+                  links: [
+                    { label: "Sign in", href: "/auth?mode=login" },
+                    { label: "Create workspace", href: "/auth?mode=signup" },
+                  ],
                 },
                 {
-                  heading: "Legal",
-                  links: ["Privacy", "Terms of Service", "DPDPA"],
+                  heading: "Roadmap",
+                  links: [
+                    { label: "Plastic EPR", href: "#solutions" },
+                    { label: "BRSR Core", href: "#solutions" },
+                    { label: "Carbon Baseline", href: "#solutions" },
+                  ],
                 },
               ].map((col) => (
                 <div key={col.heading}>
@@ -1589,7 +1595,7 @@ export default function Provenance() {
                     {col.links.map((link) => (
                       <li key={link}>
                         <a
-                          href="#platform"
+                          href={link.href}
                           style={{
                             fontSize: 14,
                             color: "#737373",
@@ -1603,7 +1609,7 @@ export default function Provenance() {
                             (e.currentTarget.style.color = "#737373")
                           }
                         >
-                          {link}
+                          {link.label}
                         </a>
                       </li>
                     ))}

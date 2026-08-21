@@ -39,6 +39,20 @@ export const feedbackController = {
     }
   },
 
+  async reject(req, res, next) {
+    try {
+      const result = await feedbackService.rejectClassification(
+        req.params.id,
+        req.user.id,
+        req.body.notes || "",
+      );
+
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async correct(req, res, next) {
     try {
       const { id } = req.params;
