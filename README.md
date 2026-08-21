@@ -1,279 +1,343 @@
 # Provenance
 
-**Provenance** is a deterministic compliance engine that converts operational and finance data into regulator-ready reports with full traceability, reproducible calculations, and audit-grade provenance.
+Provenance is an India-first ESG compliance automation platform. It turns messy operational records - invoices, utility bills, purchase registers, recycling certificates, shipment logs, and packaging data - into regulator-ready ESG outputs with traceable calculations.
 
-The system prioritizes:
+The first product spine is Plastic EPR compliance. The broader roadmap expands the same data pipeline into BRSR Core reporting, carbon intensity baselines, and CCTS readiness.
 
-* Correctness over convenience
-* Transparency over abstraction
-* Deterministic computation over heuristics
-* Audit readiness over dashboards
-
-Provenance transforms raw enterprise records into standardized compliance outputs without requiring external integrations or SaaS dependencies.
-
----
-
-# Core Thesis
-
-Enterprise compliance reporting today is:
-
-* Spreadsheet-heavy
-* Consultant-dependent
-* Opaque in calculation logic
-* Difficult to audit
-
-Provenance replaces manual workflows with:
-
-* Deterministic calculations
-* Versioned emission factors
-* Structured provenance logs
-* Regulator-aligned exports
-
-Every reported number can be traced to:
-
-KPI → Input Row → Emission Factor → Formula Version
-
-No black boxes.
-
----
-
-# Regulatory Alignment
-
-Provenance is designed to align with Indian regulatory frameworks, including:
-
-* Securities and Exchange Board of India — BRSR Core assurance requirements
-* Bureau of Energy Efficiency — Carbon Credit Trading Scheme (CCTS) direction
-* Central Pollution Control Board — Plastic EPR filing schema
-
-The system focuses on structural alignment with these frameworks rather than submission automation.
-
----
-
-# What Provenance Does
-
-Provenance ingests enterprise exports such as:
-
-* GST purchase registers
-* Utility consumption records
-* Fuel purchase logs
-* Production output data
-* SKU-level packaging data
-
-It produces:
-
-1. BRSR Core-aligned KPI tables
-2. Scope 1 and Scope 2 emissions
-3. Scope 3 proxy emissions (purchased goods)
-4. Product-level Carbon BOM
-5. Emissions intensity metrics
-6. Plastic EPR draft CSV outputs
-7. Assurance-ready provenance logs
-
-All outputs are reproducible and version-controlled.
-
----
-
-# System Architecture
-
-## Design Principles
-
-* Deterministic computation
-* No external API dependencies
-* Local-first execution
-* Explicit factor versioning
-* Structured audit trace
-
----
-
-## High-Level Components
-
-### Frontend
-
-* Streamlit (MVP)
-* Optional Next.js (production interface)
-
-### Backend
-
-* FastAPI
-
-### Database
-
-* DuckDB (analytical MVP)
-* Postgres (scalable deployment)
-
----
-
-## Core Data Model
-
-```
-raw_invoices
-raw_utilities
-raw_shipments
-
-normalized_lines
-factor_library
-factor_provenance
-
-kpi_results
-kpi_trace
-epr_obligations
+```text
+upload files -> extract data -> classify materials -> validate exceptions -> calculate obligations -> export reports
 ```
 
----
+## Why This Exists
 
-## Critical: KPI Trace Table
+Indian companies already have most of the data needed for ESG reporting, but it is scattered across ERP exports, GST records, PDFs, invoices, utility bills, and consultant spreadsheets.
 
+The current manual workflow usually looks like this:
+
+1. Finance and operations teams export raw data from Tally, SAP, Oracle, Zoho, Excel, or billing portals.
+2. Consultants clean and multiply rows in spreadsheets.
+3. Totals are copied into BRSR, EPR, or internal ESG templates.
+4. Auditors ask where each number came from.
+
+Provenance replaces that with a repeatable workflow where every number can be traced back to the uploaded document, input row, material classification, factor, formula, and reviewer action.
+
+## Product Positioning
+
+Provenance is not a generic ESG dashboard and it does not claim full lifecycle assessment on day one.
+
+It is a compliance autopilot for Indian companies:
+
+- **Plastic EPR first:** calculate CPCB-aligned obligations from PIBO registration data, purchase invoices, recycling certificates, collection receipts, and packaging records.
+- **BRSR Core next:** generate assurance-friendly ESG numbers from utility, fuel, purchase, water, production, and waste data.
+- **Carbon BOM later:** estimate product/order-level emissions from GST/HSN line items, factor libraries, and optional supplier overrides.
+- **Audit trail always:** every output is backed by structured provenance.
+
+## Current Repository Status
+
+This repo is being consolidated. Several services exist, but the end-to-end data flow is not fully wired yet.
+
+| Area            | Status                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| React web app   | Screens exist, but some views still need real API-backed data states.                       |
+| Express backend | Main API shell exists. OCR/RAG adapters currently use mocks/simple logic.                   |
+| OCR engine      | PaddleOCR extraction modules exist. FastAPI service entrypoint is not implemented yet.      |
+| RAG classifier  | FastAPI/Qdrant/Ollama plastic material classifier exists, but is not wired into backend.    |
+| Regulatory RAG  | Adjacent SEBI/CPCB/CCTS chatbot/scraper exists, but is not part of the first product spine. |
+| Database        | Supabase-style schema exists, with a local Postgres schema under `infra/postgres`.          |
+| Infra           | Local compose currently starts Postgres only. Canonical infra is still being consolidated.  |
+
+See [docs/REPO_MAP.md](docs/REPO_MAP.md) for the repo map and cleanup notes.
+
+## MVP Flow
+
+The first end-to-end MVP should support this flow:
+
+1. **Company onboarding**
+   - Company profile, GSTIN, PIBO category, approved material categories, target financial year.
+
+2. **Document upload**
+   - EPR registration certificate
+   - Purchase invoices for raw plastic/materials
+   - Recycling certificates from recyclers
+   - Waste collection receipts
+   - Optional GST returns or production/sales exports for cross-checking
+
+3. **OCR and extraction**
+   - Extract text/tables from PDFs and images.
+   - Capture dates, quantities, units, supplier/recycler names, certificate numbers, CPCB authorization numbers, and line-item descriptions.
+
+4. **Material classification**
+   - Map messy invoice language to material categories.
+   - Example: `Reliance Polypet 3020` -> PET resin.
+   - Example: `SPIL HD5400G` -> HDPE granules.
+   - Low-confidence or ambiguous classifications are flagged for human review.
+
+5. **Human validation**
+   - Users verify or correct material codes, quantities, and extracted fields.
+   - Corrections are saved as feedback for future improvement.
+
+6. **EPR calculation**
+   - Calculate category-wise generated quantity, recycling targets, credits, shortfalls, and filing readiness.
+
+7. **Reports and exports**
+   - Dashboard summary
+   - CPCB-style EPR draft
+   - Reviewer/auditor appendix
+   - Later: BRSR Core pack and carbon intensity reports
+
+## Input Data
+
+### EPR Documents
+
+| Document                          | Why it matters                                | Data extracted                                                     |
+| --------------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
+| CPCB EPR registration certificate | Verifies registration and approved categories | Registration number, valid-until date, approved plastic categories |
+| Purchase invoices                 | Calculates plastic introduced/generated       | Plastic type, quantity, unit, date, supplier, GSTIN                |
+| Recycling certificates            | Proves recycling fulfillment                  | Recycler name, CPCB authorization number, recycled quantity, date  |
+| Waste collection receipts         | Tracks material before recycling              | Collector details, quantity collected, date                        |
+| GST returns or sales exports      | Cross-checks production/sales volumes         | Turnover, product categories, sales units                          |
+
+### BRSR / Carbon Inputs
+
+The broader platform should accept these CSV templates:
+
+```text
+utilities.csv
+month, facility, type(electricity|water), units, unit_type(kWh|kL), bill_amount
+
+fuel_purchases.csv
+date, facility, fuel_type(diesel|lpg|png...), quantity, unit(L|kg|Nm3)
+
+purchases.csv
+date, supplier_name, supplier_gstin, item_desc, hsn_code, qty, unit, net_amount, plant, state_from, state_to
+
+shipments.csv
+date, from_pincode, to_pincode, mode(road|rail|air|sea), weight_kg, distance_km
+
+production_output.csv
+month, plant, product_code, output_qty, unit
+
+sku_packaging.csv
+sku, plastic_type, grams_per_unit, category
 ```
-kpi_id
-input_row_id
-factor_id
-formula_version
-timestamp
+
+## Material Categories
+
+The EPR module should support CPCB-style plastic categories and detailed material codes.
+
+| High-level type             | Common examples                                                            |
+| --------------------------- | -------------------------------------------------------------------------- |
+| PET                         | Water bottles, soda bottles, food containers, PET resin, PET film          |
+| HDPE                        | Milk jugs, detergent bottles, pipes, HDPE granules                         |
+| PVC                         | Pipes, cables, flooring                                                    |
+| LDPE                        | Plastic bags, films, squeeze bottles                                       |
+| PP                          | Bottle caps, straws, yogurt containers                                     |
+| PS                          | Foam cups, trays, packaging peanuts                                        |
+| MLP / Multi-layer           | Chips packets, juice boxes, tetra packs, metallized films, laminated tubes |
+| Compostable / biodegradable | Compostable bags, sheets, films, commodities                               |
+| Other                       | Mixed plastics, composites, ambiguous products                             |
+
+The classifier should support both broad codes such as `PET`, `HDPE`, and more specific codes such as `PET_RIGID`, `LDPE_FLEX`, `MLP_TETRA`, and `COMPOST_BAG`.
+
+## Core Calculations
+
+### Plastic EPR
+
+EPR quantity:
+
+```text
+Q = A + B - C
 ```
 
-This table enables:
+Where:
 
-* KPI → Invoice traceability
-* Factor auditability
-* Formula reproducibility
-* Version comparison
+- `A` = average virgin plastic packaging material sold/introduced in the reference period
+- `B` = average pre-consumer plastic packaging waste
+- `C` = quantity supplied to other registered or exempted entities
 
-This is the foundation of audit defensibility.
+Recycling obligation:
 
----
-
-# Core Computation Model
-
-## Unit Normalization
-
-All quantities converted to base units:
-
-* kWh
-* kL
-* kg
-* L
-
-Explicit conversion table maintained.
-
----
-
-## Scope 2 — Electricity
-
-```
-tCO2e = Σ electricity_kWh × factor_kg_per_kWh / 1000
+```text
+recycling_target = Q * target_percentage
 ```
 
----
+Sample:
 
-## Scope 1 — Fuel
+```text
+A = 200 kg
+B = 50 kg
+C = 20 kg
+target = 60%
 
-```
-tCO2e = quantity × factor_kg_per_unit / 1000
-```
-
----
-
-## Scope 3 Proxy — Purchased Goods (Carbon BOM)
-
-Per purchase line:
-
-```
-co2e_line_kg = qty_standardized × material_factor
+Q = 200 + 50 - 20 = 230 kg
+recycling_target = 230 * 0.60 = 138 kg
 ```
 
-Optional transport:
+Shortfall estimate:
 
+```text
+shortfall = target_kg - fulfilled_kg
+environmental_compensation = shortfall * rate_per_kg
 ```
-transport_kg = distance_km × weight_kg × factor_kg_per_tkm / 1000
+
+Rates and targets should live in configurable tables, not hardcoded business logic, because regulatory values can change.
+
+### Scope 2 Electricity
+
+```text
+tCO2e_electricity = sum(electricity_kWh) * factor_kg_per_kWh / 1000
 ```
 
-Aggregations available by:
+### Scope 1 Fuel
 
-* product
-* supplier
-* plant
-* company
-
----
-
-## Intensity
-
+```text
+tCO2e_fuel = quantity * factor_kg_per_unit / 1000
 ```
+
+### Carbon BOM / Purchased Materials
+
+```text
+co2e_line_kg = standardized_quantity * material_factor_kg_per_unit
+```
+
+Optional transport add-on:
+
+```text
+transport_kg = distance_km * weight_kg * factor_kg_per_tkm / 1000
+```
+
+### Water
+
+```text
+total_water_kL = sum(water_kL)
+```
+
+### Intensity Metrics
+
+```text
 GHG_intensity = total_tCO2e / output_qty
+water_intensity = total_water_kL / output_qty
+energy_intensity = total_energy_GJ / output_qty
+waste_diversion_rate = recycled_or_reused_waste / total_waste * 100
 ```
 
-Units explicitly labeled in output.
+Revenue intensity can also be calculated against PPP-adjusted revenue where needed for BRSR-style reporting.
 
----
+## Architecture
 
-## Plastic EPR
+```text
+apps/
+  web-app/             React/Vite frontend
+  backend-service/     Express orchestration API
+  ocr-service/         OCR engine and future OCR API
+  rag-classify/        Plastic material classification service
+  rag-regulatory/      Optional regulatory RAG chatbot/scraper
 
+infra/
+  postgres/            Local schema and Supabase-derived SQL
+  docker-compose.yaml  Current canonical local dependency compose
+
+docs/
+  REPO_MAP.md          Repo map, cleanup status, decision log
+  LOCAL_DEV.md         Local setup notes while infra is being consolidated
 ```
-plastic_total_kg = sales_units × grams_per_unit / 1000
-obligation = plastic_total_kg × obligation_rate
+
+### Intended Data Flow
+
+```text
+Frontend
+  -> Backend API
+    -> Storage
+    -> OCR service
+    -> RAG classification service
+    -> Postgres/Supabase tables
+    -> Dashboard/report exports
 ```
 
-Exports CPCB-aligned schema.
+The backend should be the orchestration layer. OCR and RAG should be replaceable services behind stable backend adapters.
 
----
+## Local Development
 
-# What Provenance Does Not Claim
+Current canonical setup instructions live in [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md).
 
-* Full lifecycle assessment (LCA)
-* Verified carbon certification
-* Automated regulator submission
-* Complete Scope 3 coverage
+Short version:
 
-It provides structured, traceable, proxy-based compliance computation.
+```bash
+docker compose -f infra/docker-compose.yaml up -d
 
----
+cd apps/backend-service
+cp .env.example .env.development
+npm install
+npm run dev
 
-# Project Resources
+cd ../web-app
+cp .env.example .env
+npm install
+npm run dev
+```
 
-## Problem Statement & Design Docs
+The local setup is not yet a complete one-command product boot. That is an active cleanup target.
 
-Notion (Hackathon Design Documentation)
-[https://www.notion.so/hackathon-257a0ebae6ec800799bffad380063f2d](https://www.notion.so/hackathon-257a0ebae6ec800799bffad380063f2d)
+## Roadmap
 
----
+### Phase 1 - Repo and Infra Hygiene
 
-## AI Design & Reasoning Log
+- Centralize README/docs.
+- Consolidate `.gitignore` rules at the root.
+- Decide one canonical compose file.
+- Remove vendored/generated artifacts where possible.
+- Make local boot predictable.
 
-ChatGPT Design Session
-[https://chatgpt.com/c/6967c557-c610-8322-beeb-e68d5bd7f4a2](https://chatgpt.com/c/6967c557-c610-8322-beeb-e68d5bd7f4a2)
+### Phase 2 - EPR MVP Spine
 
----
+- Implement real OCR FastAPI entrypoint.
+- Wire backend OCR adapter to the real OCR service.
+- Wire backend RAG adapter to the real classifier.
+- Store extracted fields, line items, confidence, and review status.
+- Complete EPR calculation and filing-period aggregation.
+- Remove dummy frontend data.
 
-## BRSR Regulatory RAG Reference Tooling
+### Phase 3 - BRSR Core Lite
 
-GitHub Repository
-[https://github.com/About-Rudra/BRSR-RAG](https://github.com/About-Rudra/BRSR-RAG)
+- Add utility, fuel, purchase, water, production, and waste CSV ingestion.
+- Implement energy, water, GHG, waste, and intensity calculations.
+- Generate BRSR Core CSV/PDF pack with a provenance appendix.
 
----
+### Phase 4 - Carbon BOM and CCTS Readiness
 
-# Current Status
+- Add HSN-driven material mapping.
+- Add factor library with source/year/version.
+- Add product/order/plant/supplier carbon summaries.
+- Add what-if improvements and supplier override workflow.
 
-In active development.
+### Phase 5 - Hardening
 
-Primary focus areas:
+- Add migrations and seed strategy.
+- Add end-to-end smoke tests.
+- Add auth/RBAC hardening.
+- Add audit log and formula versioning.
+- Add export tests for generated reports.
 
-* Core computation engine
-* Deterministic factor mapping
-* Provenance logging
-* Export workflows (CSV + PDF)
+## What Provenance Does Not Claim Yet
 
-UI polish and advanced analytics are secondary to computational correctness.
+- It is not a verified full LCA tool.
+- It does not submit directly to government portals.
+- It does not guarantee regulatory acceptance without review.
+- It does not replace auditors or consultants for edge cases.
 
----
+The goal is to automate the repeatable 80% and make the remaining 20% visible, reviewable, and traceable.
 
-# Why Provenance Matters
+## Development Principle
 
-Compliance numbers without traceability are liabilities.
-Compliance numbers with structured provenance are defensible.
+Every calculated number should answer:
 
-Provenance is designed to make every reported value:
+```text
+Where did this come from?
+Which input rows support it?
+Which formula was used?
+Which factor version was used?
+Who reviewed or corrected it?
+Can it be reproduced later?
+```
 
-* Reproducible
-* Transparent
-* Auditable
-* Regulator-aligned
+That is the core of Provenance.

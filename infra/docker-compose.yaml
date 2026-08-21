@@ -1,4 +1,6 @@
-# infra/docker-compose.yml
+# Canonical local dependency compose for the repo while infra is being consolidated.
+# Run from the repo root with:
+#   docker compose -f infra/docker-compose.yaml up -d
 services:
   postgres:
     image: postgres:17
@@ -11,7 +13,7 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ../postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
 
 volumes:
   pgdata:
