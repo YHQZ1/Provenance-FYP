@@ -31,7 +31,7 @@ export const ocrService = {
           extracted_data: {
             document_type: result.document_type || "unknown",
             fields: result.fields || {},
-            line_items: result.line_items || [],
+            line_items: items,
             items,
             warnings: result.warnings || [],
             metadata: result.metadata || {},
@@ -71,7 +71,7 @@ export const ocrService = {
       }
 
       console.log(`[OCR] Document ${documentId} processed successfully`);
-      return result;
+      return { ...result, line_items: items };
     } catch (error) {
       console.error(`[OCR] Failed for document ${documentId}:`, error);
       await supabaseAdmin
@@ -126,10 +126,16 @@ const requestOcrService = async (file) => {
 };
 
 const normalizeLineItems = (result) =>
-  (result.line_items || result.extracted_data?.items || [])
+  (firstNonEmpty(result.line_items) ||
+    firstNonEmpty(result.extracted_data?.line_items) ||
+    firstNonEmpty(result.extracted_data?.items) ||
+    [])
     .map((item) => ({
       description: item.description || item.raw_text || "Unknown item",
       quantity: Number(item.quantity) || 0,
       unit: item.unit || "kg",
     }))
     .filter((item) => item.description && item.quantity >= 0);
+
+const firstNonEmpty = (items) =>
+  Array.isArray(items) && items.length > 0 ? items : null;

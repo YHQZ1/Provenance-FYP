@@ -64,7 +64,10 @@ export const documentService = {
       .eq("id", documentId);
 
     const ocrResult = await ocrService.submitForOcr(documentId, file);
-    const items = ocrResult.line_items || ocrResult.extracted_data?.items || [];
+    const items = ocrResult.line_items ||
+      ocrResult.extracted_data?.line_items ||
+      ocrResult.extracted_data?.items ||
+      [];
 
     if (items.length > 0) {
       try {

@@ -1,156 +1,216 @@
 import { supabaseAdmin } from "../../config/database.js";
+import { env } from "../../config/env.js";
 
-const MATERIAL_KEYWORDS = {
-  pet: "PET",
-  "polyethylene terephthalate": "PET",
-  hdpe: "HDPE",
-  "high density polyethylene": "HDPE",
-  pp: "PP",
-  polypropylene: "PP",
-  ldpe: "LDPE",
-  "low density polyethylene": "LDPE",
-  pvc: "PVC",
-  "polyvinyl chloride": "PVC",
-  ps: "PS",
-  polystyrene: "PS",
-  bottle: "PET",
-  container: "HDPE",
-  film: "LDPE",
-  pipe: "PVC",
-  scrap: "PP",
-  tray: "PS",
-  flake: "PET",
-  regrind: "HDPE",
-  copolymer: "PP",
-};
+const REVIEW_THRESHOLD = 0.85;
 
 export const ragService = {
   async submitForClassification(documentId, items, companyId) {
-    setTimeout(async () => {
-      try {
-        const classifications = await this.classifyItems(items);
+    const jobId = `rag-${documentId}-${Date.now()}`;
 
-        await supabaseAdmin
-          .from("document_classifications")
-          .delete()
-          .eq("document_id", documentId);
+    void this.processDocument(documentId, items, companyId).catch((error) => {
+      console.error(`[RAG] Failed for document ${documentId}:`, error);
+    });
 
-        const requiresHumanReview = classifications.some(
-          (cls) => cls.confidence_score < 0.85,
-        );
-        const classificationInserts = classifications.map((cls) => ({
-          document_id: documentId,
-          material_code: cls.material_code,
-          quantity_kg: cls.quantity_kg,
-          confidence_score: cls.confidence_score,
-          reasoning: cls.reasoning,
-          matched_synonym: cls.matched_synonym,
-          vector_similarity: cls.vector_similarity,
-          requires_human_review: cls.confidence_score < 0.85,
-          verified_by_user: !requiresHumanReview && cls.confidence_score >= 0.85,
-        }));
+    return { jobId, status: "SUBMITTED" };
+  },
 
-        await supabaseAdmin
+  async processDocument(documentId, items) {
+    await supabaseAdmin
+      .from("documents")
+      .update({
+        status: "RAG_PROCESSING",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", documentId);
+
+    try {
+      const classifications = env.USE_MOCK_SERVICES
+        ? this.mockClassifyItems(items)
+        : await this.classifyItems(items);
+
+      await supabaseAdmin
+        .from("document_classifications")
+        .delete()
+        .eq("document_id", documentId);
+
+      const requiresHumanReview = classifications.some(
+        (classification) => classification.requires_human_review,
+      );
+
+      const classificationInserts = classifications.map((classification) => ({
+        document_id: documentId,
+        material_code: classification.material_code,
+        quantity_kg: classification.quantity_kg,
+        confidence_score: classification.confidence_score,
+        reasoning: classification.reasoning,
+        matched_synonym: classification.matched_synonym,
+        vector_similarity: classification.vector_similarity,
+        requires_human_review: classification.requires_human_review,
+        verified_by_user: !classification.requires_human_review,
+      }));
+
+      if (classificationInserts.length > 0) {
+        const { error } = await supabaseAdmin
           .from("document_classifications")
           .insert(classificationInserts);
 
-        const avgConfidence = classifications.length
-          ? classifications.reduce((sum, c) => sum + c.confidence_score, 0) /
-            classifications.length
-          : 1;
-        const status = classifications.length === 0
-          ? "COMPLETED"
-          : requiresHumanReview
-            ? "CLASSIFIED"
-            : "VERIFIED";
-
-        await supabaseAdmin
-          .from("documents")
-          .update({
-            rag_confidence: avgConfidence,
-            status,
-            verified_by_user: !requiresHumanReview,
-            requires_human_review: requiresHumanReview,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", documentId);
-
-        console.log(
-          `[RAG] Document ${documentId} classified successfully with ${classifications.length} items`,
-        );
-      } catch (error) {
-        console.error(`[RAG] Failed for document ${documentId}:`, error);
-        await supabaseAdmin
-          .from("documents")
-          .update({
-            status: "RAG_FAILED",
-            error_message: error.message,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", documentId);
+        if (error) {
+          throw new Error(`Classification insert failed: ${error.message}`);
+        }
       }
-    }, 3000);
 
-    return {
-      jobId: `rag-${documentId}-${Date.now()}`,
-      status: "SUBMITTED",
-    };
+      const averageConfidence = classifications.length
+        ? classifications.reduce(
+            (sum, classification) => sum + classification.confidence_score,
+            0,
+          ) / classifications.length
+        : 1;
+
+      const status = classifications.length === 0
+        ? "COMPLETED"
+        : requiresHumanReview
+          ? "CLASSIFIED"
+          : "VERIFIED";
+
+      const { error: updateError } = await supabaseAdmin
+        .from("documents")
+        .update({
+          rag_confidence: averageConfidence,
+          status,
+          verified_by_user: !requiresHumanReview,
+          requires_human_review: requiresHumanReview,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId);
+
+      if (updateError) {
+        throw new Error(`Document classification update failed: ${updateError.message}`);
+      }
+
+      console.log(
+        `[RAG] Document ${documentId} classified successfully with ${classifications.length} items`,
+      );
+
+      return classifications;
+    } catch (error) {
+      console.error(`[RAG] Failed for document ${documentId}:`, error);
+      await supabaseAdmin
+        .from("documents")
+        .update({
+          status: "RAG_FAILED",
+          reasoning: error.message,
+          requires_human_review: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId);
+      throw error;
+    }
   },
 
   async classifyItems(items) {
     const classifications = [];
 
     for (const item of items) {
-      const description = (item.description || "").toLowerCase();
-      let matchedMaterial = null;
-      let confidence = 0.65;
-      let matchedSynonym = item.description;
+      const response = await requestRagService(buildClassificationText(item));
+      const result = response.classifications?.[0];
 
-      for (const [keyword, materialCode] of Object.entries(MATERIAL_KEYWORDS)) {
-        if (description.includes(keyword)) {
-          matchedMaterial = materialCode;
-          confidence = 0.92;
-          matchedSynonym = keyword;
-          break;
-        }
+      if (!result) {
+        throw new Error("RAG service returned no classification");
       }
 
-      if (!matchedMaterial) {
-        if (description.includes("clear") || description.includes("bottle")) {
-          matchedMaterial = "PET";
-          confidence = 0.78;
-        } else if (
-          description.includes("natural") ||
-          description.includes("container")
-        ) {
-          matchedMaterial = "HDPE";
-          confidence = 0.75;
-        } else if (
-          description.includes("mixed") ||
-          description.includes("scrap")
-        ) {
-          matchedMaterial = "PP";
-          confidence = 0.7;
-        } else {
-          matchedMaterial = "PET";
-          confidence = 0.45;
-        }
-      }
+      const confidence = Number(result.confidence_score) || 0;
+      const matchedSynonym = result.matched_synonyms?.[0];
 
       classifications.push({
-        material_code: matchedMaterial,
-        quantity_kg: parseFloat(item.quantity) || 0,
+        material_code: normalizeMaterialCode(result.material_code),
+        quantity_kg: normalizeQuantity(item),
         confidence_score: confidence,
-        reasoning: `Classified as ${matchedMaterial} based on keyword matching: "${item.description}"`,
-        matched_synonym: matchedSynonym,
-        vector_similarity: confidence - 0.05,
+        reasoning: result.reasoning || "Classification returned by the RAG service.",
+        matched_synonym: matchedSynonym?.synonym || item.description,
+        vector_similarity: matchedSynonym?.similarity_score ?? null,
+        requires_human_review:
+          Boolean(result.requires_human_review) || confidence < REVIEW_THRESHOLD,
       });
     }
 
     return classifications;
   },
 
-  async mockSubmit(documentId, items, companyId) {
-    return this.submitForClassification(documentId, items, companyId);
+  mockClassifyItems(items) {
+    return items.map((item) => ({
+      material_code: "UNKNOWN",
+      quantity_kg: normalizeQuantity(item),
+      confidence_score: 0,
+      reasoning: "Mock classification result.",
+      matched_synonym: item.description,
+      vector_similarity: null,
+      requires_human_review: true,
+    }));
   },
+};
+
+const buildClassificationText = (item) => {
+  const description = item.description || item.raw_text || "Unknown material";
+  const quantity = item.quantity ? ` ${item.quantity} ${item.unit || "kg"}` : "";
+  const text = `${description}${quantity}`.trim();
+
+  return text.length >= 10
+    ? text
+    : `${text} ${item.raw_text || "material invoice item"}`.trim();
+};
+
+const normalizeMaterialCode = (materialCode) => {
+  const code = String(materialCode || "UNKNOWN").trim().toUpperCase();
+  return code === "UNKNOWN" ? null : code;
+};
+
+const normalizeQuantity = (item) => {
+  const quantity = Number(item.quantity) || 0;
+  const unit = String(item.unit || "kg").toUpperCase();
+
+  if (unit === "MT" || unit === "TON" || unit === "TONS") {
+    return quantity * 1000;
+  }
+
+  return quantity;
+};
+
+const requestRagService = async (text) => {
+  if (!env.RAG_SERVICE_URL) {
+    throw new Error("RAG_SERVICE_URL is not configured");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), env.RAG_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(
+      `${env.RAG_SERVICE_URL.replace(/\/$/, "")}/classify`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+        signal: controller.signal,
+      },
+    );
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      const detail = typeof payload.detail === "string"
+        ? payload.detail
+        : payload.detail?.error || payload.message || "request failed";
+      throw new Error(`RAG service returned ${response.status}: ${detail}`);
+    }
+
+    return payload;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(`RAG service timed out after ${env.RAG_TIMEOUT_MS}ms`);
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 };

@@ -3,7 +3,7 @@
 `apps/backend-service` is the orchestration API for the document workflow:
 
 ```text
-frontend upload -> backend -> Supabase Storage -> OCR service -> classification -> review
+frontend upload -> backend -> Supabase Storage -> OCR service -> RAG classifier -> review
 ```
 
 ## Local setup
@@ -38,6 +38,33 @@ When the upload is accepted, the backend stores the file, creates a `PENDING` do
 
 For Docker networking, use the OCR container service name instead of `localhost`, for example `http://ocr-service:8000`.
 
+## RAG classifier connection
+
+The backend sends each extracted OCR line item to `POST /classify` on the RAG classifier. The backend owns persistence in Supabase and stores the classifier's material code, confidence, reasoning, matched synonym, vector similarity, and normalized quantity.
+
+For local Node development with the classifier running through the shared infra compose:
+
+```dotenv
+RAG_SERVICE_URL=http://localhost:8001
+RAG_TIMEOUT_MS=180000
+```
+
+For a backend container attached to the same Docker network as the classifier, use the Compose service hostname:
+
+```dotenv
+RAG_SERVICE_URL=http://rag-classify:8001
+```
+
+The document status flow is:
+
+```text
+PENDING -> OCR_PROCESSING -> RAG_PROCESSING -> VERIFIED
+                                      \-> CLASSIFIED (human review required)
+                                      \-> RAG_FAILED
+```
+
+`VERIFIED` means every classification cleared the review threshold. `CLASSIFIED` means at least one result needs human review.
+
 ## Docker
 
 Build and run the backend container from the service directory:
@@ -48,10 +75,11 @@ docker build -t provenance-backend .
 docker run --rm --name provenance-backend -p 3000:3000 \
   --env-file .env.development \
   -e OCR_SERVICE_URL=http://host.docker.internal:8000 \
+  -e RAG_SERVICE_URL=http://host.docker.internal:8001 \
   provenance-backend
 ```
 
-The `host.docker.internal` value lets the backend container reach an OCR container running on the host machine. In a shared Docker Compose network, use `http://ocr-service:8000` instead.
+The `host.docker.internal` value lets the backend container reach OCR and RAG services running on the host machine. In a shared Docker Compose network, use their service hostnames instead.
 
 ## Hygiene
 
