@@ -1,32 +1,13 @@
 import requests
-import json
 
-OLLAMA_URL = "http://localhost:11434"
-MODEL = "phi3:mini"
+from src.config import OLLAMA_HOST, OLLAMA_MAX_TOKENS, OLLAMA_MODEL, OLLAMA_TIMEOUT
 
-def call_llm(prompt: str) -> str:
+
+def call_llm(prompt):
     response = requests.post(
-        f"{OLLAMA_URL}/api/generate",
-        json={
-            "model": MODEL,
-            "prompt": prompt,
-            "stream": True
-        },
-        stream=True,
-        timeout=300
+        f"{OLLAMA_HOST}/api/generate",
+        json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "options": {"num_predict": OLLAMA_MAX_TOKENS, "temperature": 0.1}},
+        timeout=OLLAMA_TIMEOUT,
     )
-
-    output = []
-
-    for line in response.iter_lines():
-        if not line:
-            continue
-
-        data = json.loads(line.decode("utf-8"))
-        token = data.get("response", "")
-        output.append(token)
-
-        if data.get("done", False):
-            break
-
-    return "".join(output)
+    response.raise_for_status()
+    return response.json().get("response", "").strip()

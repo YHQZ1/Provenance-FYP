@@ -1,53 +1,39 @@
-from src.rag.retrieval import retrieve
 from src.rag.llm import call_llm
+from src.rag.retrieval import retrieve
+
 
 def build_prompt(query, contexts):
     context_block = "\n\n".join(
-        f"[Source: {c['source']}]\n{c['text'][:400]}"
-        for c in contexts
+        f"[Source: {item['source']}]\n{item['text']}" for item in contexts
     )
-
-    return f"""
-You are a compliance assistant.
-Answer ONLY using the provided context.
-If the answer is not in the context, say so.
-
-Context:
-{context_block}
-
-Question:
-{query}
-
-Answer clearly and cite sources.
-""".strip()
+    return (
+        "You are an Indian ESG and compliance research assistant. "
+        "Answer only from the supplied sources. If the sources do not establish "
+        "an answer, say that the information is not available. Do not invent "
+        "deadlines, thresholds, obligations, or legal conclusions. "
+        "Give a concise answer and identify the relevant source names.\n\n"
+        f"Sources:\n{context_block}\n\nQuestion: {query}"
+    )
 
 
 def chat(query):
-    contexts = sorted(retrieve(query), key=lambda x: x["score"], reverse=True)[:2]
-
-
-
+    contexts = retrieve(query)
     if not contexts:
         return {
-            "answer": "No relevant information found in the knowledge base.",
-            "sources": []
+            "answer": "No relevant regulatory source was found.",
+            "sources": [],
         }
 
-    # IMPORTANT: limit context size
-    contexts = sorted(contexts, key=lambda x: x["score"], reverse=True)[:4]
-
-    prompt = build_prompt(query, contexts)
-
-    answer = call_llm(prompt)
-
-
+    answer = call_llm(build_prompt(query, contexts))
     return {
         "answer": answer,
-        "sources": list(set(c["source"] for c in contexts))
+        "sources": [
+            {
+                "name": item["source"],
+                "category": item.get("category"),
+                "url": item.get("source_url"),
+                "score": round(item["score"], 4),
+            }
+            for item in contexts
+        ],
     }
-
-if __name__ == "__main__":
-    q = input("Ask a question: ")
-    response = chat(q)
-    print("\nAnswer:\n", response["answer"])
-    print("\nSources:\n", response["sources"])

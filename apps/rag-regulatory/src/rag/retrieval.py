@@ -1,51 +1,42 @@
-from urllib import response
-import yaml
-import os
 from qdrant_client import QdrantClient
+from qdrant_client.http.models import Distance, VectorParams
+
+from src.config import QDRANT_COLLECTION, QDRANT_HOST, QDRANT_PORT, MIN_SCORE, TOP_K
 from src.rag.embeddings import embed
 
-with open("src/config/config.yaml", "r") as f:
-    config = yaml.safe_load(f)
 
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
-QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
-
-client = QdrantClient(
-    host=QDRANT_HOST,
-    port=QDRANT_PORT
-)
+client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
 
 
-COLLECTION = config["collection_name"]
+def ensure_collection():
+    if not client.collection_exists(QDRANT_COLLECTION):
+        client.create_collection(
+            collection_name=QDRANT_COLLECTION,
+            vectors_config=VectorParams(size=384, distance=Distance.COSINE),
+        )
 
-def retrieve(query, top_k=6, score_threshold=0.2):
-    query_vector = embed([query])[0].tolist()
 
+def retrieve(query, top_k=TOP_K):
+    ensure_collection()
     response = client.search(
-    collection_name=COLLECTION,
-    query_vector=query_vector,
-    limit=top_k,
-    with_payload=True,
-)
-
+        collection_name=QDRANT_COLLECTION,
+        query_vector=embed([query])[0].tolist(),
+        limit=top_k,
+        with_payload=True,
+    )
 
     results = []
     for point in response:
-        if point.score < score_threshold:
+        if point.score < MIN_SCORE:
             continue
-
         payload = point.payload or {}
         text = payload.get("text")
-        source = payload.get("source")
-
-        if not text:
-            continue
-
-    results.append({
-        "text": text,
-        "source": source,
-        "score": point.score
-    })
-
-
+        if text:
+            results.append({
+                "text": text,
+                "source": payload.get("source", "Unknown source"),
+                "category": payload.get("category"),
+                "source_url": payload.get("source_url"),
+                "score": point.score,
+            })
     return results
