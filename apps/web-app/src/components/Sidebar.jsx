@@ -7,6 +7,7 @@ import {
   Map,
   FileText,
   BarChart3,
+  BookOpen,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -19,6 +20,7 @@ const menuItems = [
   { label: "Compliance Mapping", path: "/mapping", icon: Map },
   { label: "Reports", path: "/reports", icon: FileText },
   { label: "Insights", path: "/insights", icon: BarChart3 },
+  { label: "Regulatory Research", path: "/regulatory", icon: BookOpen },
   { label: "Settings", path: "/settings", icon: Settings },
 ];
 

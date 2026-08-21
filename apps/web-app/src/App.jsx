@@ -8,6 +8,7 @@ import DataValidation from "./pages/Validation.jsx";
 import ComplianceMapping from "./pages/ComplianceMapping.jsx";
 import Reports from "./pages/Reports.jsx";
 import Insights from "./pages/Insights.jsx";
+import RegulatoryResearch from "./pages/RegulatoryResearch.jsx";
 import Settings from "./pages/Settings.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Layout from "./components/Layout.jsx";
@@ -73,6 +74,14 @@ export default function App() {
           element={
             <ProtectedLayout>
               <Insights />
+            </ProtectedLayout>
+          }
+        />
+        <Route
+          path="/regulatory"
+          element={
+            <ProtectedLayout>
+              <RegulatoryResearch />
             </ProtectedLayout>
           }
         />

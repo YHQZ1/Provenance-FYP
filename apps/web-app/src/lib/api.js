@@ -83,3 +83,7 @@ export const companyAPI = {
 };
 
 export default api;
+
+export const regulatoryAPI = {
+  query: (query) => api.post("/regulatory/query", { query }),
+};
