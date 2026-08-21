@@ -47,6 +47,34 @@ services:
       retries: 5
     restart: unless-stopped
 
+  rag-regulatory:
+    build:
+      context: ../apps/rag-regulatory
+    environment:
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      QDRANT_COLLECTION: regulatory_docs
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: llama3.2:3b
+    volumes:
+      - model_cache:/root/.cache/huggingface
+    ports:
+      - "8002:8002"
+    depends_on:
+      - qdrant
+      - ollama
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health')"
+      interval: 30s
+      timeout: 10s
+      start_period: 45s
+      retries: 5
+    restart: unless-stopped
+
   ocr-service:
     build:
       context: ../apps/ocr-service
@@ -75,6 +103,8 @@ services:
       FRONTEND_URL: http://localhost:5173
       OCR_SERVICE_URL: http://ocr-service:8000
       RAG_SERVICE_URL: http://rag-classify:8001
+      REGULATORY_RAG_URL: http://rag-regulatory:8002
+      REGULATORY_RAG_TIMEOUT_MS: 180000
       USE_MOCK_SERVICES: "false"
     ports:
       - "3000:3000"
@@ -84,6 +114,8 @@ services:
       ocr-service:
         condition: service_healthy
       rag-classify:
+        condition: service_healthy
+      rag-regulatory:
         condition: service_healthy
     healthcheck:
       test:
