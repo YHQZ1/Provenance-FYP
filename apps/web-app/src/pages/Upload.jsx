@@ -23,31 +23,31 @@ import {
 const TABS = [
   {
     id: "gst",
-    label: "GST Invoices",
+    label: "Purchase invoices",
     icon: FileText,
-    hint: "Upload your GST purchase register exports. Provenance maps each line item to the correct EPR category.",
+    hint: "Upload purchase and GST invoices. Provenance extracts line items and maps material descriptions to EPR categories.",
   },
   {
     id: "utility",
-    label: "Utility Bills",
+    label: "Recycling certificates",
     icon: FileText,
-    hint: "Monthly electricity, gas, and water bills. Used to compute Scope 2 and Scope 3 emissions.",
+    hint: "Upload recycler-issued certificates and supporting proof for review.",
   },
   {
     id: "shipment",
-    label: "Shipment Logs",
+    label: "Collection receipts",
     icon: Truck,
-    hint: "Outbound shipment manifests or logistics reports. Used for transport emission factors.",
+    hint: "Upload collection receipts and handover records that support your waste trail.",
   },
   {
     id: "plastic",
-    label: "Plastic Records",
+    label: "EPR records",
     icon: Recycle,
-    hint: "Plastic packaging weight records by SKU. Drives quarterly PWM liability calculations.",
+    hint: "Upload EPR registrations, packaging records, and other compliance evidence.",
   },
 ];
 
-const ACCEPTED = ".csv,.xlsx,.xls,.pdf,.jpg,.jpeg,.png,.tiff";
+const ACCEPTED = ".pdf,.jpg,.jpeg,.png,.tiff";
 const MAX_MB = 10;
 const MAX_BYTES = MAX_MB * 1024 * 1024;
 
@@ -439,7 +439,7 @@ export default function UploadData() {
       <PageHeader
         eyebrow="Step 1 of 4"
         title="Upload Data"
-        subtitle={`CSV, XLSX, PDF · Max ${MAX_MB} MB per file`}
+        subtitle={`PDF, JPG, PNG, TIFF · Max ${MAX_MB} MB per file`}
       />
 
       <div style={{ marginBottom: 24 }}>

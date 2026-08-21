@@ -242,7 +242,7 @@ export default function Auth() {
   //    preventing double-execution on re-renders / StrictMode.
   const didInit = useRef(false);
 
-  const API_URL = import.meta.env.VITE_API_URL;
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
   const navigate = useNavigate();
 
   const syncWithBackend = async (token) => {

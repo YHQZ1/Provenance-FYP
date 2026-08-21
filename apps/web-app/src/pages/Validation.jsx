@@ -28,6 +28,7 @@ const statusVariant = {
   OCR_PROCESSING: "warn",
   RAG_PROCESSING: "warn",
   FAILED: "dark",
+  RAG_FAILED: "dark",
 };
 const statusLabel = {
   COMPLETED: "Processed",
@@ -39,6 +40,7 @@ const statusLabel = {
   OCR_PROCESSING: "OCR processing",
   RAG_PROCESSING: "Classification processing",
   FAILED: "Failed",
+  RAG_FAILED: "Classification failed",
 };
 
 const StatTile = ({ label, value, variant }) => {
@@ -184,6 +186,17 @@ export default function DataValidation() {
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    const hasProcessing = documents.some((document) =>
+      ["PENDING", "PROCESSING", "OCR_PROCESSING", "RAG_PROCESSING"].includes(document.status),
+    );
+
+    if (!hasProcessing) return undefined;
+
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
+  }, [documents, fetchData]);
+
   const counts = useMemo(() => {
     const processingStatuses = new Set([
       "PENDING",
@@ -304,15 +317,16 @@ export default function DataValidation() {
   };
 
   const handleReviewCorrection = async () => {
-    if (!reviewItem || !reviewMaterial || !reviewQuantity) {
-      showToast("Add a material and quantity before saving a correction", false);
+    if (!reviewItem || !reviewMaterial) {
+      showToast("Select the corrected material before saving", false);
       return;
     }
     setReviewSaving(true);
     try {
       await feedbackAPI.correct(reviewItem.id, {
         corrected_material_code: reviewMaterial,
-        corrected_quantity_kg: Number(reviewQuantity),
+        corrected_quantity_kg:
+          reviewQuantity === "" ? null : Number(reviewQuantity),
         feedback_type: "HUMAN_REVIEW",
         notes: reviewNotes,
       });
@@ -799,7 +813,9 @@ export default function DataValidation() {
                               color: "#0a0a0a",
                             }}
                           >
-                            {item.quantity_kg?.toFixed(2) || "0.00"}
+                            {item.quantity_kg == null
+                              ? "Not a weight"
+                              : item.quantity_kg.toFixed(2)}
                           </td>
                           <td
                             style={{
@@ -968,9 +984,9 @@ export default function DataValidation() {
               <div style={{ border: "1px solid #e5e5e5", borderRadius: 10, padding: 14 }}>
                 <MonoLabel>Confidence</MonoLabel>
                 <strong style={{ display: "block", marginTop: 8, fontSize: 18 }}>
-                  {reviewItem.confidence_score
-                    ? `${(reviewItem.confidence_score * 100).toFixed(0)}%`
-                    : "Unknown"}
+                  {reviewItem.confidence_score == null
+                    ? "Not available"
+                    : `${(reviewItem.confidence_score * 100).toFixed(0)}%`}
                 </strong>
               </div>
             </div>
