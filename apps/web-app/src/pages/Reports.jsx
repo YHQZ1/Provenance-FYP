@@ -6,6 +6,8 @@ import {
   AlertTriangle,
   Info,
   Download,
+  FileDown,
+  Printer,
   RefreshCw,
   Pencil,
 } from "lucide-react";
@@ -344,6 +346,7 @@ export default function Reports() {
   const [stats, setStats] = useState(null);
   const [currentFiling, setCurrentFiling] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [annualReport, setAnnualReport] = useState(null);
   const [regulatoryReview, setRegulatoryReview] = useState(null);
   const [regulatoryLoading, setRegulatoryLoading] = useState(false);
   const [regulatoryError, setRegulatoryError] = useState(null);
@@ -370,14 +373,16 @@ export default function Reports() {
     try {
       setLoading(true);
       setError(null);
-      const [statsRes, filingRes, docsRes] = await Promise.all([
+      const [statsRes, filingRes, docsRes, annualRes] = await Promise.all([
         complianceAPI.getStats(),
         complianceAPI.getCurrentFiling().catch(() => ({ data: null })),
         documentAPI.list({ limit: 100 }),
+        complianceAPI.getAnnualReport(new Date().getFullYear()),
       ]);
       setStats(statsRes.data);
       setCurrentFiling(filingRes.data);
       setDocuments(docsRes.data || []);
+      setAnnualReport(annualRes.data);
       loadRegulatoryReview(filingRes.data, docsRes.data || []);
     } catch (err) {
       setError(err.message || "Failed to load report data");
@@ -508,18 +513,12 @@ export default function Reports() {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const reportData = {
+      const reportData = annualReport || {
         generated_at: new Date().toISOString(),
-        fy,
-        documents: {
-          total: totalDocs,
-          verified: verifiedDocs,
-          pending: pendingDocs,
-        },
-        summary: summaryCards,
-        table_rows: tableRows,
-        materials: currentFiling?.materials || {},
-        pipeline_status: pipelineStatus,
+        report_type: "INTERNAL_COMPLIANCE_SUMMARY",
+        financial_year: { label: fy },
+        overview: { verified_material_classifications: { by_material: currentFiling?.materials || {} } },
+        evidence: documents,
       };
       const blob = new Blob([JSON.stringify(reportData, null, 2)], {
         type: "application/json",
@@ -527,17 +526,47 @@ export default function Reports() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `compliance-report-${fy.replace(/\s/g, "-")}.json`;
+      a.download = `cpcb-pibo-annual-report-${fy.replace(/\s/g, "-")}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showToast("success", "Report downloaded");
+      showToast("success", "Structured report downloaded");
     } catch {
       showToast("error", "Download failed");
     } finally {
       setDownloading(false);
     }
+  };
+
+  const handleCsvExport = () => {
+    if (!annualReport) return;
+    const rows = [
+      ["Section", "Field", "Value", "Status"],
+      ["Entity", "Company name", annualReport.entity.company_name || "", ""],
+      ["Entity", "GST number", annualReport.entity.gst_number || "", ""],
+      ["Financial year", "Label", annualReport.financial_year.label, ""],
+      ["Overview", "Verified material total (kg)", annualReport.overview.verified_material_classifications.total_kg, annualReport.overview.verified_material_classifications.status],
+      ...Object.entries(annualReport.overview.verified_material_classifications.by_material || {}).map(([code, quantity]) => ["Material totals", code, quantity, "AVAILABLE"]),
+      ...(annualReport.compliance_status.categories || []).flatMap((category) => [
+        ["Compliance status", `${category.category_code} packaging quantity (kg)`, category.packaging_quantity_kg ?? "", category.status],
+        ["Compliance status", `${category.category_code} EPR target (kg)`, category.epr_target_kg ?? "", category.status],
+        ["Compliance status", `${category.category_code} certificates achieved (kg)`, category.epr_certificates_achieved_kg ?? "", category.status],
+      ]),
+      ...annualReport.evidence.map((document) => ["Evidence", document.filename, document.verified_material_quantity_kg, document.verified ? "VERIFIED" : "REVIEW_REQUIRED"]),
+    ];
+    const csv = rows.map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cpcb-pibo-annual-report-${fy.replace(/\s/g, "-")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("success", "CSV export downloaded");
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   return (
@@ -747,6 +776,56 @@ export default function Reports() {
         </div>
       )}
 
+      {activeTab === "summary" && annualReport && (
+        <div style={{ ...styles.panel, marginTop: 20 }}>
+          <SectionTitle>CPCB Annual Return Draft</SectionTitle>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
+            {[
+              ["Report type", annualReport.report_type],
+              ["Financial year", annualReport.financial_year.label],
+              ["Readiness", annualReport.report_status.replace(/_/g, " ")],
+            ].map(([label, value]) => (
+              <div key={label} style={{ border: "1px solid var(--border-light)", borderRadius: 10, padding: 14 }}>
+                <MonoLabel>{label}</MonoLabel>
+                <p style={{ margin: "8px 0 0", fontSize: 13, fontWeight: 600, textTransform: "capitalize" }}>{value}</p>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 20 }}>
+            {[
+              ["Procurement", annualReport.overview.procurement],
+              ["Sales", annualReport.overview.sales],
+              ["Reuse", annualReport.overview.reuse],
+              ["Recycled plastic used", annualReport.overview.recycled_plastic_used],
+            ].map(([label, section]) => (
+              <div key={label} style={{ border: "1px solid var(--border-light)", borderRadius: 10, padding: 14 }}>
+                <MonoLabel>{label}</MonoLabel>
+                <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
+                  {section.status === "DATA_REQUIRED" ? "Data required for annual return" : `${section.total_kg} kg`}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr>{["Category", "Packaging quantity", "EPR target", "Certificates", "Status"].map((heading) => <th key={heading} style={{ textAlign: "left", padding: "10px 8px", borderBottom: "1px solid var(--border)", fontFamily: "'DM Mono', monospace", fontSize: 10, textTransform: "uppercase", color: "var(--text-muted)" }}>{heading}</th>)}</tr>
+              </thead>
+              <tbody>
+                {annualReport.compliance_status.categories.map((category) => (
+                  <tr key={category.category_code}>
+                    <td style={{ padding: "12px 8px", borderBottom: "1px solid var(--border-light)" }}><strong>{category.category_code.replace("CATEGORY_", "Category ")}</strong><br /><span style={{ color: "var(--text-muted)", fontSize: 12 }}>{category.category_name}</span></td>
+                    {[category.packaging_quantity_kg, category.epr_target_kg, category.epr_certificates_achieved_kg].map((value, index) => <td key={index} style={{ padding: "12px 8px", borderBottom: "1px solid var(--border-light)", color: value == null ? "var(--text-muted)" : "#0a0a0a" }}>{value == null ? "Data required" : `${value} kg`}</td>)}
+                    <td style={{ padding: "12px 8px", borderBottom: "1px solid var(--border-light)", color: "var(--warning)" }}>{category.status.replace(/_/g, " ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {annualReport.readiness.blockers.length > 0 && <div style={{ marginTop: 18, padding: 14, background: "var(--warning-bg)", border: "1px solid var(--border)", borderRadius: 10 }}><MonoLabel>Before portal submission</MonoLabel><ul style={{ margin: "10px 0 0", paddingLeft: 18, color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.6 }}>{annualReport.readiness.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></div>}
+        </div>
+      )}
+
       {activeTab === "tables" && (
         <div style={{ ...styles.panel, padding: 0, overflow: "hidden" }}>
           <div
@@ -821,7 +900,13 @@ export default function Reports() {
           <RefreshCw size={13} /> Regenerate
         </BtnSecondary>
         <BtnSecondary onClick={handleDownload} disabled={downloading}>
-          <Download size={13} /> {downloading ? "Downloading…" : "Download"}
+          <Download size={13} /> {downloading ? "Downloading…" : "JSON"}
+        </BtnSecondary>
+        <BtnSecondary onClick={handleCsvExport} disabled={!annualReport}>
+          <FileDown size={13} /> CSV
+        </BtnSecondary>
+        <BtnSecondary onClick={handlePrint} disabled={!annualReport}>
+          <Printer size={13} /> Print / PDF
         </BtnSecondary>
         <BtnPrimary onClick={handleApprove} disabled={approving || approved}>
           {approved ? (

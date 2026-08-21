@@ -88,6 +88,18 @@ export const complianceController = {
     }
   },
 
+  async getAnnualReport(req, res, next) {
+    try {
+      const data = await complianceService.generateAnnualReport(
+        req.user.id,
+        req.query.year ? parseInt(req.query.year) : null,
+      );
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getRegulatoryReview(req, res, next) {
     try {
       const data = await complianceService.getRegulatoryReview(req.user.id, req.body);

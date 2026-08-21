@@ -20,6 +20,7 @@ router.get(
   "/reports/quarterly-summary",
   complianceController.getQuarterlyReport,
 );
+router.get("/reports/annual", complianceController.getAnnualReport);
 router.post("/reports/regulatory-review", complianceController.getRegulatoryReview);
 
 export default router;

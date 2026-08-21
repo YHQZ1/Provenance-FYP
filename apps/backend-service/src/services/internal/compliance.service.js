@@ -335,6 +335,151 @@ export const complianceService = {
     return { recent_uploads: docs || [] };
   },
 
+  async generateAnnualReport(userId, year) {
+    const fiscalYear = Number(year) || new Date().getFullYear();
+    const startDate = `${fiscalYear}-04-01`;
+    const endDate = `${fiscalYear + 1}-03-31T23:59:59`;
+    const [{ data: company }, { data: documents, error }] = await Promise.all([
+      supabaseAdmin.from("companies").select("*").eq("id", userId).single(),
+      supabaseAdmin
+        .from("documents")
+        .select(
+          "id, filename, status, created_at, verified_by_user, ocr_confidence, rag_confidence, document_classifications(id, material_code, corrected_material_code, quantity_kg, corrected_quantity_kg, confidence_score, verified_by_user)",
+        )
+        .eq("company_id", userId)
+        .gte("created_at", startDate)
+        .lte("created_at", endDate)
+        .order("created_at", { ascending: true }),
+    ]);
+
+    if (error) throw error;
+
+    const materialTotals = {};
+    const evidence = (documents || []).map((document) => {
+      const classifications = document.document_classifications || [];
+      const verifiedClassifications = classifications.filter(
+        (classification) => classification.verified_by_user,
+      );
+      const verifiedQuantity = verifiedClassifications.reduce(
+        (sum, classification) =>
+          sum +
+          (classification.corrected_quantity_kg ??
+            classification.quantity_kg ??
+            0),
+        0,
+      );
+
+      for (const classification of verifiedClassifications) {
+        const materialCode =
+          classification.corrected_material_code || classification.material_code;
+        if (materialCode) {
+          materialTotals[materialCode] =
+            (materialTotals[materialCode] || 0) +
+            (classification.corrected_quantity_kg ??
+              classification.quantity_kg ??
+              0);
+        }
+      }
+
+      return {
+        document_id: document.id,
+        filename: document.filename,
+        document_status: document.status,
+        uploaded_at: document.created_at,
+        verified: Boolean(document.verified_by_user),
+        verified_material_quantity_kg: verifiedQuantity,
+        ocr_confidence: document.ocr_confidence,
+        rag_confidence: document.rag_confidence,
+      };
+    });
+
+    const pendingDocuments = evidence.filter((document) => !document.verified);
+    const totalVerifiedMaterialKg = Object.values(materialTotals).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    const categoryRows = [
+      ["CATEGORY_I", "Rigid plastic packaging"],
+      ["CATEGORY_II", "Flexible plastic packaging"],
+      ["CATEGORY_III", "Multilayer plastic packaging"],
+      ["CATEGORY_IV", "Compostable plastic packaging"],
+    ].map(([code, name]) => ({
+      category_code: code,
+      category_name: name,
+      packaging_quantity_kg: null,
+      epr_target_kg: null,
+      epr_certificates_achieved_kg: null,
+      available_potential_kg: null,
+      shortfall_kg: null,
+      likely_environmental_compensation_inr: null,
+      status: "DATA_REQUIRED",
+    }));
+
+    const blockers = [
+      "Procurement, sales, reuse, and recycled-content quantities are not captured in structured fields.",
+      "Category-wise EPR targets, certificates, and available potential are not captured.",
+      "CPCB registration details and approved packaging categories are not captured in structured fields.",
+    ];
+    if (pendingDocuments.length > 0) {
+      blockers.unshift(`${pendingDocuments.length} document(s) still require human verification.`);
+    }
+
+    return {
+      schema_version: "cpcb-pibo-annual-report-draft-v1",
+      report_type: "PIBO_ANNUAL_RETURN_DRAFT",
+      report_status: blockers.length === 0 ? "READY_FOR_REVIEW" : "DATA_REQUIRED",
+      financial_year: {
+        start_year: fiscalYear,
+        label: `FY ${fiscalYear}-${String(fiscalYear + 1).slice(-2)}`,
+        start_date: startDate,
+        end_date: endDate.split("T")[0],
+      },
+      entity: {
+        company_name: company?.company_name || null,
+        gst_number: company?.gst_number || null,
+        pibo_category: company?.Pibo_category || [],
+      },
+      overview: {
+        procurement: { status: "DATA_REQUIRED", total_kg: null, by_category: [] },
+        sales: { status: "DATA_REQUIRED", total_kg: null, by_category: [] },
+        reuse: { status: "DATA_REQUIRED", total_kg: null, by_category: [] },
+        recycled_plastic_used: { status: "DATA_REQUIRED", total_kg: null, by_category: [] },
+        verified_material_classifications: {
+          status: totalVerifiedMaterialKg > 0 ? "AVAILABLE" : "DATA_REQUIRED",
+          total_kg: totalVerifiedMaterialKg,
+          by_material: materialTotals,
+        },
+      },
+      compliance_status: {
+        categories: categoryRows,
+        epr_certificates: { status: "DATA_REQUIRED", achieved_kg: null, purchased_kg: null },
+        environmental_compensation: { status: "DATA_REQUIRED", likely_amount_inr: null },
+      },
+      evidence,
+      readiness: {
+        can_submit: false,
+        blockers,
+        verified_documents: evidence.filter((document) => document.verified).length,
+        pending_documents: pendingDocuments.length,
+      },
+      source_basis: [
+        {
+          title: "CPCB Guidance Manual for Centralized EPR Portal for Plastic Packaging",
+          url: "https://eprplastic.cpcb.gov.in/assets/pdfs/Guidance_Manual.pdf",
+        },
+        {
+          title: "Plastic Waste Management (Amendment) Rules, 2026",
+          url: "https://www.eprplastic.cpcb.gov.in/plastic/downloads/Plastic_Waste_Management_2026.pdf",
+        },
+        {
+          title: "CPCB Common EPR Portal",
+          url: "https://epr.cpcb.gov.in/",
+        },
+      ],
+      generated_at: new Date().toISOString(),
+    };
+  },
+
   async getRegulatoryReview(userId, input = {}) {
     const materials = input.materials && typeof input.materials === "object" ? input.materials : {};
     const materialSummary = Object.entries(materials)
