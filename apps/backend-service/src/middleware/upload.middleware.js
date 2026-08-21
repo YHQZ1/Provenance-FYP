@@ -30,10 +30,6 @@ const fileFilter = (req, file, cb) => {
     "image/jpeg",
     "image/png",
     "image/tiff",
-    "text/csv",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "text/plain",
   ];
 
   if (allowedTypes.includes(file.mimetype)) {
@@ -41,7 +37,7 @@ const fileFilter = (req, file, cb) => {
   } else {
     cb(
       new Error(
-        "Invalid file type. Only PDF, CSV, XLSX, JPEG, PNG, and TIFF are allowed.",
+        "Invalid file type. Only PDF, JPEG, PNG, and TIFF files are allowed.",
       ),
       false,
     );

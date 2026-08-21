@@ -2,10 +2,12 @@ import { supabaseAdmin } from "../../config/database.js";
 import { storageService } from "../storage.service.js";
 import { ocrService } from "../external/ocr.service.js";
 import { ragService } from "../external/rag.service.js";
+import fs from "fs/promises";
 
 export const documentService = {
   async createDocument(userId, fileInfo) {
     const { originalname, mimetype, size, path: localPath } = fileInfo;
+    const fileBuffer = await fs.readFile(localPath);
 
     const { path: storagePath } = await storageService.uploadFile(
       localPath,
@@ -32,7 +34,11 @@ export const documentService = {
       throw new Error(`Database insert failed: ${error.message}`);
     }
 
-    this.startOcrProcessing(document.id, storagePath, userId).catch((err) => {
+    this.startOcrProcessing(
+      document.id,
+      { buffer: fileBuffer, originalname, mimetype },
+      userId,
+    ).catch((err) => {
       console.error(`[Document] OCR startup failed for ${document.id}:`, err);
       supabaseAdmin
         .from("documents")
@@ -48,7 +54,7 @@ export const documentService = {
     return document;
   },
 
-  async startOcrProcessing(documentId, storagePath, userId) {
+  async startOcrProcessing(documentId, file, userId) {
     await supabaseAdmin
       .from("documents")
       .update({
@@ -57,30 +63,19 @@ export const documentService = {
       })
       .eq("id", documentId);
 
-    await ocrService.submitForOcr(documentId, storagePath);
+    const ocrResult = await ocrService.submitForOcr(documentId, file);
+    const items = ocrResult.line_items || ocrResult.extracted_data?.items || [];
 
-    setTimeout(async () => {
+    if (items.length > 0) {
       try {
-        const { data: doc } = await supabaseAdmin
-          .from("documents")
-          .select("extracted_data, status")
-          .eq("id", documentId)
-          .single();
-
-        if (doc && doc.status === "COMPLETED" && doc.extracted_data?.items) {
-          await ragService.submitForClassification(
-            documentId,
-            doc.extracted_data.items,
-            userId,
-          );
-        }
+        await ragService.submitForClassification(documentId, items, userId);
       } catch (error) {
         console.error(
           `[Document] RAG trigger failed for ${documentId}:`,
           error,
         );
       }
-    }, 3000);
+    }
   },
 
   async getDocument(documentId, userId) {

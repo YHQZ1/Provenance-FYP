@@ -70,7 +70,7 @@ export const documentController = {
       const { data: document, error } = await supabaseAdmin
         .from("documents")
         .select(
-          "id, status, ocr_confidence, rag_confidence, requires_human_review, verified_by_user, updated_at, error_message",
+          "id, status, ocr_confidence, rag_confidence, requires_human_review, verified_by_user, updated_at",
         )
         .eq("id", req.params.id)
         .eq("company_id", req.user.id)

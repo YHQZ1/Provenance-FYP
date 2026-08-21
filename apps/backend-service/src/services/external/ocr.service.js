@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../../config/database.js";
+import { env } from "../../config/env.js";
 
 const MOCK_OCR_RESULTS = [
   {
@@ -10,94 +11,125 @@ const MOCK_OCR_RESULTS = [
         { description: "HDPE Containers Natural", quantity: 300, unit: "kg" },
         { description: "PP Scrap Mixed", quantity: 200, unit: "kg" },
       ],
-      confidence: 0.95,
     },
     confidence: 0.95,
-  },
-  {
-    raw_text:
-      "PURCHASE ORDER #PO-2024-001\nVendor: Green Materials Co.\n\nLine Items:\n- PVC Pipes Scrap: 750 kg\n- LDPE Film Bales: 450 kg\n- PET Flakes Hot Washed: 600 kg",
-    extracted_data: {
-      items: [
-        { description: "PVC Pipes Scrap", quantity: 750, unit: "kg" },
-        { description: "LDPE Film Bales", quantity: 450, unit: "kg" },
-        { description: "PET Flakes Hot Washed", quantity: 600, unit: "kg" },
-      ],
-      confidence: 0.92,
-    },
-    confidence: 0.92,
-  },
-  {
-    raw_text:
-      "RECEIPT OF MATERIALS\nDate: March 10, 2024\nReceived from: Industrial Plastics Ltd.\n\nMaterials Received:\n- HDPE Regrind Natural - 1200 kg\n- PP Copolymer - 800 kg\n- PS Trays - 300 kg",
-    extracted_data: {
-      items: [
-        { description: "HDPE Regrind Natural", quantity: 1200, unit: "kg" },
-        { description: "PP Copolymer", quantity: 800, unit: "kg" },
-        { description: "PS Trays", quantity: 300, unit: "kg" },
-      ],
-      confidence: 0.88,
-    },
-    confidence: 0.88,
   },
 ];
 
 export const ocrService = {
-  async submitForOcr(documentId, storagePath) {
-    setTimeout(async () => {
-      try {
-        const mockData =
-          MOCK_OCR_RESULTS[Math.floor(Math.random() * MOCK_OCR_RESULTS.length)];
+  async submitForOcr(documentId, file) {
+    try {
+      const result = env.USE_MOCK_SERVICES
+        ? MOCK_OCR_RESULTS[0]
+        : await requestOcrService(file);
+      const items = normalizeLineItems(result);
 
-        await supabaseAdmin
-          .from("documents")
-          .update({
-            raw_text: mockData.raw_text,
-            extracted_data: mockData.extracted_data,
-            ocr_confidence: mockData.confidence,
-            status: "COMPLETED",
-            requires_human_review: true,
-            reasoning:
-              "Items extracted via OCR. Please map materials manually.",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", documentId);
+      const { error: updateError } = await supabaseAdmin
+        .from("documents")
+        .update({
+          raw_text: result.raw_text,
+          extracted_data: {
+            document_type: result.document_type || "unknown",
+            fields: result.fields || {},
+            line_items: result.line_items || [],
+            items,
+            warnings: result.warnings || [],
+            metadata: result.metadata || {},
+          },
+          ocr_confidence: result.confidence,
+          status: "COMPLETED",
+          requires_human_review: Boolean(result.warnings?.length),
+          reasoning: "Items extracted via OCR and ready for material classification.",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId);
 
-        const items = mockData.extracted_data?.items || [];
-
-        if (items.length > 0) {
-          const classifications = items.map((item) => ({
-            document_id: documentId,
-            material_code: null,
-            quantity_kg: item.quantity || 0,
-            confidence_score: 0,
-            reasoning: `Extracted from OCR: "${item.description}"`,
-            matched_synonym: item.description,
-            requires_human_review: true,
-            verified_by_user: false,
-          }));
-
-          await supabaseAdmin
-            .from("document_classifications")
-            .insert(classifications);
-        }
-
-        console.log(`[OCR] Document ${documentId} processed successfully`);
-      } catch (error) {
-        console.error(`[OCR] Failed for document ${documentId}:`, error);
-        await supabaseAdmin
-          .from("documents")
-          .update({
-            status: "OCR_FAILED",
-            error_message: error.message,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", documentId);
+      if (updateError) {
+        throw new Error(`OCR result update failed: ${updateError.message}`);
       }
-    }, 2000);
-  },
 
-  async mockSubmit(documentId) {
-    return this.submitForOcr(documentId, null);
+      const classifications = items
+        .filter((item) => item.quantity > 0)
+        .map((item) => ({
+          document_id: documentId,
+          material_code: null,
+          quantity_kg: item.quantity,
+          confidence_score: 0,
+          reasoning: `Extracted from OCR: "${item.description}"`,
+          matched_synonym: item.description,
+          requires_human_review: true,
+          verified_by_user: false,
+        }));
+
+      if (classifications.length > 0) {
+        const { error: insertError } = await supabaseAdmin
+          .from("document_classifications")
+          .insert(classifications);
+        if (insertError) {
+          throw new Error(`OCR line item insert failed: ${insertError.message}`);
+        }
+      }
+
+      console.log(`[OCR] Document ${documentId} processed successfully`);
+      return result;
+    } catch (error) {
+      console.error(`[OCR] Failed for document ${documentId}:`, error);
+      await supabaseAdmin
+        .from("documents")
+        .update({
+          status: "OCR_FAILED",
+          reasoning: error.message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId);
+      throw error;
+    }
   },
 };
+
+const requestOcrService = async (file) => {
+  if (!env.OCR_SERVICE_URL) {
+    throw new Error("OCR_SERVICE_URL is not configured");
+  }
+
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([file.buffer], { type: file.mimetype }),
+    file.originalname,
+  );
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), env.OCR_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(
+      `${env.OCR_SERVICE_URL.replace(/\/$/, "")}/v1/ocr`,
+      { method: "POST", body: form, signal: controller.signal },
+    );
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        `OCR service returned ${response.status}: ${payload.detail || payload.message || "request failed"}`,
+      );
+    }
+    return payload;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(`OCR service timed out after ${env.OCR_TIMEOUT_MS}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const normalizeLineItems = (result) =>
+  (result.line_items || result.extracted_data?.items || [])
+    .map((item) => ({
+      description: item.description || item.raw_text || "Unknown item",
+      quantity: Number(item.quantity) || 0,
+      unit: item.unit || "kg",
+    }))
+    .filter((item) => item.description && item.quantity >= 0);

@@ -46,6 +46,7 @@ export const env = {
   FRONTEND_URL: process.env.FRONTEND_URL,
 
   OCR_SERVICE_URL: process.env.OCR_SERVICE_URL,
+  OCR_TIMEOUT_MS: parseInt(process.env.OCR_TIMEOUT_MS, 10) || 120000,
   RAG_SERVICE_URL: process.env.RAG_SERVICE_URL,
   BACKEND_WEBHOOK_URL: process.env.BACKEND_WEBHOOK_URL,
 

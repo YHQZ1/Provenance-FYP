@@ -13,8 +13,8 @@ The current codebase has useful pieces, but several are still service-local or m
 | Path | Role | Current status |
 | --- | --- | --- |
 | `apps/web-app` | React/Vite frontend | Real screens exist, but some views still assume dummy or incomplete backend data. |
-| `apps/backend-service` | Express orchestration API | Main API surface. Document flow currently uses mock OCR/RAG adapters. |
-| `apps/ocr-service` | OCR engine/service | OCR engine modules exist; FastAPI app/route files are not wired yet. |
+| `apps/backend-service` | Express orchestration API | Main API surface. Document uploads now call the real OCR service; RAG remains a local/mock adapter. |
+| `apps/ocr-service` | OCR engine/service | FastAPI OCR API is containerized and accepts PDF/JPEG/PNG/TIFF uploads at `/v1/ocr`. |
 | `apps/rag-classify` | Plastic material classification service | FastAPI service exists with Qdrant/Ollama pipeline. Not wired into backend adapter yet. |
 | `apps/rag-regulatory` | Regulatory RAG chatbot/scrapers | Useful adjacent service, not part of the first EPR document pipeline spine. |
 | `infra/postgres` | Local Postgres schema | Local schema derived from Supabase dump; backend still uses Supabase client semantics. |
@@ -34,8 +34,7 @@ The current codebase has useful pieces, but several are still service-local or m
 ## Known Mismatches
 
 - The root README describes a broader deterministic BRSR/carbon compliance engine, while the implemented app is currently closest to Plastic EPR document processing.
-- Backend OCR/RAG adapters are mocks even though real OCR/RAG service code exists elsewhere.
-- The OCR FastAPI app files are empty; only lower-level OCR engine modules are populated.
+- Backend RAG classification is still local/mock; the OCR adapter now calls the containerized OCR service.
 - Multiple compose files exist. They are not equivalent and should not all be considered canonical.
 
 ## Cleanup Decision Log
