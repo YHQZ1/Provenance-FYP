@@ -74,6 +74,8 @@ export const complianceAPI = {
     api.get("/compliance/reports/quarterly-summary", {
       params: { year, quarter },
     }),
+  getRegulatoryReview: (data) =>
+    api.post("/compliance/reports/regulatory-review", data),
 };
 
 export const companyAPI = {

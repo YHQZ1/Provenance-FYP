@@ -344,6 +344,27 @@ export default function Reports() {
   const [stats, setStats] = useState(null);
   const [currentFiling, setCurrentFiling] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [regulatoryReview, setRegulatoryReview] = useState(null);
+  const [regulatoryLoading, setRegulatoryLoading] = useState(false);
+  const [regulatoryError, setRegulatoryError] = useState(null);
+
+  const loadRegulatoryReview = useCallback(async (filing, reportDocuments) => {
+    setRegulatoryLoading(true);
+    setRegulatoryError(null);
+    try {
+      const response = await complianceAPI.getRegulatoryReview({
+        materials: filing?.materials || {},
+        documents_count: reportDocuments.length,
+        pending_review: reportDocuments.filter((doc) => !doc.verified_by_user).length,
+      });
+      setRegulatoryReview(response.data);
+    } catch (err) {
+      setRegulatoryReview(null);
+      setRegulatoryError(err.message || "Regulatory review unavailable");
+    } finally {
+      setRegulatoryLoading(false);
+    }
+  }, []);
 
   const fetchReportData = useCallback(async () => {
     try {
@@ -357,12 +378,13 @@ export default function Reports() {
       setStats(statsRes.data);
       setCurrentFiling(filingRes.data);
       setDocuments(docsRes.data || []);
+      loadRegulatoryReview(filingRes.data, docsRes.data || []);
     } catch (err) {
       setError(err.message || "Failed to load report data");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadRegulatoryReview]);
 
   useEffect(() => {
     fetchReportData();
@@ -675,6 +697,53 @@ export default function Reports() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === "summary" && (
+        <div style={{ ...styles.panel, marginTop: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
+            <div>
+              <SectionTitle>Regulatory Review</SectionTitle>
+              <p style={{ margin: "-4px 0 0", color: "var(--text-muted)", fontSize: 13 }}>
+                Grounded guidance from the CPCB and SEBI source library.
+              </p>
+            </div>
+            <Badge variant={regulatoryReview ? "success" : "neutral"}>
+              {regulatoryLoading ? "Reviewing" : regulatoryReview ? "Sources checked" : "Unavailable"}
+            </Badge>
+          </div>
+          {regulatoryLoading ? (
+            <p style={{ color: "var(--text-muted)", fontSize: 13, margin: "18px 0 0" }}>
+              Checking the report against the regulatory source library...
+            </p>
+          ) : regulatoryError ? (
+            <p style={{ color: "var(--text-muted)", fontSize: 13, margin: "18px 0 0" }}>
+              {regulatoryError}. The report can still be reviewed and submitted based on the current validation state.
+            </p>
+          ) : regulatoryReview ? (
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 260px", gap: 24, marginTop: 18 }}>
+              <p style={{ margin: 0, whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.7, color: "var(--text-secondary)" }}>
+                {regulatoryReview.answer}
+              </p>
+              <div>
+                <MonoLabel>Source Documents</MonoLabel>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+                  {(regulatoryReview.sources || []).map((source, index) => (
+                    <a
+                      key={`${source.url || "source"}-${index}`}
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: "var(--success)", fontSize: 12, lineHeight: 1.4 }}
+                    >
+                      {source.title || source.url || `Source ${index + 1}`}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
