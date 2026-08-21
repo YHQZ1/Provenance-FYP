@@ -2,8 +2,13 @@ import re
 
 
 FIELD_PATTERNS = {
-    "invoice_number": [r"(?:invoice|inv)\s*(?:no|number|#)?\s*[:#-]?\s*([A-Z0-9][A-Z0-9/-]+)"],
-    "invoice_date": [r"(?:invoice\s*)?date\s*[:#-]?\s*([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})"],
+    "invoice_number": [
+        r"(?im)\b(?:invoice|inv)\s*(?:no|number|#)\s*[:#.-]*\s*([A-Z0-9][A-Z0-9./\\-]*)",
+    ],
+    "invoice_date": [
+        r"(?im)\b(?:invoice\s*date|inv\.?\s*date)\b[^\n]{0,80}?([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})",
+        r"(?im)(?<!due\s)\bdate\b[^\n]{0,80}?([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})",
+    ],
     "gstin": [r"\b([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9])\b"],
 }
 
@@ -28,34 +33,99 @@ def extract_fields(text: str, average_confidence: float) -> dict[str, dict]:
     for name, patterns in FIELD_PATTERNS.items():
         value = None
         for pattern in patterns:
-            match = re.search(pattern, text, re.I)
+            match = re.search(pattern, text)
             if match:
                 value = match.group(1).strip()
                 break
+        if name == "invoice_date" and value is None:
+            value = _find_date_on_invoice_line(text)
         fields[name] = {"value": value, "confidence": average_confidence if value else 0}
     return fields
 
 
 def parse_line_items(text: str, average_confidence: float) -> list[dict]:
-    items = []
+    items: list[dict] = []
+    normalized_lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
+
     quantity_pattern = re.compile(
-        r"(?P<description>.+?)\s+(?P<quantity>\d+(?:[,.]\d+)?)\s*(?P<unit>kg|kgs|mt|mtr|pcs|units?)\b(?:\s+(?P<rate>\d+(?:[,.]\d+)?))?\s*$",
+        r"(?P<description>.+?)\s+(?P<quantity>\d+(?:[,.]\d+)?)\s*"
+        r"(?P<unit>kg|kgs|mt|mtr|pcs|nos|units?)\b"
+        r"(?:\s+(?P<rate>\d+(?:[,.]\d+)?))?\s*$",
         re.I,
     )
-    for line in text.splitlines():
-        line = " ".join(line.split())
+    for line in normalized_lines:
         match = quantity_pattern.match(line)
-        if not match:
+        if match:
+            items.append(_make_item(match.group("description"), match.group("quantity"), match.group("unit"), match.group("rate"), line, average_confidence))
+
+    _append_description_quantity_items(items, normalized_lines, average_confidence)
+    _append_numbered_table_items(items, normalized_lines, average_confidence)
+    return _deduplicate_items(items)
+
+
+def _append_description_quantity_items(items: list[dict], lines: list[str], confidence: float) -> None:
+    pattern = re.compile(
+        r"\bdescription\s+(?P<description>.+?)\s+(?:place of supply|hsn/?sac)\b.*?"
+        r"\bquantity\s+(?P<quantity>\d+(?:[,.]\d+)?)\b",
+        re.I,
+    )
+    for line in lines:
+        match = pattern.search(line)
+        if match:
+            items.append(_make_item(match.group("description"), match.group("quantity"), "unit", None, line, confidence))
+
+
+def _append_numbered_table_items(items: list[dict], lines: list[str], confidence: float) -> None:
+    for line in lines:
+        match = re.search(r"\bsr\.?\s*no\.?\s*particulars\s+1(?P<description>.+?)\s+hsn\b", line, re.I)
+        if match:
+            items.append(_make_item(match.group("description"), "1", "unit", None, line, confidence))
             continue
-        items.append(
-            {
-                "description": match.group("description").strip(" -:.") or line,
-                "quantity": float(match.group("quantity").replace(",", "")),
-                "unit": match.group("unit").lower(),
-                "rate": float(match.group("rate").replace(",", "")) if match.group("rate") else None,
-                "amount": None,
-                "raw_text": line,
-                "confidence": average_confidence,
-            }
-        )
-    return items
+
+        match = re.search(r"\bs\.\s*n\.\s*(?P<description>.+?)(?:\s+serial:|$)", line, re.I)
+        if match and not any("4u rack" in item["description"].lower() for item in items):
+            quantity = _find_first_quantity_with_unit(lines)
+            if quantity:
+                items.append(_make_item(match.group("description"), quantity[0], quantity[1], None, line, confidence))
+
+
+def _find_first_quantity_with_unit(lines: list[str]) -> tuple[str, str] | None:
+    pattern = re.compile(r"\b(\d+(?:[,.]\d+)?)\s*(kg|kgs|mt|mtr|pcs|nos|units?)\b", re.I)
+    for line in lines:
+        match = pattern.search(line)
+        if match:
+            return match.group(1), match.group(2)
+    return None
+
+
+def _make_item(description: str, quantity: str, unit: str, rate: str | None, raw_text: str, confidence: float) -> dict:
+    return {
+        "description": description.strip(" -:.") or raw_text,
+        "quantity": float(quantity.replace(",", "")),
+        "unit": unit.lower(),
+        "rate": float(rate.replace(",", "")) if rate else None,
+        "amount": None,
+        "raw_text": raw_text,
+        "confidence": confidence,
+    }
+
+
+def _deduplicate_items(items: list[dict]) -> list[dict]:
+    unique: list[dict] = []
+    seen: set[tuple[str, float, str]] = set()
+    for item in items:
+        key = (item["description"].lower(), item["quantity"], item["unit"])
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
+    return unique
+
+
+def _find_date_on_invoice_line(text: str) -> str | None:
+    date_pattern = re.compile(r"\b([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})\b")
+    for line in text.splitlines():
+        if re.search(r"\b(?:invoice|inv)\b", line, re.I):
+            match = date_pattern.search(line)
+            if match:
+                return match.group(1)
+    return None
