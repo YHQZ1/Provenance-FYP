@@ -1,0 +1,24 @@
+# Core API
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# Transformers (torch already installed)
+transformers==4.36.2
+sentence-transformers==2.2.2
+numpy==1.24.3
+
+# Database & Vector Store
+psycopg2-binary==2.9.9
+qdrant-client==1.7.0
+
+# LLM Client
+ollama==0.1.7
+httpx==0.25.2
+
+# Utilities
+tenacity==8.2.3
+python-dateutil==2.8.2
+regex==2023.12.25

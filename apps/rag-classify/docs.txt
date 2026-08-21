@@ -1,0 +1,80 @@
+What is Pydantic?
+Pydantic is a Python library for data validation using Python type hints.
+
+# Regular Python - no validation
+def create_user(name: str, age: int):
+    # What if age is "twenty" instead of 20? Crash later!
+    # What if name is missing? None error later!
+    pass
+
+create_user(name="Alice", age="twenty")  # No error now, crash later
+
+src/models/schemas.py
+What it does:
+Defines the shape of data going in and out of your RAG API.
+Why we need it:
+Request validation: Ensures incoming JSON has required fields (text to classify)
+Response consistency: Clients always get predictable JSON structure
+Auto-documentation: FastAPI generates Swagger UI from these models
+Type safety: IDE autocomplete knows field types
+
+
+384 is the output size of all-MiniLM-L6-v2 - we're not choosing it, the embedding model dictates it.
+
+
+Q: Does more dimensions = more accurate?
+"Not necessarily. It's a trade-off:
+Higher dims (768-1024):
+Can capture more nuanced semantics
+Better for complex document understanding
+But: 2-3x slower search, 2-3x more memory, diminishing returns
+Lower dims (384):
+90% of the accuracy for our use case (trade name matching)
+2x faster vector search in Qdrant
+Fits 2x more vectors in RAM
+For 'POLYPET' → 'PET', we don't need 768 dimensions of nuance"
+
+
+Why Qdrant vs Pinecone/Milvus/Weaviate?
+
+Why Qdrant?	"Open source, runs locally in Docker, no API keys, no network latency. Perfect for zero-budget deployment."
+Why not Pinecone?	"Managed service requires API key, network calls, costs money. Violates our 'zero paid APIs' constraint."
+Why not Milvus?	"Heavier, requires etcd/minio dependencies. Qdrant is single binary, simpler for MVP."
+Why not pgvector?	"Good option! But separates concerns - PostgreSQL for structured data, Qdrant for optimized vector search. Qdrant has better ANN performance for high recall."
+
+
+Why all-MiniLM-L6-v2 Specifically?
+The Model Family Tree:
+plain
+Copy
+BERT (110M params, slow)
+  ↓ distilled
+DistilBERT (66M params)
+  ↓ further optimized
+MiniLM (22M params, 384d) ← We use this
+  ↓ multilingual
+paraphrase-MiniLM (multilingual)
+Why this variant:
+all-MiniLM-L6-v2: Trained on 1B+ sentence pairs for semantic similarity (our exact need)
+Not distiluse-base: That one's for multilingual, we need English plastic terms
+Not paraphrase-MiniLM: Optimized for paraphrase detection, overkill for trade names
+
+
+Vector Store Architecture (What We're Building)
+Text: "POLYPET 3020"
+    ↓
+Embedding Model (MiniLM-L6-v2)
+    ↓
+Vector: [0.023, -0.156, 0.089, ... 384 numbers]
+    ↓
+Qdrant ANN Search (HNSW index)
+    ↓
+Top 5 similar: [
+    {synonym: "POLYPET", code: "PET", score: 0.94},
+    {synonym: "Polyethylene Terephthalate", code: "PET", score: 0.89},
+    {synonym: "PET Resin", code: "PET", score: 0.85},
+    ...
+]
+HNSW = Hierarchical Navigable Small World (the algorithm Qdrant uses)
+Q: Why HNSW not exact search?
+"Exact cosine similarity on 10k+ vectors = O(n) slow. HNSW gives O(log n) approximate nearest neighbors with 95%+ recall. We sacrifice 2% accuracy for 100x speed."

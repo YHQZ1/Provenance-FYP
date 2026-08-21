@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: epr-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - rag-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: epr-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - rag-network
+
+  rag-service:
+    build: ./rag-service
+    container_name: epr-rag
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=${SUPABASE_DATABASE_URL}
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2:3b
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - VECTOR_DIMENSION=384
+      - COLLECTION_NAME=material_synonyms
+      - CONFIDENCE_THRESHOLD=0.7
+      - TOP_K_SYNONYMS=5
+    env_file:
+      - .env
+    volumes:
+      - ./rag-service:/app
+      - model_cache:/root/.cache
+    depends_on:
+      - qdrant
+      - ollama
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
+  ollama_data:
+  model_cache:
+
+networks:
+  rag-network:
+    driver: bridge
