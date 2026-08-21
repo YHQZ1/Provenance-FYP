@@ -103,12 +103,11 @@ class DatabaseClient:
             SELECT 
                 ms.synonym,
                 ms.material_code,
-                mm.name as material_name,
+                mm.material_name,
                 mm.category,
-                ms.confidence_score as synonym_confidence
+                1.0 as synonym_confidence
             FROM material_synonyms ms
-            JOIN materials_master mm ON ms.material_code = mm.code
-            WHERE ms.is_active = true
+            JOIN materials_master mm ON ms.material_code = mm.material_code
             ORDER BY ms.material_code, ms.synonym
         """
         
@@ -132,10 +131,9 @@ class DatabaseClient:
             Material details or None if not found
         """
         query = """
-            SELECT code, name, category, description, 
-                   cpc_code, pwm_rules
+            SELECT material_code, material_name, category, description
             FROM materials_master
-            WHERE code = %s
+            WHERE material_code = %s
         """
         
         try:
@@ -188,11 +186,10 @@ class DatabaseClient:
                 vector_similarity,
                 quantity_kg,
                 requires_human_review,
-                created_at,
-                metadata
+                created_at
             ) VALUES (
                 gen_random_uuid(),
-                %s, %s, %s, %s, %s, %s, %s, %s, NOW(), %s
+                %s, %s, %s, %s, %s, %s, %s, %s, NOW()
             )
             RETURNING id
         """
@@ -210,13 +207,6 @@ class DatabaseClient:
             else:
                 quantity_kg = qty
         
-        # Build metadata JSON
-        metadata = {
-            "matched_synonyms": matched_synonyms,
-            "processing_time_ms": processing_time_ms,
-            "model_used": settings.ollama_model
-        }
-        
         try:
             with self.get_cursor(commit=True) as cur:
                 cur.execute(
@@ -229,8 +219,7 @@ class DatabaseClient:
                         best_synonym,
                         vector_similarity,
                         quantity_kg,
-                        requires_human_review,
-                        psycopg2.extras.Json(metadata)
+                        requires_human_review
                     )
                 )
                 result = cur.fetchone()
@@ -280,10 +269,13 @@ class DatabaseClient:
         # Update the original classification to mark as corrected
         update_query = """
             UPDATE document_classifications
-            SET 
+            SET
                 corrected_material_code = %s,
                 corrected_quantity_kg = %s,
-                corrected_at = NOW()
+                reviewer_notes = %s,
+                verified_by_user = true,
+                requires_human_review = false,
+                updated_at = NOW()
             WHERE id = %s
         """
         
@@ -298,7 +290,7 @@ class DatabaseClient:
                 # Update original record
                 cur.execute(
                     update_query,
-                    (corrected_material_code, corrected_quantity, classification_id)
+                    (corrected_material_code, corrected_quantity, notes, classification_id)
                 )
                 
                 logger.info(f"Saved feedback for classification {classification_id}")
@@ -329,7 +321,7 @@ class DatabaseClient:
                 dc.created_at,
                 d.raw_text,
                 d.document_type,
-                c.name as company_name
+                c.company_name
             FROM document_classifications dc
             JOIN documents d ON dc.document_id = d.id
             JOIN companies c ON d.company_id = c.id

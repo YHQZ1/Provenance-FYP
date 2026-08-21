@@ -9,9 +9,7 @@ Loads from .env file and validates on startup.
 """
 
 from functools import lru_cache
-from typing import Optional
-
-from pydantic import Field, PostgresDsn, validator
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,8 +27,9 @@ class Settings(BaseSettings):
     )
     
     # === Database (Supabase PostgreSQL) ===
-    database_url: PostgresDsn = Field(
+    database_url: str = Field(
         ...,
+        validation_alias=AliasChoices("DATABASE_URL", "SUPABASE_DATABASE_URL"),
         description="Supabase PostgreSQL connection URL (required)"
     )
     
@@ -87,20 +86,11 @@ class Settings(BaseSettings):
     api_port: int = Field(default=8001)
     debug: bool = Field(default=False)
     
-    @validator("database_url", pre=True)
-    def validate_database_url(cls, v: Optional[str]) -> str:
-        """Ensure database URL is provided."""
-        if not v:
-            raise ValueError(
-                "DATABASE_URL is required. "
-                "Get it from Supabase: Project Settings → Database → Connection String"
-            )
-        return str(v)
     
     @property
     def qdrant_url(self) -> str:
         """Construct full Qdrant HTTP URL."""
-        return f"http://{self.qrant_host}:{self.qdrant_port}"
+        return f"http://{self.qdrant_host}:{self.qdrant_port}"
     
     @property
     def ollama_base_url(self) -> str:

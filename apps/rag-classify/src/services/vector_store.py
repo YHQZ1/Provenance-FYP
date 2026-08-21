@@ -4,6 +4,7 @@ Qdrant vector database client for material synonym search.
 Handles embedding storage and similarity search.
 """
 
+import hashlib
 import logging
 from typing import Dict, List, Optional, Any
 
@@ -114,9 +115,8 @@ class VectorStore:
                 
                 points = []
                 for idx, (syn, emb) in enumerate(zip(batch_synonyms, batch_embeddings)):
-                    # Create unique ID from material_code + synonym hash
-                    # Example: "PET_POLYPET_3020" → deterministic ID
-                    point_id = f"{syn['material_code']}_{hash(syn['synonym'])}"
+                    point_key = f"{syn['material_code']}:{syn['synonym']}"
+                    point_id = hashlib.sha256(point_key.encode("utf-8")).hexdigest()[:32]
                     
                     points.append(
                         models.PointStruct(
@@ -166,17 +166,16 @@ class VectorStore:
             List of matches with: synonym, material_code, material_name, score
         """
         try:
-            results = self.client.search(
+            response = self.client.query_points(
                 collection_name=self.collection_name,
-                query_vector=query_embedding,
+                query=query_embedding,
                 limit=top_k,
                 score_threshold=score_threshold,
-                # HNSW search parameter: higher = more accurate, slower
                 search_params=models.SearchParams(hnsw_ef=128)
             )
-            
+
             matches = []
-            for result in results:
+            for result in response.points:
                 matches.append({
                     "synonym": result.payload["synonym"],
                     "material_code": result.payload["material_code"],
@@ -219,7 +218,7 @@ class VectorStore:
         try:
             info = self.client.get_collection(self.collection_name)
             return {
-                "name": info.config.params.vectors.on_disk,
+                "name": self.collection_name,
                 "vector_count": info.points_count,
                 "dimension": info.config.params.vectors.size,
                 "distance": info.config.params.vectors.distance.value,

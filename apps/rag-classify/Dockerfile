@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 # Install torch FIRST with extended timeout
 RUN pip install --no-cache-dir --timeout 300 torch==2.1.2 --index-url https://download.pytorch.org/whl/cpu
 

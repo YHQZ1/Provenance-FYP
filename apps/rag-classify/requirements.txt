@@ -5,14 +5,16 @@ python-multipart==0.0.6
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
-# Transformers (torch already installed)
+# Transformers
+torchvision==0.16.2
 transformers==4.36.2
+huggingface-hub==0.20.2
 sentence-transformers==2.2.2
 numpy==1.24.3
 
 # Database & Vector Store
 psycopg2-binary==2.9.9
-qdrant-client==1.7.0
+qdrant-client==1.14.2
 
 # LLM Client
 ollama==0.1.7

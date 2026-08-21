@@ -73,7 +73,7 @@ class RAGPipeline:
             # Step 2: Retrieve similar synonyms from Qdrant
             logger.debug("Step 2: Retrieving from vector store...")
             candidates = self.vector_store.search_similar(
-                query_vector=query_vector,
+                query_embedding=query_vector,
                 top_k=settings.top_k_synonyms,
                 score_threshold=0.5  # Lower threshold = more candidates
             )
@@ -162,7 +162,11 @@ class RAGPipeline:
         
         return {
             "material_code": llm_result["material_code"],
-            "material_name": llm_result.get("material_name", "Unknown"),
+            "material_name": (
+                llm_result.get("material_name")
+                or (candidates[0].get("material_name") if candidates else None)
+                or "Unknown"
+            ),
             "cpcb_category": llm_result.get("cpcb_category", "UNKNOWN"),
             "confidence_score": llm_result["confidence"],
             "reasoning": llm_result["reasoning"],

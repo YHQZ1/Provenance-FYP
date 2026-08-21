@@ -14,6 +14,7 @@ import logging
 from typing import List, Optional, Dict, Any
 
 import numpy as np
+from huggingface_hub import snapshot_download
 from sentence_transformers import SentenceTransformer
 
 from src.config import settings
@@ -39,12 +40,21 @@ class EmbeddingService:
         try:
             logger.info(f"Loading embedding model: {self.model_name}")
             
-            # device='cpu' for Docker compatibility (no GPU in container)
-            # cache_folder ensures model persists between container restarts
+            model_path = snapshot_download(
+                repo_id=self.model_name,
+                cache_dir='/root/.cache/huggingface',
+                allow_patterns=[
+                    '*.json',
+                    '*.txt',
+                    '*.safetensors',
+                    '*.model',
+                    '*.vocab',
+                ],
+            )
             self._model = SentenceTransformer(
-                self.model_name,
+                model_path,
                 device='cpu',
-                cache_folder='/root/.cache/torch/sentence_transformers'
+                cache_folder='/root/.cache/huggingface/sentence_transformers'
             )
             
             # Verify dimensions match config
@@ -130,9 +140,7 @@ class EmbeddingService:
                 normalize_embeddings=normalize,
                 batch_size=batch_size,
                 convert_to_numpy=True,
-                show_progress_bar=True,
-                # Speed optimizations for CPU
-                precision='float32'  # Not float16, CPU prefers full precision
+                show_progress_bar=True
             )
             
             # Convert numpy 2D array to list of lists

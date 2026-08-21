@@ -203,8 +203,7 @@ class FeedbackRequest(BaseModel):
     Used to improve RAG system over time.
     """
     
-    document_id: str = Field(..., description="ID of classified document")
-    original_classification: str = Field(..., description="What RAG predicted")
+    classification_id: str = Field(..., description="ID of the classification record")
     corrected_material_code: str = Field(..., description="Human-corrected code")
     corrected_quantity: Optional[float] = Field(default=None)
     notes: Optional[str] = Field(default=None, description="Why correction was needed")

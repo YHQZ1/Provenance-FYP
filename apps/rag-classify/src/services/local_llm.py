@@ -76,6 +76,29 @@ for category, materials in CPCB_MATERIALS.items():
             "examples": examples
         })
 
+CANONICAL_CODE_MAP = {
+    "PET_RIGID": "PET",
+    "PET_FLEX": "PET",
+    "BIO_PET": "PET",
+    "COMPOST_PET": "PET",
+    "HDPE_RIGID": "HDPE",
+    "HDPE_FLEX": "HDPE",
+    "LDPE_RIGID": "LDPE",
+    "LDPE_FLEX": "LDPE",
+    "PP_RIGID": "PP",
+    "PP_FLEX": "PP",
+    "PS_RIGID": "PS",
+    "PS_FLEX": "PS",
+    "PVC_RIGID": "PVC",
+    "PVC_FLEX": "PVC",
+    "MLP_PLASTIC": "MLP",
+    "MLP_TETRA": "MLP",
+    "MLP_LAM_TUBE": "MLP",
+    "MLP_METALIZED": "MLP",
+    "MLP_PAPER_PLASTIC": "MLP",
+}
+CANONICAL_CODES = {"PET", "HDPE", "LDPE", "PP", "PS", "PVC", "MLP"}
+
 
 class LocalLLMService:
     """Client for Ollama local LLM inference."""
@@ -144,7 +167,10 @@ class LocalLLMService:
             
             # Enrich with category info
             material_info = next(
-                (m for m in ALL_MATERIALS if m["code"] == classification["material_code"]),
+                (
+                    m for m in ALL_MATERIALS
+                    if CANONICAL_CODE_MAP.get(m["code"], m["code"]) == classification["material_code"]
+                ),
                 None
             )
             if material_info:
@@ -248,18 +274,11 @@ Respond with ONLY this JSON format:
         try:
             result = json.loads(json_str)
             
-            # Validate code exists
-            valid_codes = [m["code"] for m in ALL_MATERIALS]
             code = result.get("material_code", "UNKNOWN").upper().strip()
-            
-            if code not in valid_codes and code != "UNKNOWN":
-                # Try to fix common mistakes
-                if code == "PET" and "bottle" in result.get("reasoning", "").lower():
-                    code = "PET_RIGID"
-                elif code == "PET" and "film" in result.get("reasoning", "").lower():
-                    code = "PET_FLEX"
-                else:
-                    code = "UNKNOWN"
+            code = CANONICAL_CODE_MAP.get(code, code)
+
+            if code not in CANONICAL_CODES and code != "UNKNOWN":
+                code = "UNKNOWN"
             
             # Normalize
             confidence = float(result.get("confidence", 0))

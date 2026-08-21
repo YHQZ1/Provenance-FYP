@@ -7,7 +7,6 @@ RAG Service for EPR plastic material classification.
 import logging
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from src.routers import health, classify, seed
 from src.config import settings
@@ -26,15 +25,6 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc"
-)
-
-# CORS - allow other backend to call us
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict to your backend domain
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
 )
 
 # Include routers
