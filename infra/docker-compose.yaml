@@ -1,0 +1,17 @@
+# infra/docker-compose.yml
+services:
+  postgres:
+    image: postgres:17
+    container_name: provenance-postgres
+    environment:
+      POSTGRES_USER: provenance
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: provenance
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  pgdata:
