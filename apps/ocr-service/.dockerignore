@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+tests/
+scripts/
+data/
+poppler/
+poppler.zip
+*.log
+.DS_Store
