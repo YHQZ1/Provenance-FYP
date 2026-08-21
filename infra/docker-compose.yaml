@@ -1,10 +1,10 @@
 # Canonical local runtime compose for the repository.
 # Run from the repo root with:
-#   docker compose -f infra/docker-compose.yaml up -d
+#   docker compose -f infra/docker-compose.yaml up --build
+
 services:
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: provenance-qdrant
     ports:
       - "6333:6333"
     volumes:
@@ -13,7 +13,6 @@ services:
 
   ollama:
     image: ollama/ollama:latest
-    container_name: provenance-ollama
     ports:
       - "11434:11434"
     volumes:
@@ -23,7 +22,6 @@ services:
   rag-classify:
     build:
       context: ../apps/rag-classify
-    container_name: provenance-rag-classify
     env_file:
       - ../apps/rag-classify/.env
     environment:
@@ -37,9 +35,90 @@ services:
     depends_on:
       - qdrant
       - ollama
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')"
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+    restart: unless-stopped
+
+  ocr-service:
+    build:
+      context: ../apps/ocr-service
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ../apps/backend-service
+    env_file:
+      - ../apps/backend-service/.env.development
+    environment:
+      PORT: 3000
+      CORS_ORIGIN: http://localhost:5173
+      FRONTEND_URL: http://localhost:5173
+      OCR_SERVICE_URL: http://ocr-service:8000
+      RAG_SERVICE_URL: http://rag-classify:8001
+      USE_MOCK_SERVICES: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      ocr-service:
+        condition: service_healthy
+      rag-classify:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --quiet
+        - --tries=1
+        - --spider
+        - http://127.0.0.1:3000/health
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../apps/web-app
+    env_file:
+      - ../apps/web-app/.env.development
+    environment:
+      VITE_API_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   qdrant_data:
   ollama_data:
   model_cache:
+  backend_uploads:
+
+networks:
+  default:
+    name: provenance
