@@ -1,5 +1,10 @@
 import { supabaseAdmin } from "../../config/database.js";
 import { env } from "../../config/env.js";
+import {
+  buildClassificationText,
+  normalizeMaterialCode,
+  normalizeQuantity,
+} from "./normalization.js";
 
 const REVIEW_THRESHOLD = 0.85;
 
@@ -147,32 +152,6 @@ export const ragService = {
       requires_human_review: true,
     }));
   },
-};
-
-const buildClassificationText = (item) => {
-  const description = item.description || item.raw_text || "Unknown material";
-  const quantity = item.quantity ? ` ${item.quantity} ${item.unit || "kg"}` : "";
-  const text = `${description}${quantity}`.trim();
-
-  return text.length >= 10
-    ? text
-    : `${text} ${item.raw_text || "material invoice item"}`.trim();
-};
-
-const normalizeMaterialCode = (materialCode) => {
-  const code = String(materialCode || "UNKNOWN").trim().toUpperCase();
-  return code === "UNKNOWN" ? null : code;
-};
-
-const normalizeQuantity = (item) => {
-  const quantity = Number(item.quantity) || 0;
-  const unit = String(item.unit || "kg").toUpperCase();
-
-  if (unit === "MT" || unit === "TON" || unit === "TONS") {
-    return quantity * 1000;
-  }
-
-  return quantity;
 };
 
 const requestRagService = async (text) => {

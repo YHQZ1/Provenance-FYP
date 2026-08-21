@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../config/database.js";
 import { env } from "../../config/env.js";
+import { normalizeLineItems, normalizeQuantity } from "./normalization.js";
 
 const MOCK_OCR_RESULTS = [
   {
@@ -53,7 +54,7 @@ export const ocrService = {
         .map((item) => ({
           document_id: documentId,
           material_code: null,
-          quantity_kg: item.quantity,
+          quantity_kg: normalizeQuantity(item),
           confidence_score: 0,
           reasoning: `Extracted from OCR: "${item.description}"`,
           matched_synonym: item.description,
@@ -124,18 +125,3 @@ const requestOcrService = async (file) => {
     clearTimeout(timeout);
   }
 };
-
-const normalizeLineItems = (result) =>
-  (firstNonEmpty(result.line_items) ||
-    firstNonEmpty(result.extracted_data?.line_items) ||
-    firstNonEmpty(result.extracted_data?.items) ||
-    [])
-    .map((item) => ({
-      description: item.description || item.raw_text || "Unknown item",
-      quantity: Number(item.quantity) || 0,
-      unit: item.unit || "kg",
-    }))
-    .filter((item) => item.description && item.quantity >= 0);
-
-const firstNonEmpty = (items) =>
-  Array.isArray(items) && items.length > 0 ? items : null;
