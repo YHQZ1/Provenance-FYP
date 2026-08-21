@@ -39,11 +39,11 @@ This repo is being consolidated. Several services exist, but the end-to-end data
 | Area            | Status                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------- |
 | React web app   | Screens exist, but some views still need real API-backed data states.                       |
-| Express backend | Main API shell exists. OCR/RAG adapters currently use mocks/simple logic.                   |
+| Express backend | Main API orchestrator with real OCR, classifier RAG, and regulatory RAG adapters.              |
 | OCR engine      | PaddleOCR extraction modules exist. FastAPI service entrypoint is not implemented yet.      |
-| RAG classifier  | FastAPI/Qdrant/Ollama plastic material classifier exists, but is not wired into backend.    |
-| Regulatory RAG  | Adjacent SEBI/CPCB/CCTS chatbot/scraper exists, but is not part of the first product spine. |
-| Database        | Supabase PostgreSQL is the shared source of truth for application data.                    |
+| RAG classifier  | FastAPI/Qdrant/Ollama plastic material classifier wired into document processing.              |
+| Regulatory RAG  | FastAPI/Qdrant/Ollama CPCB and SEBI research service exposed through the backend and frontend. |
+| Database        | Supabase PostgreSQL is the shared source of truth for application data.                     |
 | Infra           | Local compose currently starts Postgres only. Canonical infra is still being consolidated.  |
 
 See [docs/REPO_MAP.md](docs/REPO_MAP.md) for the repo map and cleanup notes.
@@ -277,6 +277,21 @@ npm run dev
 
 The local setup is not yet a complete one-command product boot. That is an active cleanup target.
 
+### Regulatory RAG
+
+The regulatory research service runs on port `8002` and uses the shared Qdrant and Ollama containers. Seed the configured official CPCB and SEBI sources after the stack is running:
+
+```bash
+docker compose -f infra/docker-compose.yaml up -d rag-regulatory
+docker exec infra-rag-regulatory-1 python scripts/ingest.py --config src/config/sources.yaml
+
+curl -X POST http://localhost:8002/query \
+  -H "Content-Type: application/json" \
+  -d '{"query":"What is extended producer responsibility for plastic packaging?"}'
+```
+
+The service returns a grounded answer with the source document URL for each retrieved passage. The backend exposes it at POST /api/regulatory/query, and the authenticated frontend screen is available at /regulatory.
+
 ## Roadmap
 
 ### Phase 1 - Repo and Infra Hygiene
@@ -291,7 +306,7 @@ The local setup is not yet a complete one-command product boot. That is an activ
 
 - Implement real OCR FastAPI entrypoint.
 - Wire backend OCR adapter to the real OCR service.
-- Wire backend RAG adapter to the real classifier.
+- Expand regulatory research into filing-specific guidance and citation review.
 - Store extracted fields, line items, confidence, and review status.
 - Complete EPR calculation and filing-period aggregation.
 - Remove dummy frontend data.
