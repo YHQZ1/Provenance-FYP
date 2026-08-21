@@ -17,8 +17,7 @@ The current codebase has useful pieces, but several are still service-local or m
 | `apps/ocr-service` | OCR engine/service | FastAPI OCR API is containerized and accepts PDF/JPEG/PNG/TIFF uploads at `/v1/ocr`. |
 | `apps/rag-classify` | Plastic material classification service | FastAPI service exists with Qdrant/Ollama pipeline. Not wired into backend adapter yet. |
 | `apps/rag-regulatory` | Regulatory RAG chatbot/scrapers | Useful adjacent service, not part of the first EPR document pipeline spine. |
-| `infra/postgres` | Local Postgres schema | Local schema derived from Supabase dump; backend still uses Supabase client semantics. |
-| `infra/docker-compose.yaml` | Current local dependency compose | Canonical compose entry for now. It currently starts Postgres only. |
+| `infra/docker-compose.yaml` | Shared local runtime | Runs Qdrant, Ollama, and the RAG classifier; application data remains in Supabase. |
 | `docs` | Cross-repo project docs | New home for repo-level architecture, setup, and cleanup notes. |
 
 ## Cleanup Rules

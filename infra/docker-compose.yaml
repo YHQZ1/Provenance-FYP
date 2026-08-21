@@ -1,19 +1,45 @@
-# Canonical local dependency compose for the repo while infra is being consolidated.
+# Canonical local runtime compose for the repository.
 # Run from the repo root with:
 #   docker compose -f infra/docker-compose.yaml up -d
 services:
-  postgres:
-    image: postgres:17
-    container_name: provenance-postgres
-    environment:
-      POSTGRES_USER: provenance
-      POSTGRES_PASSWORD: localdev
-      POSTGRES_DB: provenance
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: provenance-qdrant
     ports:
-      - "5433:5432"
+      - "6333:6333"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: provenance-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  rag-classify:
+    build:
+      context: ../apps/rag-classify
+    container_name: provenance-rag-classify
+    env_file:
+      - ../apps/rag-classify/.env
+    environment:
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - model_cache:/root/.cache/huggingface
+    ports:
+      - "8001:8001"
+    depends_on:
+      - qdrant
+      - ollama
+    restart: unless-stopped
 
 volumes:
-  pgdata:
+  qdrant_data:
+  ollama_data:
+  model_cache:

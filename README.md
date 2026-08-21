@@ -43,7 +43,7 @@ This repo is being consolidated. Several services exist, but the end-to-end data
 | OCR engine      | PaddleOCR extraction modules exist. FastAPI service entrypoint is not implemented yet.      |
 | RAG classifier  | FastAPI/Qdrant/Ollama plastic material classifier exists, but is not wired into backend.    |
 | Regulatory RAG  | Adjacent SEBI/CPCB/CCTS chatbot/scraper exists, but is not part of the first product spine. |
-| Database        | Supabase-style schema exists, with a local Postgres schema under `infra/postgres`.          |
+| Database        | Supabase PostgreSQL is the shared source of truth for application data.                    |
 | Infra           | Local compose currently starts Postgres only. Canonical infra is still being consolidated.  |
 
 See [docs/REPO_MAP.md](docs/REPO_MAP.md) for the repo map and cleanup notes.
@@ -234,8 +234,7 @@ apps/
   rag-regulatory/      Optional regulatory RAG chatbot/scraper
 
 infra/
-  postgres/            Local schema and Supabase-derived SQL
-  docker-compose.yaml  Current canonical local dependency compose
+  docker-compose.yaml  Shared Qdrant, Ollama, and classifier runtime
 
 docs/
   REPO_MAP.md          Repo map, cleanup status, decision log

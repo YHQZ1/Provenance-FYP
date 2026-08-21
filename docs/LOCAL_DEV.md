@@ -5,8 +5,11 @@ This is the current canonical local-dev note while the repo is being wired into 
 ## Current Canonical Entry Points
 
 ```bash
-# Local database dependency
+# Shared Qdrant, Ollama, and classifier runtime
+cp apps/rag-classify/.env.example apps/rag-classify/.env
+# Set DATABASE_URL in apps/rag-classify/.env to your Supabase PostgreSQL connection string.
 docker compose -f infra/docker-compose.yaml up -d
+docker exec -it provenance-ollama ollama pull llama3.2:3b
 
 # Backend API
 cd apps/backend-service
@@ -24,9 +27,9 @@ npm run dev
 ## Service Notes
 
 - `apps/backend-service` expects Supabase-style environment variables and currently uses Supabase client APIs.
-- `infra/postgres/init.sql` provides a local Postgres schema, but the backend is not fully converted to direct local Postgres access.
+- Supabase PostgreSQL is the database source of truth; the local Compose stack does not run PostgreSQL.
 - `apps/ocr-service` has OCR engine modules, but the FastAPI app entrypoint is not implemented yet.
-- `apps/rag-classify` has its own service-local compose for Qdrant/Ollama/RAG. It is not yet wired into the backend's external RAG adapter.
+- `apps/rag-classify` runs from the shared infra compose and reads Supabase data through its configured PostgreSQL connection.
 - `apps/rag-regulatory` is an adjacent regulatory chatbot/scraper service and should not block the first EPR upload-review-report flow.
 
 ## Immediate Hygiene Target
