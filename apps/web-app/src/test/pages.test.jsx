@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ToastProvider } from "../components/ui";
-import { filingFixture } from "./fixtures";
+import { filingFixture, obligationFixture } from "./fixtures";
 
 const workspace = { current: null };
 
@@ -67,6 +67,50 @@ vi.mock("../lib/api", () => ({
         checked_at: "2026-10-07T10:00:00Z",
       },
     }),
+  },
+  activityAPI: {
+    list: vi.fn().mockResolvedValue({
+      available: true,
+      next_before: null,
+      data: [
+        {
+          id: "e1",
+          actor_name: "Asha",
+          action: "line.corrected",
+          summary: "corrected PP to HDPE on invoice-001.pdf",
+          document_id: "d1",
+          financial_year: 2026,
+          details: { line: "HD drums", from: { material_code: "PP" }, to: { material_code: "HDPE", quantity_kg: 50 } },
+          created_at: "2026-10-07T09:30:00Z",
+        },
+        {
+          id: "e2",
+          actor_name: "Asha",
+          action: "document.deleted",
+          summary: "deleted old-scan.pdf",
+          document_id: "d9",
+          financial_year: 2026,
+          details: { filename: "old-scan.pdf" },
+          created_at: "2026-10-06T08:00:00Z",
+        },
+      ],
+    }),
+  },
+  obligationAPI: {
+    get: vi.fn().mockResolvedValue({ data: obligationFixture() }),
+    update: vi.fn().mockResolvedValue({ data: obligationFixture() }),
+  },
+  materialsAPI: {
+    library: vi.fn().mockResolvedValue({
+      data: {
+        available: true,
+        materials: [{ material_code: "PET", material_name: "Polyethylene Terephthalate", category: "RIGID_PLASTIC" }],
+        catalogue: [{ id: "s1", material_code: "PET", synonym: "POLYPET 3020", manufacturer: "Reliance Industries" }],
+        trade_names: [],
+        suggestions: [{ line: "BOPP film 20 micron", material_code: "PP", cpcb_category: "CATEGORY_II", times: 2 }],
+      },
+    }),
+    addTradeName: vi.fn().mockResolvedValue({ data: {} }),
   },
   regulatoryAPI: {
     sources: vi.fn().mockResolvedValue({
@@ -383,5 +427,82 @@ describe("Not found", () => {
     renderPage(<NotFound />);
     expect(screen.getByRole("heading", { name: "This page doesn't exist" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Go to Home" }).getAttribute("href")).toBe("/dashboard");
+  });
+});
+
+describe("Activity", () => {
+  it("lists who did what, with a link to documents that still exist", async () => {
+    const { default: Activity } = await import("../pages/Activity");
+    renderPage(<Activity />);
+
+    expect(await screen.findByText("corrected PP to HDPE on invoice-001.pdf")).toBeTruthy();
+    expect(screen.getByText(/PP → HDPE/)).toBeTruthy();
+    expect(screen.getAllByText("Asha").length).toBe(2);
+    const links = screen.getAllByRole("link", { name: /open/i });
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/documents?open=d1"]);
+  });
+
+  it("asks the server for one group of events when a tab is chosen", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const { activityAPI } = await import("../lib/api");
+    const { default: Activity } = await import("../pages/Activity");
+    renderPage(<Activity />);
+
+    fireEvent.click(await screen.findByRole("tab", { name: "Review" }));
+    await screen.findByText("corrected PP to HDPE on invoice-001.pdf");
+    expect(activityAPI.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fy: "2026", group: "review" }),
+    );
+  });
+});
+
+describe("Obligations", () => {
+  it("shows Q, the obligation and the shortfall per category", async () => {
+    const { default: Obligations } = await import("../pages/Obligations");
+    renderPage(<Obligations />);
+
+    expect(await screen.findByText("FY 2026-27 EPR obligations")).toBeTruthy();
+    expect(screen.getAllByText("230 kg").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("130 kg").length).toBeGreaterThan(0);
+    expect(screen.getByText("38 kg below recycling minimum")).toBeTruthy();
+  });
+
+  it("saves inputs for one category", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const { obligationAPI } = await import("../lib/api");
+    const { default: Obligations } = await import("../pages/Obligations");
+    renderPage(<Obligations />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Category I inputs" }));
+    fireEvent.change(screen.getByLabelText("B · Pre-consumer waste (kg)"), { target: { value: "75" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await screen.findByText("Category I updated");
+    expect(obligationAPI.update).toHaveBeenCalledWith(
+      2026,
+      "CATEGORY_I",
+      expect.objectContaining({ pre_consumer_kg: 75, supplied_kg: 20, epr_target_pct: null }),
+    );
+  });
+});
+
+describe("Materials library", () => {
+  it("turns a corrected line into a trade name", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const { materialsAPI } = await import("../lib/api");
+    const { default: Materials } = await import("../pages/Materials");
+    renderPage(<Materials />);
+
+    expect(await screen.findByText("POLYPET 3020")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(screen.getByLabelText("Trade name").value).toBe("BOPP film 20 micron");
+    fireEvent.change(screen.getByLabelText("Trade name"), { target: { value: "BOPP film" } });
+    const { within } = await import("@testing-library/react");
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add trade name" }));
+
+    await screen.findByText('"BOPP film" added');
+    expect(materialsAPI.addTradeName).toHaveBeenCalledWith(
+      expect.objectContaining({ trade_name: "BOPP film", material_code: "PP", cpcb_category: "CATEGORY_II" }),
+    );
   });
 });

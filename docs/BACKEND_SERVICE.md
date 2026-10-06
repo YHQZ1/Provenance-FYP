@@ -14,6 +14,8 @@ src/
     internal/              document, feedback (review), compliance (filing), company
                            filing.summary.js: pure ledger and blocker logic (unit-tested)
                            filing.lock.js: finalized-year rules
+                           obligation.calc.js, trade-names.js: pure obligation and trade-name logic (unit-tested)
+                           activity, obligation and materials services for the workspace tools
     external/              ocr, rag (classifier), regulatory clients; normalization.js (units, dates, FY)
     storage.service.js     Supabase Storage
   utils/errors.js          AppError and helpers (badRequest, notFound, conflict, …)
@@ -93,6 +95,17 @@ Every route except `GET /health` needs `Authorization: Bearer <Supabase access t
 | `GET` | `/api/regulatory/sources` | The indexed source documents |
 | `GET` | `/api/system/status` | Service reachability and which optional schema features are on |
 
+### Workspace tools
+
+| Method | Path | Does |
+| --- | --- | --- |
+| `GET` | `/api/activity?fy=2026&group=review&before=…&limit=50` | Audit trail, newest first. `fy=all` for every year; `group` is `documents`, `review`, `filing` or `settings`; page with `before` = the previous page's `next_before`. |
+| `GET` | `/api/obligations?fy=2026&basis=current` | Obligation per CPCB category. `basis=previous_two_years` averages A over the two years before. |
+| `PUT` | `/api/obligations/:category` | `{ fy, pre_consumer_kg?, supplied_kg?, epr_target_pct?, recycling_min_pct?, ec_rate_per_kg? }`. `null` clears a value back to the default. `409` for finalized years. |
+| `GET` | `/api/materials` | Polymers, the built-in catalogue, the company's trade names, and suggestions from its review corrections |
+| `POST` | `/api/materials/trade-names` | `{ trade_name, material_code, cpcb_category?, notes? }`. `409` if the name exists (ignoring case). |
+| `DELETE` | `/api/materials/trade-names/:id` | Remove one of the company's trade names |
+
 ## Business rules
 
 Rules are enforced here, not in the UI, and the database lets clients read only (see [DATABASE.md](DATABASE.md#row-level-security)).
@@ -102,6 +115,8 @@ Rules are enforced here, not in the UI, and the database lets clients read only 
 - **Financial year.** A document belongs to the FY of its invoice date, otherwise its upload date. See [ARCHITECTURE.md](ARCHITECTURE.md#filing-model) for the ledger, blockers and warnings.
 - **Finalized years.** These are read-only. Review actions, date changes, retries, and deletes of documents in the snapshot return `409` until the year is reopened. A document can't be moved into a finalized year either.
 - **Late documents.** A document dated in a finalized year but not in its snapshot is flagged. It can't be reviewed until the year is reopened, but it can be deleted.
+- **Audit trail.** Uploads, deletes, retries, date changes, every review decision, bulk approvals, finalize and reopen, profile changes, obligation inputs and trade names each record an `activity_events` row. Recording never fails the action itself.
+- **Trade names.** Before classification, each line is matched against the company's trade names (whole words, case and punctuation ignored, longest name wins). A match is suggested with confidence 0.95 and still needs approval; without a category it stays out of bulk approval.
 - **Processing.** A document being processed can't be deleted or retried, unless it has been stuck past the OCR and classifier timeouts plus 2 minutes. On startup, anything left mid-processing is marked `OCR_FAILED` so it can be retried.
 
 ## Adding an endpoint

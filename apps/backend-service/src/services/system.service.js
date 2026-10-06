@@ -54,6 +54,9 @@ export const systemService = {
       features: {
         finalization: capabilities.fyFilings,
         category_tracking: capabilities.classificationCategory,
+        activity_log: capabilities.activityLog,
+        obligations: capabilities.obligations,
+        trade_names: capabilities.tradeNames,
       },
       checked_at: new Date().toISOString(),
     };

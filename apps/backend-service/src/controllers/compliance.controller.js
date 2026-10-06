@@ -3,6 +3,8 @@ import {
   currentFinancialYear,
 } from "../services/internal/compliance.service.js";
 import { badRequest } from "../utils/errors.js";
+import { activityService } from "../services/internal/activity.service.js";
+import { financialYearRange } from "../services/external/normalization.js";
 
 const readYear = (req) => {
   const raw = req.query.fy ?? req.body?.fy;
@@ -24,10 +26,31 @@ const handle = (fn) => async (req, res, next) => {
 
 export const complianceController = {
   getFiling: handle((req) => complianceService.getFiling(req.user.id, readYear(req))),
-  finalize: handle((req) =>
-    complianceService.finalize(req.user.id, readYear(req), req.body?.notes),
-  ),
-  reopen: handle((req) => complianceService.reopen(req.user.id, readYear(req))),
+  finalize: handle(async (req) => {
+    const fy = readYear(req);
+    const filing = await complianceService.finalize(req.user.id, fy, req.body?.notes);
+    await activityService.record(req.user, {
+      action: "filing.finalized",
+      summary: `finalized ${financialYearRange(fy).label}`,
+      financialYear: fy,
+      details: {
+        introduced_kg: filing.totals.introduced.total_kg,
+        recycled_kg: filing.totals.recycled.total_kg,
+        notes: req.body?.notes || null,
+      },
+    });
+    return filing;
+  }),
+  reopen: handle(async (req) => {
+    const fy = readYear(req);
+    const filing = await complianceService.reopen(req.user.id, fy);
+    await activityService.record(req.user, {
+      action: "filing.reopened",
+      summary: `reopened ${financialYearRange(fy).label}`,
+      financialYear: fy,
+    });
+    return filing;
+  }),
   regulatoryReview: handle((req) =>
     complianceService.getRegulatoryReview(req.user.id, readYear(req)),
   ),

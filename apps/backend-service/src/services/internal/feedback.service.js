@@ -5,6 +5,7 @@ import { badRequest, notFound, unprocessable } from "../../utils/errors.js";
 import { financialYearOf, financialYearRange } from "../external/normalization.js";
 import { PROCESSING_STATUSES, effectiveDate } from "./filing.summary.js";
 import { assertDocumentEditable, finalizedYears } from "./filing.lock.js";
+import { activityService } from "./activity.service.js";
 
 export const MATERIAL_CODES = ["PET", "HDPE", "PVC", "LDPE", "PP", "PS", "MLP"];
 export const CPCB_CATEGORIES = [
@@ -30,7 +31,7 @@ const reviewStamp = async (reviewer) => {
 const fetchOwned = async (classificationId, userId, { forWrite = true } = {}) => {
   const { data } = await supabaseAdmin
     .from("document_classifications")
-    .select("*, documents!inner(id, company_id, status, created_at, extracted_data)")
+    .select("*, documents!inner(id, filename, company_id, status, created_at, extracted_data)")
     .eq("id", classificationId)
     .eq("documents.company_id", userId)
     .maybeSingle();
@@ -39,6 +40,16 @@ const fetchOwned = async (classificationId, userId, { forWrite = true } = {}) =>
   if (forWrite) await assertDocumentEditable(userId, data.documents);
   return data;
 };
+
+// One audit entry per decision, tied to the document and the year it counts toward.
+const recordDecision = (reviewer, item, action, summary, details = {}) =>
+  activityService.record(reviewer, {
+    action,
+    summary: `${summary} on ${item.documents.filename}`,
+    documentId: item.document_id,
+    financialYear: financialYearOf(effectiveDate(item.documents)),
+    details: { filename: item.documents.filename, line: item.matched_synonym, ...details },
+  });
 
 const effectiveValues = (item) => ({
   material_code: item.corrected_material_code || item.material_code,
@@ -89,6 +100,7 @@ export const feedbackService = {
     const items = ready.map((item) => {
       const locked = lockedYear(item.documents);
       return {
+      financial_year: financialYearOf(effectiveDate(item.documents)),
       id: item.id,
       document_id: item.document_id,
       document_filename: item.documents?.filename,
@@ -122,7 +134,7 @@ export const feedbackService = {
     };
   },
 
-  async approve(classificationId, reviewer, notes = "") {
+  async approve(classificationId, reviewer, notes = "", { record = true } = {}) {
     const item = await fetchOwned(classificationId, reviewer.id);
     const values = effectiveValues(item);
 
@@ -148,6 +160,12 @@ export const feedbackService = {
 
     if (error) throw new Error(`Approval failed: ${error.message}`);
     await this.updateDocumentReviewStatus(item.document_id);
+    if (record) {
+      await recordDecision(reviewer, item, "line.approved", `approved ${values.material_code}`, {
+        material_code: values.material_code,
+        quantity_kg: values.quantity_kg,
+      });
+    }
     return data;
   },
 
@@ -205,6 +223,18 @@ export const feedbackService = {
     }
 
     await this.updateDocumentReviewStatus(original.document_id);
+    await recordDecision(
+      reviewer,
+      original,
+      "line.corrected",
+      changed
+        ? `corrected ${original.material_code || "a line"} to ${material_code}`
+        : `confirmed ${material_code}`,
+      {
+        from: { material_code: original.material_code, quantity_kg: original.quantity_kg },
+        to: { material_code, quantity_kg: quantity, cpcb_category: cpcb_category ?? null },
+      },
+    );
     return data;
   },
 
@@ -229,6 +259,9 @@ export const feedbackService = {
 
     if (error) throw new Error(`Exclude failed: ${error.message}`);
     await this.updateDocumentReviewStatus(item.document_id);
+    await recordDecision(reviewer, item, "line.excluded", "excluded a line", {
+      reason: reason || "not plastic packaging",
+    });
     return data;
   },
 
@@ -239,15 +272,38 @@ export const feedbackService = {
 
     for (const item of suggested) {
       try {
-        await this.approve(item.id, reviewer, "Confirmed suggested classification");
+        await this.approve(item.id, reviewer, "Confirmed suggested classification", {
+          record: false,
+        });
         results.push({ id: item.id, success: true });
       } catch (error) {
         results.push({ id: item.id, success: false, error: error.message });
       }
     }
 
+    const approved = suggested.filter((_, index) => results[index].success);
+    if (approved.length) {
+      const files = [...new Set(approved.map((item) => item.document_filename))];
+      await activityService.record(reviewer, {
+        action: "lines.approved_in_bulk",
+        summary: `approved ${approved.length} suggested line${approved.length === 1 ? "" : "s"} on ${
+          files.length === 1 ? files[0] : `${files.length} documents`
+        }`,
+        documentId: documentId || (files.length === 1 ? approved[0].document_id : null),
+        financialYear:
+          new Set(approved.map((item) => item.financial_year)).size === 1
+            ? approved[0].financial_year
+            : null,
+        details: {
+          count: approved.length,
+          files,
+          quantity_kg: approved.reduce((sum, item) => sum + Number(item.quantity_kg || 0), 0),
+        },
+      });
+    }
+
     return {
-      approved: results.filter((r) => r.success).length,
+      approved: approved.length,
       failed: results.filter((r) => !r.success),
     };
   },

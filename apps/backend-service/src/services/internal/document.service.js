@@ -206,7 +206,12 @@ export const documentService = {
       },
     });
 
-    return { id: documentId, status: "PENDING" };
+    return {
+      id: documentId,
+      status: "PENDING",
+      filename: document.filename,
+      financial_year: financialYearOf(effectiveDate(document)),
+    };
   },
 
   async updateDocument(documentId, userId, updates) {
@@ -260,7 +265,7 @@ export const documentService = {
   async deleteDocument(documentId, userId) {
     const { data: document } = await supabaseAdmin
       .from("documents")
-      .select("id, file_path, status, extracted_data, created_at, updated_at")
+      .select("id, filename, file_path, status, extracted_data, created_at, updated_at")
       .eq("id", documentId)
       .eq("company_id", userId)
       .maybeSingle();
@@ -286,7 +291,7 @@ export const documentService = {
       console.error(`[Document] Stored file cleanup failed: ${err.message}`);
     });
 
-    return document;
+    return { ...document, financial_year: financialYearOf(effectiveDate(document)) };
   },
 
   async getDocument(documentId, userId) {

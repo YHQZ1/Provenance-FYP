@@ -1,5 +1,15 @@
 import { documentService } from "../services/internal/document.service.js";
 import { badRequest } from "../utils/errors.js";
+import { activityService } from "../services/internal/activity.service.js";
+
+const recordDocument = (req, document, action, summary, details = {}) =>
+  activityService.record(req.user, {
+    action,
+    summary,
+    documentId: document.id,
+    financialYear: document.financial_year,
+    details: { filename: document.filename, ...details },
+  });
 
 export const documentController = {
   async upload(req, res, next) {
@@ -11,6 +21,9 @@ export const documentController = {
         req.file,
         { documentType: req.body?.document_type },
       );
+      await recordDocument(req, document, "document.uploaded", `uploaded ${document.filename}`, {
+        document_type: document.document_type,
+      });
 
       res.status(201).json({
         success: true,
@@ -67,6 +80,17 @@ export const documentController = {
         req.user.id,
         { document_date },
       );
+      if (document_date !== undefined) {
+        await recordDocument(
+          req,
+          document,
+          "document.redated",
+          document_date
+            ? `dated ${document.filename} ${document_date}`
+            : `cleared the date on ${document.filename}`,
+          { document_date },
+        );
+      }
       res.json({ success: true, data: document });
     } catch (error) {
       next(error);
@@ -79,6 +103,7 @@ export const documentController = {
         req.params.id,
         req.user.id,
       );
+      await recordDocument(req, data, "document.retried", `retried ${data.filename}`);
       res.status(202).json({ success: true, data });
     } catch (error) {
       next(error);
@@ -87,7 +112,8 @@ export const documentController = {
 
   async deleteDocument(req, res, next) {
     try {
-      await documentService.deleteDocument(req.params.id, req.user.id);
+      const document = await documentService.deleteDocument(req.params.id, req.user.id);
+      await recordDocument(req, document, "document.deleted", `deleted ${document.filename}`);
       res.json({ success: true, message: "Document deleted" });
     } catch (error) {
       next(error);

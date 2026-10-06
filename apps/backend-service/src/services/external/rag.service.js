@@ -6,6 +6,8 @@ import {
   normalizeMaterialCode,
   normalizeQuantity,
 } from "./normalization.js";
+import { listTradeNames } from "../internal/materials.service.js";
+import { matchTradeName } from "../internal/trade-names.js";
 
 const REVIEW_THRESHOLD = 0.85;
 
@@ -51,9 +53,7 @@ export const ragService = {
         return [];
       }
 
-      const classifications = env.USE_MOCK_SERVICES
-        ? this.mockClassifyItems(items)
-        : await this.classifyItems(items);
+      const classifications = await this.classifyWithTradeNames(documentId, items);
 
       // Suggestions are never auto-approved: a person confirms every line,
       // high-confidence ones in bulk. verified_by_user stays a human signal.
@@ -127,6 +127,44 @@ export const ragService = {
         .eq("id", documentId);
       throw error;
     }
+  },
+
+  // Lines naming one of the company's own trade names are suggested from the Materials library;
+  // the rest go to the classifier. Either way a person still approves every line.
+  async classifyWithTradeNames(documentId, items) {
+    const { data: document } = await supabaseAdmin
+      .from("documents")
+      .select("company_id")
+      .eq("id", documentId)
+      .maybeSingle();
+    const tradeNames = document
+      ? await listTradeNames(document.company_id).catch((error) => {
+          console.error("[RAG] Trade names unavailable:", error.message);
+          return [];
+        })
+      : [];
+
+    const matches = items.map((item) => matchTradeName(item.description, tradeNames));
+    const remaining = items.filter((_, index) => !matches[index]);
+    const classified = env.USE_MOCK_SERVICES
+      ? this.mockClassifyItems(remaining)
+      : await this.classifyItems(remaining);
+
+    let next = 0;
+    return items.map((item, index) => {
+      const match = matches[index];
+      if (!match) return classified[next++];
+      return {
+        material_code: match.material_code,
+        cpcb_category: match.cpcb_category || null,
+        quantity_kg: normalizeQuantity(item),
+        confidence_score: 0.95,
+        reasoning: `Matches your trade name "${match.trade_name}" in the Materials library.`,
+        matched_synonym: item.description,
+        vector_similarity: null,
+        requires_human_review: !match.cpcb_category,
+      };
+    });
   },
 
   async classifyItems(items) {

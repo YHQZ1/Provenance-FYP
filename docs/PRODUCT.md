@@ -46,8 +46,13 @@ The reporting period is the Indian financial year, April to March. A document be
 | 5. Review | One line at a time beside the source document: approve, correct or exclude | Nothing counts until a person decides; who and when are recorded |
 | 6. File | The year's totals, blockers and warnings | Reviewed lines are summed per financial year and ledger (introduced, recycled, collected) |
 | 7. Finalize | Sign off the year and export CSV, JSON or PDF | A snapshot is frozen; the year becomes read-only until reopened |
+| 8. Obligations | What's owed per category, what's covered, and the shortfall | Q = A + B − C with default or company targets |
 
-Alongside this, **Regulatory research** answers questions from the official CPCB and SEBI documents and cites the source, and **Settings** covers the company profile, account security, service health and a full data export.
+Alongside this:
+- **Activity** is the audit trail: every action with who made it and when, exportable to CSV.
+- **Materials library** holds the company's own trade names, matched before the classifier. Lines corrected in review are suggested as new entries, so suggestions improve from the company's own data.
+- **Regulatory research** answers questions from the official CPCB and SEBI documents and cites the source.
+- **Settings** covers the company profile, account security, service health and a full data export.
 
 ## Principles
 
@@ -66,12 +71,12 @@ These shape most product decisions. Keep to them when adding features.
 
 - **Job queue for processing**, so documents survive restarts and long OCR or classification runs don't tie up the API.
 - **Trace, the in-app assistant**, answering questions on any page using the regulatory sources and the company's own filing. A "coming soon" preview is live.
-- **A larger local model** (8B) for regulatory answers, a bigger trade-name synonym library, and using OCR confidence to flag hard-to-read lines.
+- **A larger local model** (8B) for regulatory answers, and using OCR confidence to flag hard-to-read lines.
 - **Integration and end-to-end tests**: the backend against a disposable database, and a browser test of upload → review → finalize.
 
-### Next: EPR obligations
+### Built: EPR obligations
 
-Turn totals into obligations, using configurable targets rather than hard-coded ones, since the rules change:
+Totals become obligations on the Obligations page, using default targets from the 2022 guidelines that each company can override per year, since the rules change:
 
 ```text
 EPR quantity       Q = A + B − C
@@ -79,12 +84,15 @@ EPR quantity       Q = A + B − C
   B = pre-consumer plastic packaging waste
   C = quantity supplied to other registered or exempted entities
 
-recycling target   = Q × target % (per category and year)
-shortfall          = target − fulfilled
-compensation       = shortfall × rate per kg
+EPR obligation     = Q × EPR target %          (100% from FY 2023-24)
+recycling minimum  = obligation × minimum %    (Category I: 50% in FY 2024-25, rising to 80%)
+shortfall          = obligation − recycled
+compensation       = shortfall × rate per kg   (only if the company sets a rate)
 ```
 
-Worked example: A = 200 kg, B = 50 kg, C = 20 kg, target 60% → Q = 230 kg and the recycling target is 138 kg.
+Worked example for Category I in FY 2025-26: A = 200 kg, B = 50 kg, C = 20 kg gives Q = 230 kg. With the defaults (100% EPR target, 60% minimum recycling), the obligation is 230 kg, of which at least 138 kg must be recycled. With 100 kg of recycling certificates, the shortfall is 130 kg and recycling is 38 kg below its minimum.
+
+Next on this page: tracking EPR certificates and other fulfilment routes besides recycling certificates.
 
 ### Later: beyond plastic
 

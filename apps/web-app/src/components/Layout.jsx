@@ -5,10 +5,13 @@ import {
   Check,
   ChevronDown,
   ChevronsUpDown,
+  History,
   Home,
+  Library,
   Lock,
   LogOut,
   Menu,
+  Scale,
   Settings,
   X,
 } from "lucide-react";
@@ -267,7 +270,7 @@ function ServiceStatus() {
   );
 }
 
-function AccountMenu({ user, company }) {
+function AccountMenu({ user, company, profileIncomplete }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
@@ -302,8 +305,15 @@ function AccountMenu({ user, company }) {
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-neutral-950 text-xs font-semibold text-white">
+        <span className="relative flex size-8 shrink-0 items-center justify-center rounded-md bg-neutral-950 text-xs font-semibold text-white">
           {name.slice(0, 2).toUpperCase()}
+          {profileIncomplete && (
+            <span
+              className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-emerald-600 ring-2 ring-white"
+              title="Company profile incomplete"
+              aria-label="Company profile incomplete"
+            />
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium text-neutral-950">
@@ -335,7 +345,11 @@ function AccountMenu({ user, company }) {
             }}
             className="flex w-full items-center gap-2.5 rounded-sm px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-neutral-950"
           >
-            <Settings className="size-4" aria-hidden /> Company settings
+            <Settings className="size-4" aria-hidden />
+            <span className="flex-1 whitespace-nowrap text-left">Settings</span>
+            {profileIncomplete && (
+              <span className="text-xs text-emerald-700">Incomplete</span>
+            )}
           </button>
           <button
             type="button"
@@ -391,12 +405,26 @@ function Sidebar({ onNavigate }) {
 
         <nav className="mt-2 px-3" aria-label="Main">
           <SectionLabel>Overview</SectionLabel>
-          <NavItem
-            to="/dashboard"
-            icon={Home}
-            label="Home"
-            onNavigate={onNavigate}
-          />
+          <div className="space-y-0.5">
+            <NavItem
+              to="/dashboard"
+              icon={Home}
+              label="Home"
+              onNavigate={onNavigate}
+            />
+            <NavItem
+              to="/obligations"
+              icon={Scale}
+              label="Obligations"
+              onNavigate={onNavigate}
+            />
+            <NavItem
+              to="/activity"
+              icon={History}
+              label="Activity"
+              onNavigate={onNavigate}
+            />
+          </div>
 
           <SectionLabel>EPR workflow</SectionLabel>
           <ol>
@@ -429,24 +457,15 @@ function Sidebar({ onNavigate }) {
           <SectionLabel>Tools</SectionLabel>
           <div className="space-y-0.5">
             <NavItem
-              to="/regulatory"
-              icon={BookOpen}
-              label="Regulatory research"
+              to="/materials"
+              icon={Library}
+              label="Materials library"
               onNavigate={onNavigate}
             />
             <NavItem
-              to="/settings"
-              icon={Settings}
-              label="Settings"
-              meta={
-                company && !profileComplete ? (
-                  <span
-                    className="size-1.5 rounded-full bg-neutral-950"
-                    title="Company profile incomplete"
-                    aria-label="Profile incomplete"
-                  />
-                ) : null
-              }
+              to="/regulatory"
+              icon={BookOpen}
+              label="Regulatory research"
               onNavigate={onNavigate}
             />
           </div>
@@ -455,7 +474,11 @@ function Sidebar({ onNavigate }) {
 
       <div className="shrink-0 border-t border-neutral-100 px-3 pt-3 pb-3">
         <ServiceStatus />
-        <AccountMenu user={user} company={company} />
+        <AccountMenu
+          user={user}
+          company={company}
+          profileIncomplete={Boolean(company) && !profileComplete}
+        />
       </div>
     </div>
   );

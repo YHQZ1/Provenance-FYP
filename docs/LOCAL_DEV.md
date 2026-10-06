@@ -28,7 +28,7 @@ The service-role key and database URL are full-access credentials. Keep them out
 
 ## 2. Supabase
 
-1. **Schema.** Apply `supabase/migrations/000` → `006`, then `supabase/seed.sql`. See [DATABASE.md](DATABASE.md#migrations).
+1. **Schema.** Apply `supabase/migrations/000` → `007`, then `supabase/seed.sql`. See [DATABASE.md](DATABASE.md#migrations).
 2. **Auth providers.** Enable Email, plus Google and Azure if you want social sign-in.
 3. **Redirect URLs.** Under Authentication → URL Configuration, add `http://localhost:5173/**`. Without it, sign-in and password reset send you to the deployed site.
 4. **Storage.** Create a **private** bucket named `documents`; the backend stores uploads there. Migrations don't create buckets. The app shows files through signed URLs, so the bucket needs no client policies.

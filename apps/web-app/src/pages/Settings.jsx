@@ -571,6 +571,13 @@ function SystemSection() {
           on: status.features.category_tracking,
           fix: "Run supabase/migrations/002_classification_category.sql on the database.",
         },
+        {
+          name: "Activity log, obligation inputs and trade names",
+          // Older backends don't report these; treat missing as unknown rather than off.
+          on: status.features.activity_log !== false && status.features.obligations !== false &&
+            status.features.trade_names !== false,
+          fix: "Run supabase/migrations/007_activity_obligations_trade_names.sql on the database.",
+        },
       ]
     : [];
 

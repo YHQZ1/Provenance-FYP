@@ -33,7 +33,8 @@ upload ──▶ PENDING ──▶ OCR_PROCESSING ──┬──▶ VERIFIED   
    - Line items are normalised to kilograms. Counts and lengths stay as non-weights for a person to convert.
    - One review line is created per item, or a single placeholder line if none were found.
 3. **Classification.** Each line goes to `POST /classify`, at most `RAG_CONCURRENCY` (default 2) at a time.
-   - The classifier embeds the description, finds the closest trade-name synonyms in Qdrant, and asks Ollama to pick a material.
+   - First, the line is checked against the company's own trade names (Materials library). A match is suggested straight away with its material and category, and skips the classifier.
+   - Otherwise the classifier embeds the description, finds the closest trade-name synonyms in Qdrant, and asks Ollama to pick a material.
    - A rule-based taxonomy assigns the CPCB category.
    - A failed line is kept with no material, for manual entry.
 4. **Review.** Nothing counts until a person approves, corrects or excludes the line.
@@ -69,6 +70,26 @@ Processing currently runs inside the backend process, not in a queue. On startup
   - a document dated in the year that arrives after finalizing is a **late document**. It's flagged in Documents, Review and Filing, isn't in the snapshot, and can be deleted without reopening.
 - **Reopen** deletes the snapshot, and the year goes back to live numbers.
 
+## Obligations
+
+`obligation.calc.js` is a pure function, unit-tested like the filing summary. Per CPCB category:
+
+```text
+Q            = A + B − C           A introduced (reviewed purchase invoices), B pre-consumer waste, C supplied to registered entities
+obligation   = Q × EPR target %
+recycling    = obligation × minimum recycling %
+shortfall    = obligation − recycled (reviewed recycling certificates in that category)
+compensation = shortfall × rate per kg, only when the company sets a rate
+```
+
+- **A** comes from the year's reviewed purchases, or optionally the average of the two previous years. Finalized years contribute their snapshot.
+- **B, C, targets and rates** are stored per company, year and category in `epr_obligation_inputs`. Blank targets fall back to defaults from the 2022 EPR guidelines (100% EPR target from FY 2023-24; minimum recycling stepping up per category from FY 2024-25; no default for Category IV). The page labels each value as "default" or "yours".
+- Inputs for a finalized year are locked, like everything else in it.
+
+## Activity
+
+Every write records one `activity_events` row: actor name, action, a readable summary, the document and financial year, and structured details (for example a correction's from → to). Recording is best-effort: if it fails, the action still succeeds and the error is logged. Bulk approval records a single event with the count. Company-wide events (profile, trade names) have no year and show under every year's filter.
+
 ## Security model
 
 - **Authentication.** The frontend signs in with Supabase Auth (email and password, Google, Microsoft). Every backend request carries `Authorization: Bearer <access token>`, which the backend verifies with Supabase. No other header grants identity.
@@ -88,4 +109,5 @@ Processing currently runs inside the backend process, not in a queue. On startup
 - In-process processing, as above. A queue is planned.
 - The 3B model sometimes misses specific regulatory facts that are in the indexed documents. A larger model is planned.
 - Each user account is one company; there are no teams or roles yet.
-- Obligation targets and shortfalls are not calculated yet (see [PRODUCT.md](PRODUCT.md#next-epr-obligations)).
+- Obligations count recycling certificates as the only fulfilment. Other routes, such as end-of-life disposal or EPR certificates bought on the portal, aren't tracked yet.
+- Uploads made before migration 007 show the account's email as the uploader, because the uploader wasn't recorded then.

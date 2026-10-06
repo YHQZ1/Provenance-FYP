@@ -1,5 +1,13 @@
 import * as companyService from "../services/internal/company.service.js";
 import { badRequest } from "../utils/errors.js";
+import { activityService } from "../services/internal/activity.service.js";
+
+const PROFILE_LABELS = {
+  company_name: "name",
+  gst_number: "GSTIN",
+  Pibo_category: "PIBO category",
+  epr_registration_number: "EPR registration number",
+};
 
 const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/;
 export const PIBO_CATEGORIES = ["PRODUCER", "IMPORTER", "BRAND_OWNER"];
@@ -82,6 +90,14 @@ export const companyController = {
           (updates.Pibo_category ?? req.company?.Pibo_category)?.length,
       );
       const company = await companyService.updateCompany(req.user.id, updates);
+      const changed = Object.keys(updates).filter((key) => key !== "onboarding_completed");
+      if (company && changed.length) {
+        await activityService.record(req.user, {
+          action: "company.updated",
+          summary: `updated the company profile (${changed.map((key) => PROFILE_LABELS[key] || key).join(", ")})`,
+          details: Object.fromEntries(changed.map((key) => [key, updates[key]])),
+        });
+      }
 
       if (!company) {
         return res.status(404).json({

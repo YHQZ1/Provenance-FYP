@@ -13,9 +13,10 @@ Provenance uses a hosted Supabase project: Postgres for data, Storage for upload
 | `004_review_audit_and_upload_dedupe.sql` | `reviewed_by`, `reviewed_by_name` and `reviewed_at` on each line; a unique file hash per company |
 | `005_lock_down_public_access.sql` | Row-level security on `companies`; `dashboard_summary` runs as the caller |
 | `006_read_only_client_access.sql` | Client policies on tables and stored files become read-only |
+| `007_activity_obligations_trade_names.sql` | `activity_events` (audit trail, backfilled once from existing uploads, reviews and finalizations), `epr_obligation_inputs`, `company_trade_names` |
 | `seed.sql` | Reference data: 7 polymers and 26 trade-name synonyms. Safe to re-run. |
 
-**Fresh project:** apply 000 → 006, then `seed.sql`. Either paste each file into the Supabase SQL editor, or set `DATABASE_URL` in `apps/rag-classify/.env` and run:
+**Fresh project:** apply 000 → 007, then `seed.sql`. Either paste each file into the Supabase SQL editor, or set `DATABASE_URL` in `apps/rag-classify/.env` and run:
 
 ```bash
 for f in supabase/migrations/*.sql supabase/seed.sql; do make db-migrate f=$f; done
@@ -38,6 +39,9 @@ for f in supabase/migrations/*.sql supabase/seed.sql; do make db-migrate f=$f; d
 | `document_classifications` | line item | The suggestion (`material_code`, `cpcb_category`, `quantity_kg`, `confidence_score`, `reasoning`), the reviewer's corrections (`corrected_*`), `verified_by_user`, `reviewer_notes` and the reviewer stamp. An excluded line is verified with no material. |
 | `classification_feedback` | correction | The original and corrected values whenever a reviewer changes a suggestion, kept to improve the classifier later. |
 | `fy_filings` | finalized year | `snapshot` is the full filing summary at sign-off. Unique per company and year. |
+| `activity_events` | recorded action | Who (`actor_name`), what (`action`, `summary`, `details`), which document and financial year. Written only by the backend, never edited, and kept after the document is deleted. |
+| `epr_obligation_inputs` | company, year and category | Pre-consumer waste (B), quantity supplied to registered entities (C), and any EPR target, minimum recycling share or compensation rate the company sets instead of the defaults |
+| `company_trade_names` | trade name | A company's own name for a material (unique per company, ignoring case), with an optional CPCB category |
 | `materials_master` | polymer | PET, HDPE, LDPE, PP, PVC, PS, MLP |
 | `material_synonyms` | trade name | For example `POLYPET 3020 → PET`. Seeded into Qdrant by the classifier. |
 
@@ -49,7 +53,7 @@ The backend uses the service-role key, which bypasses row-level security. RLS th
 
 | Object | Clients can |
 | --- | --- |
-| `companies` | Read their own row |
+| `companies`, `activity_events`, `epr_obligation_inputs`, `company_trade_names` | Read their own rows |
 | `documents`, `document_classifications`, `company_materials`, `filing_periods` | Read their own rows |
 | `material_synonyms` | Read all (public reference data) |
 | `materials_master`, `classification_feedback`, `fy_filings` | Nothing |

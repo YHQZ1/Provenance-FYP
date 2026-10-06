@@ -16,6 +16,9 @@ upload documents → read them (OCR) → suggest materials (RAG) → a person re
 - **Review** every line before it counts. Approve, correct or exclude it, with the source document beside it and keyboard shortcuts. High-confidence suggestions can be approved in bulk. Each decision records who made it and when.
 - **File per financial year** (April to March), using each document's invoice date. The Filing page shows plastic introduced, recycled and collected by material and by category, with a list of what still blocks finalizing.
 - **Finalize** a year to freeze a signed-off snapshot. Later changes and late-arriving documents are flagged instead of silently changing filed numbers. Export to CSV, JSON or PDF.
+- **Work out obligations** per CPCB category: Q = A + B − C, the EPR target and the minimum recycling share, recycled so far, the shortfall and an optional compensation estimate. Default targets come from the 2022 EPR guidelines and can be overridden.
+- **Keep an audit trail.** Activity lists every upload, review decision, deletion, finalization and settings change, with who made it and when, and exports to CSV.
+- **Teach it your suppliers' names.** The Materials library holds your own trade names (for example `POLYPET 3020 → PET`), which are matched before the classifier runs. Lines you corrected in review are suggested as new entries.
 - **Research** the regulations. Ask questions about the CPCB guidance and get answers that cite the source document and page.
 
 Provenance prepares the numbers and evidence. Filing on the CPCB portal is still done by the company.
@@ -65,7 +68,7 @@ cp apps/web-app/.env.example apps/web-app/.env.development
 cp apps/rag-classify/.env.example apps/rag-classify/.env
 
 # 2. Database: apply supabase/migrations in order, then supabase/seed.sql
-make db-migrate f=supabase/migrations/000_baseline.sql   # repeat for 001 … 006, then the seed
+make db-migrate f=supabase/migrations/000_baseline.sql   # repeat for 001 … 007, then the seed
 
 # 3. Run everything
 make up        # builds and starts all services
@@ -116,7 +119,7 @@ The Plastic EPR workflow works end to end. Next up:
 2. **Trace, the in-app assistant.** A preview is in the app now. It will answer questions on any page using the regulatory sources and the company's own filing.
 3. **A larger language model** for regulatory answers. The current 3B model misses some specific answers, such as filing deadlines.
 
-Further out: EPR obligation targets and shortfall estimates, BRSR Core reporting, and product-level carbon estimates. See [PRODUCT.md](docs/PRODUCT.md#roadmap).
+Further out: EPR certificate tracking against obligations, BRSR Core reporting, and product-level carbon estimates. See [PRODUCT.md](docs/PRODUCT.md#roadmap).
 
 ## What Provenance doesn't claim
 

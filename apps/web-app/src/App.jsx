@@ -14,6 +14,9 @@ import Review from "./pages/Review.jsx";
 import Filing from "./pages/Filing.jsx";
 import RegulatoryResearch from "./pages/RegulatoryResearch.jsx";
 import Settings from "./pages/Settings.jsx";
+import Obligations from "./pages/Obligations.jsx";
+import Activity from "./pages/Activity.jsx";
+import Materials from "./pages/Materials.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Layout from "./components/Layout.jsx";
@@ -47,6 +50,9 @@ export default function App() {
             <Route path="/review" element={<Review />} />
             <Route path="/filing" element={<Filing />} />
             <Route path="/regulatory" element={<RegulatoryResearch />} />
+            <Route path="/obligations" element={<Obligations />} />
+            <Route path="/activity" element={<Activity />} />
+            <Route path="/materials" element={<Materials />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
 

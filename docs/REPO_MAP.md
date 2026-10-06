@@ -7,7 +7,7 @@ Where things live and where to start reading.
 | Path | Role | Start reading at |
 | --- | --- | --- |
 | `apps/web-app` | React frontend | `src/App.jsx` (routes); `src/components/Layout.jsx` (shell, year switcher); `src/lib/workspace.jsx` (shared filing state); `src/lib/api.js`; `src/components/ui.jsx` (design system) |
-| `apps/backend-service` | Express API, the only writer | `src/app.js`; `src/services/internal/filing.summary.js` (filing logic); `document.service.js`; `feedback.service.js` |
+| `apps/backend-service` | Express API, the only writer | `src/app.js`; `src/services/internal/filing.summary.js` (filing logic); `obligation.calc.js`; `document.service.js`; `feedback.service.js`; `activity.service.js` |
 | `apps/ocr-service` | Text, fields and line items from files | `src/ocr_service/pipeline/service.py`; `pipeline/parsing.py` |
 | `apps/rag-classify` | Material and CPCB category suggestions | `src/services/rag_pipeline.py`; `src/services/taxonomy.py` |
 | `apps/rag-regulatory` | Question answering over official documents | `src/main.py`; `src/rag/text.py`; `scripts/ingest.py`; `src/config/sources.yaml` |
@@ -23,6 +23,9 @@ Where things live and where to start reading.
 | `/documents` | `Documents.jsx` | Upload queue, document list and detail panel |
 | `/review` | `Review.jsx` | One line at a time beside its source, with keyboard shortcuts |
 | `/filing` | `Filing.jsx` | Totals, blockers, finalize or reopen, exports |
+| `/obligations` | `Obligations.jsx` | Q = A + B − C per CPCB category, targets, shortfall, compensation estimate |
+| `/activity` | `Activity.jsx` | Audit trail by day, filterable, with CSV export |
+| `/materials` | `Materials.jsx` | The company's trade names, suggestions from corrections, the built-in catalogue |
 | `/regulatory` | `RegulatoryResearch.jsx` | Questions over CPCB and SEBI sources |
 | `/settings` | `Settings.jsx` | Company profile, account, system status, data export |
 | `*` | `NotFound.jsx` | 404 |

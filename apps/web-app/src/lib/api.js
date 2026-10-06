@@ -96,4 +96,19 @@ export const regulatoryAPI = {
   sources: () => api.get("/regulatory/sources"),
 };
 
+export const activityAPI = {
+  list: (params) => api.get("/activity", { params }),
+};
+
+export const obligationAPI = {
+  get: (fy, basis) => api.get("/obligations", { params: { fy, basis } }),
+  update: (fy, category, values) => api.put(`/obligations/${category}`, { fy, ...values }),
+};
+
+export const materialsAPI = {
+  library: () => api.get("/materials"),
+  addTradeName: (data) => api.post("/materials/trade-names", data),
+  removeTradeName: (id) => api.delete(`/materials/trade-names/${id}`),
+};
+
 export default api;
