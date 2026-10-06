@@ -3,15 +3,26 @@
 Admin endpoints for database seeding and setup.
 """
 
-from fastapi import APIRouter, HTTPException, status
+import hmac
 
+from fastapi import APIRouter, Depends, Header, HTTPException, status
+
+from src.config import settings
 from src.services.rag_pipeline import get_pipeline
 
-router = APIRouter(prefix="/admin", tags=["Admin"])
+
+def require_admin(x_admin_token: str = Header(default="")) -> None:
+    if not settings.admin_token:
+        raise HTTPException(status_code=403, detail="Admin endpoints are disabled. Set ADMIN_TOKEN to enable them.")
+    if not hmac.compare_digest(x_admin_token, settings.admin_token):
+        raise HTTPException(status_code=401, detail="Invalid admin token")
+
+
+router = APIRouter(prefix="/admin", tags=["Admin"], dependencies=[Depends(require_admin)])
 
 
 @router.post("/seed-synonyms")
-async def seed_synonyms():
+def seed_synonyms():
     """
     One-time setup: Load material synonyms from PostgreSQL,
     encode them, and upload to Qdrant.
@@ -39,6 +50,8 @@ async def seed_synonyms():
             "vectors_in_qdrant": info.get("vector_count", 0) if info else 0
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -47,7 +60,7 @@ async def seed_synonyms():
 
 
 @router.delete("/reset-qdrant")
-async def reset_qdrant():
+def reset_qdrant():
     """
     Delete and recreate Qdrant collection.
     WARNING: Destroys all vectors. Use with caution.

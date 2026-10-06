@@ -17,7 +17,7 @@ router = APIRouter(prefix="/classify", tags=["Classification"])
 
 
 @router.post("", response_model=ClassificationResponse)
-async def classify_material(request: ClassificationRequest):
+def classify_material(request: ClassificationRequest):
     """
     Classify plastic material from text.
     
@@ -43,7 +43,9 @@ async def classify_material(request: ClassificationRequest):
             )
         
         return result
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -82,8 +82,8 @@ class ClassificationResult(BaseModel):
         examples=["PET", "HDPE", "LDPE", "PP", "PS", "PVC", "MLP"]
     )
     
-    material_name: str = Field(
-        ...,
+    material_name: Optional[str] = Field(
+        default=None,
         description="Full material name",
         examples=["Polyethylene Terephthalate", "High Density Polyethylene"]
     )
@@ -116,6 +116,22 @@ class ClassificationResult(BaseModel):
         default=False,
         description="True if confidence below threshold or ambiguous"
     )
+
+    cpcb_category: Optional[str] = Field(
+        default=None,
+        description="CPCB EPR category: CATEGORY_I to CATEGORY_IV, BIODEGRADABLE, or null if unknown",
+        examples=["CATEGORY_I"]
+    )
+
+    cpcb_category_label: Optional[str] = Field(default=None)
+
+    detailed_code: Optional[str] = Field(
+        default=None,
+        description="The model's detailed code before mapping to a base polymer",
+        examples=["PET_RIGID"]
+    )
+
+    vector_similarity: Optional[float] = Field(default=None)
     
     suggested_category: Optional[str] = Field(
         default=None,

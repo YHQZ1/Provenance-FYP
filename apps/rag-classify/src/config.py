@@ -81,6 +81,12 @@ class Settings(BaseSettings):
         description="Minimum confidence score to auto-accept classification (0-1)"
     )
     
+    # === Admin ===
+    admin_token: str = Field(
+        default="",
+        description="Token required for /admin endpoints. Admin endpoints are disabled when empty."
+    )
+
     # === API ===
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8001)

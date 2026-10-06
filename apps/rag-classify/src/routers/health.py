@@ -13,7 +13,7 @@ router = APIRouter(prefix="/health", tags=["Health"])
 
 
 @router.get("", response_model=HealthResponse)
-async def health_check():
+def health_check():
     """
     Check health of all RAG service dependencies.
     Returns status of: embedding model, Qdrant, Ollama, PostgreSQL
@@ -37,11 +37,19 @@ async def health_check():
     
     # Check Qdrant
     vs_info = checks["vector_store"]
-    vs_healthy = vs_info is not None and vs_info.get("vector_count", 0) >= 0
+    vs_healthy = vs_info is not None
+    seeded = checks.get("synonyms", 0) > 0
     services.append(ServiceHealth(
         service="qdrant",
-        status=HealthStatus.HEALTHY if vs_healthy else HealthStatus.UNHEALTHY,
-        error=None if vs_healthy else "Cannot connect to Qdrant"
+        status=(
+            HealthStatus.HEALTHY if vs_healthy and seeded
+            else HealthStatus.DEGRADED if vs_healthy
+            else HealthStatus.UNHEALTHY
+        ),
+        error=None if vs_healthy and seeded else (
+            "No material synonyms loaded; classification runs without retrieval" if vs_healthy
+            else "Cannot connect to Qdrant"
+        )
     ))
     if not vs_healthy:
         overall_status = HealthStatus.UNHEALTHY

@@ -15,6 +15,7 @@ Coordinates embedding, retrieval, and LLM classification.
 """
 
 import logging
+import threading
 import time
 from typing import Dict, List, Optional, Any
 
@@ -24,6 +25,7 @@ from src.services.vector_store import get_vector_store
 from src.services.local_llm import get_llm_service
 from src.services.quantity_parser import parse_quantity
 from src.services.db_client import get_db_client
+from src.services.taxonomy import CATEGORY_LABELS
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +74,16 @@ class RAGPipeline:
             
             # Step 2: Retrieve similar synonyms from Qdrant
             logger.debug("Step 2: Retrieving from vector store...")
-            candidates = self.vector_store.search_similar(
-                query_embedding=query_vector,
-                top_k=settings.top_k_synonyms,
-                score_threshold=0.5  # Lower threshold = more candidates
-            )
+            warnings: List[str] = []
+            try:
+                candidates = self.vector_store.search_similar(
+                    query_embedding=query_vector,
+                    top_k=settings.top_k_synonyms,
+                    score_threshold=0.5  # Lower threshold = more candidates
+                )
+            except Exception as search_error:
+                candidates = []
+                warnings.append(f"Synonym search unavailable: {search_error}")
             
             # Step 3: Extract quantity from text
             logger.debug("Step 3: Parsing quantity...")
@@ -95,16 +102,17 @@ class RAGPipeline:
             processing_time_ms = int((time.time() - start_time) * 1000)
             
             # Step 6: Build response
+            classification = self._build_classification_result(llm_result, candidates, extracted_qty)
+            if warnings:
+                classification["requires_human_review"] = True
             result = {
                 "success": True,
                 "document_type": self._detect_document_type(text),
-                "classifications": [self._build_classification_result(
-                    llm_result, candidates, extracted_qty
-                )],
+                "classifications": [classification],
                 "raw_text": text,
                 "processing_time_ms": processing_time_ms,
                 "model_used": settings.ollama_model,
-                "errors": None
+                "errors": warnings or None
             }
             
             # Step 7: Save to database if requested
@@ -162,18 +170,16 @@ class RAGPipeline:
         
         return {
             "material_code": llm_result["material_code"],
-            "material_name": (
-                llm_result.get("material_name")
-                or (candidates[0].get("material_name") if candidates else None)
-                or "Unknown"
-            ),
-            "cpcb_category": llm_result.get("cpcb_category", "UNKNOWN"),
+            "material_name": llm_result.get("material_name"),
+            "cpcb_category": llm_result.get("cpcb_category"),
+            "cpcb_category_label": CATEGORY_LABELS.get(llm_result.get("cpcb_category") or ""),
+            "detailed_code": llm_result.get("detailed_code"),
             "confidence_score": llm_result["confidence"],
             "reasoning": llm_result["reasoning"],
             "matched_synonyms": candidates[:3],  # Top 3 for context
             "extracted_quantity": extracted_qty,
             "requires_human_review": llm_result["needs_human_review"],
-            "vector_similarity": best_match["similarity_score"] if best_match else 0.0
+            "vector_similarity": best_match["similarity_score"] if best_match else None
         }
     
     def _save_classification(
@@ -200,6 +206,16 @@ class RAGPipeline:
             logger.error(f"Failed to save classification: {e}")
             return False
     
+    def seed_if_empty(self) -> None:
+        """Seed Qdrant from PostgreSQL on first start so retrieval isn't silently empty."""
+        count = self.vector_store.count_vectors()
+        if count > 0:
+            logger.info(f"Synonym collection has {count} vectors")
+            return
+        logger.info("Synonym collection is empty; seeding from the database")
+        if not self.seed_synonyms():
+            logger.warning("Automatic synonym seeding failed; classification will run without retrieval")
+
     def seed_synonyms(self) -> bool:
         """
         One-time setup: Load material_synonyms from PostgreSQL,
@@ -238,6 +254,7 @@ class RAGPipeline:
         return {
             "embedding": self.embedding.get_model_info(),
             "vector_store": self.vector_store.get_collection_info(),
+            "synonyms": self.vector_store.count_vectors(),
             "llm": self.llm.test_connection(),
             "database": self.db.test_connection()
         }
@@ -245,11 +262,16 @@ class RAGPipeline:
 
 # Singleton
 _pipeline: Optional[RAGPipeline] = None
+_pipeline_lock = threading.Lock()
+
 
 def get_pipeline() -> RAGPipeline:
+    # The startup warm-up thread and the first request may race to build it.
     global _pipeline
     if _pipeline is None:
-        _pipeline = RAGPipeline()
+        with _pipeline_lock:
+            if _pipeline is None:
+                _pipeline = RAGPipeline()
     return _pipeline
 
 

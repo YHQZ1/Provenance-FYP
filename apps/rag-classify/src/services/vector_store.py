@@ -187,10 +187,11 @@ class VectorStore:
             
             logger.debug(f"Found {len(matches)} similar synonyms (threshold {score_threshold})")
             return matches
-            
+
         except Exception as e:
+            # Callers decide how to degrade; a silent empty list hid outages before.
             logger.error(f"Search failed: {e}")
-            return []
+            raise
     
     def delete_collection(self) -> bool:
         """
