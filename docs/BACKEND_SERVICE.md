@@ -55,15 +55,26 @@ For a backend container attached to the same Docker network as the classifier, u
 RAG_SERVICE_URL=http://rag-classify:8001
 ```
 
+Each upload carries a `document_type`: `purchase_invoice`, `recycling_certificate`, `collection_receipt`, or `epr_record`. EPR records are stored as evidence and are not quantified. Re-uploading the same file is rejected with `409` so quantities are never counted twice.
+
 The document status flow is:
 
 ```text
-PENDING -> OCR_PROCESSING -> RAG_PROCESSING -> VERIFIED
-                                      \-> CLASSIFIED (human review required)
-                                      \-> RAG_FAILED
+PENDING -> OCR_PROCESSING -> RAG_PROCESSING -> CLASSIFIED -> REVIEW_PENDING -> VERIFIED
+                \-> OCR_FAILED (retry with POST /api/documents/:id/retry)
 ```
 
-`VERIFIED` means every classification cleared the review threshold. `CLASSIFIED` means at least one result needs human review.
+The classifier only suggests. Every line is confirmed by a person in Review, either individually or in bulk for high-confidence suggestions (`POST /api/feedback/approve-suggested`), so `verified_by_user` always means a human reviewed it. Lines can be approved, corrected, or excluded.
+
+Filing is per Indian financial year (April-March). A document counts toward the year of its invoice date, falling back to its upload date. `GET /api/compliance/filing?fy=2026` returns totals split by document type, the open blockers, and the evidence list. `POST /api/compliance/filing/finalize` stores a snapshot in `fy_filings` (see `supabase/migrations`).
+
+Each classified line also carries its CPCB category (I rigid, II flexible, III multilayered with a non-plastic layer, IV compostable) once `supabase/migrations/002_classification_category.sql` is applied; filing totals are then split by category. Until then the backend detects the missing column at startup and skips category storage.
+
+A finalized financial year is read-only: review actions, date changes, retries, and deletes on its documents return `409` until the year is reopened.
+
+`GET /api/system/status` reports whether the OCR, classifier, and regulatory services are reachable and which optional schema features are enabled.
+
+Documents left mid-processing by a restart are marked `OCR_FAILED` on startup so they can be retried.
 
 ## Docker
 

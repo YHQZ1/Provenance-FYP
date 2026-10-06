@@ -40,11 +40,11 @@ This repo is being consolidated. Several services exist, but the end-to-end data
 | --------------- | ------------------------------------------------------------------------------------------- |
 | React web app   | Screens exist, but some views still need real API-backed data states.                       |
 | Express backend | Main API orchestrator with real OCR, classifier RAG, and regulatory RAG adapters.              |
-| OCR engine      | PaddleOCR extraction modules exist. FastAPI service entrypoint is not implemented yet.      |
+| OCR engine      | FastAPI OCR service (`/v1/ocr`) with PaddleOCR fallback for scanned documents.              |
 | RAG classifier  | FastAPI/Qdrant/Ollama plastic material classifier wired into document processing.              |
 | Regulatory RAG  | FastAPI/Qdrant/Ollama CPCB and SEBI research service exposed through the backend and frontend. |
 | Database        | Supabase PostgreSQL is the shared source of truth for application data.                     |
-| Infra           | Local compose currently starts Postgres only. Canonical infra is still being consolidated.  |
+| Infra           | `infra/docker-compose.yaml` runs every service; Supabase hosts the database.                |
 
 See [docs/REPO_MAP.md](docs/REPO_MAP.md) for the repo map and cleanup notes.
 

@@ -15,7 +15,7 @@ The current codebase has useful pieces, but several are still service-local or m
 | `apps/web-app` | React/Vite frontend | Real screens exist, but some views still assume dummy or incomplete backend data. |
 | `apps/backend-service` | Express orchestration API | Main API surface. Document uploads call OCR and classifier RAG; authenticated regulatory research is exposed at /api/regulatory/query. |
 | `apps/ocr-service` | OCR engine/service | FastAPI OCR API is containerized and accepts PDF/JPEG/PNG/TIFF uploads at `/v1/ocr`. |
-| `apps/rag-classify` | Plastic material classification service | FastAPI service exists with Qdrant/Ollama pipeline. Not wired into backend adapter yet. |
+| `apps/rag-classify` | Plastic material classification service | FastAPI service with Qdrant/Ollama pipeline, called by the backend for each extracted line item. |
 | `apps/rag-regulatory` | Regulatory RAG chatbot/scrapers | Independent regulatory research service on port 8002 with a seeded CPCB/SEBI source corpus. |
 | `infra/docker-compose.yaml` | Shared local runtime | Runs Qdrant, Ollama, the RAG classifier, and regulatory RAG; application data remains in Supabase. |
 | `docs` | Cross-repo project docs | New home for repo-level architecture, setup, and cleanup notes. |
