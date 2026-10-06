@@ -37,6 +37,7 @@ def retrieve(query, top_k=TOP_K):
                 "source": payload.get("source", "Unknown source"),
                 "category": payload.get("category"),
                 "source_url": payload.get("source_url"),
+                "page": payload.get("page"),
                 "score": point.score,
             })
     return results

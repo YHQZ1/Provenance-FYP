@@ -1,13 +1,18 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 import requests
-from fastapi import FastAPI
+import yaml
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from src.config import OLLAMA_HOST, OLLAMA_MODEL, QDRANT_COLLECTION, QDRANT_HOST, QDRANT_PORT
 from src.rag.chatbot import chat
 from src.rag.retrieval import client, ensure_collection
+from qdrant_client.http.models import FieldCondition, Filter, MatchValue
+
+SOURCES_FILE = Path(__file__).parent / "config" / "sources.yaml"
 
 
 app = FastAPI(
@@ -65,4 +70,37 @@ def health():
 
 @app.post("/query")
 def query(request: QueryRequest):
-    return chat(request.query)
+    try:
+        return chat(request.query)
+    except requests.Timeout as error:
+        raise HTTPException(status_code=504, detail="The language model took too long to answer.") from error
+    except requests.RequestException as error:
+        raise HTTPException(status_code=503, detail=f"The language model is unavailable: {error}") from error
+
+
+@app.get("/sources")
+def sources():
+    """The documents in the library, with how many passages each contributes."""
+    with open(SOURCES_FILE, "r", encoding="utf-8") as handle:
+        configured = yaml.safe_load(handle).get("sources", [])
+
+    library = []
+    for source in configured:
+        try:
+            passages = client.count(
+                collection_name=QDRANT_COLLECTION,
+                count_filter=Filter(must=[FieldCondition(key="source_url", match=MatchValue(value=source["url"]))]),
+                exact=True,
+            ).count
+        except Exception:
+            passages = None
+        library.append(
+            {
+                "title": source["title"],
+                "category": source.get("category"),
+                "url": source["url"],
+                "passages": passages,
+                "ingested": bool(passages),
+            }
+        )
+    return {"sources": library}

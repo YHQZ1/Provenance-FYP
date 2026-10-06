@@ -1,5 +1,10 @@
+# Official sources ingested by scripts/ingest.py. Titles are shown to users as citations,
+# so keep them matched to the document behind each URL.
 sources:
-  - title: "CPCB Extended Producer Responsibility for Plastic Packaging"
+  - title: "CPCB Guidance Manual for the Centralized EPR Portal for Plastic Packaging"
+    category: "plastic_epr"
+    url: "https://eprplastic.cpcb.gov.in/assets/pdfs/Guidance_Manual.pdf"
+  - title: "CPCB EPR Electronic Trading Platform Guidelines"
     category: "plastic_epr"
     url: "https://cpcb.nic.in/openpdffile.php?id=TGF0ZXN0RmlsZS80MzBfMTczNTYzNzY5Nl9tZWRpYXBob3RvMTM5ODcucGRm"
   - title: "CPCB Environmental Compensation Regime for Plastic Waste"
