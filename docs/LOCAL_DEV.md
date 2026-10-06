@@ -1,57 +1,114 @@
-# Local Development
+# Local development
 
-This is the current canonical local-dev note while the repo is being wired into one product.
+## Prerequisites
 
-## Current Canonical Entry Points
+- **Docker Desktop** with at least 8 GB of memory. The classifier, OCR and Ollama together are heavy; with too little, containers are killed with exit code 137.
+- **Node 20 or newer** (CI uses Node 22).
+- **Python 3.11**, only for running the Python service tests outside Docker.
+- **A Supabase project**, plus `psql` if you want to apply migrations from the terminal.
+- **GNU Make**; the version that ships with macOS works.
+
+## 1. Environment files
+
+None of these are committed. Copy each example and fill it in:
 
 ```bash
-# Shared Qdrant, Ollama, classifier, and regulatory RAG runtime
-cp apps/rag-classify/.env.example apps/rag-classify/.env
-# Set DATABASE_URL in apps/rag-classify/.env to your Supabase PostgreSQL connection string.
-docker compose -f infra/docker-compose.yaml up -d
-docker exec -it infra-ollama-1 ollama pull llama3.2:3b
-
-# Seed regulatory sources (after the regulatory service is healthy)
-# Re-run after changing sources.yaml; each source's old chunks are replaced.
-docker exec infra-rag-regulatory-1 python scripts/ingest.py --config src/config/sources.yaml
-
-# Database: apply supabase/migrations in order, then supabase/seed.sql
-# (Supabase SQL editor, or `supabase db push` followed by `supabase db reset` for the seed locally)
-#   000_baseline.sql creates the core tables. Skip it on a project that already has them.
-#   001_fy_filings.sql enables finalizing a financial year on the Filing page.
-#   002_classification_category.sql stores the CPCB category for each classified line.
-#   003_company_epr_registration.sql stores the company's CPCB EPR registration number.
-#   004_review_audit_and_upload_dedupe.sql records who reviewed each line and blocks duplicate uploads.
-#   005_lock_down_public_access.sql stops the public anon key from reading other companies' data.
-#   006_read_only_client_access.sql makes direct client access read-only; all writes go through the backend.
-#   seed.sql loads the polymer list and trade-name synonyms the classifier needs.
-
-# Backend API
-cd apps/backend-service
-cp .env.example .env.development
-npm install
-npm run dev
-
-# Frontend
-cd apps/web-app
-cp .env.example .env
-npm install
-npm run dev
+cp apps/backend-service/.env.example apps/backend-service/.env.development
+cp apps/web-app/.env.example        apps/web-app/.env.development
+cp apps/rag-classify/.env.example   apps/rag-classify/.env
 ```
 
-## Service Notes
+| File | Key values |
+| --- | --- |
+| `backend-service/.env.development` | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Docker Compose overrides the service URLs with container hostnames. |
+| `web-app/.env.development` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL=http://localhost:3000` |
+| `rag-classify/.env` | `DATABASE_URL`: the Supabase Postgres connection string (Project Settings → Database). The `db-*` make targets read it too. |
 
-- `apps/backend-service` expects Supabase-style environment variables and currently uses Supabase client APIs.
-- Supabase PostgreSQL is the database source of truth; the local Compose stack does not run PostgreSQL.
-- `apps/ocr-service` serves `POST /v1/ocr` (PDF, JPEG, PNG, TIFF) on port 8000.
-- The frontend needs `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_API_URL` (see `apps/web-app/.env.example`).
-- `apps/rag-classify` runs from the shared infra compose and reads Supabase data through its configured PostgreSQL connection.
-- `apps/rag-regulatory` provides authenticated regulatory research through the backend at /api/regulatory/query; it does not submit filings.
+The service-role key and database URL are full-access credentials. Keep them out of the frontend and out of git.
 
-## Immediate Hygiene Target
+## 2. Supabase
 
-The next cleanup step should be one of:
+1. **Schema.** Apply `supabase/migrations/000` → `006`, then `supabase/seed.sql`. See [DATABASE.md](DATABASE.md#migrations).
+2. **Auth providers.** Enable Email, plus Google and Azure if you want social sign-in.
+3. **Redirect URLs.** Under Authentication → URL Configuration, add `http://localhost:5173/**`. Without it, sign-in and password reset send you to the deployed site.
+4. **Storage.** Create a **private** bucket named `documents`; the backend stores uploads there. Migrations don't create buckets. The app shows files through signed URLs, so the bucket needs no client policies.
 
-1. Replace service-local compose files with one root compose.
-2. Add filing-specific regulatory guidance and citation review to the report workflow.
-3. Convert frontend dummy views to API-backed states.
+## 3. Run
+
+```bash
+make up        # build and start all seven services; the app is on http://localhost:5173
+make models    # first run: pull llama3.2:3b into the Ollama container
+make ingest    # first run: download and index the regulatory sources (a few minutes)
+make status    # health of every service
+```
+
+The first `make up` takes a while. It downloads images and the embedding model, and on Apple Silicon the OCR image runs under amd64 emulation.
+
+## Everyday commands
+
+Run `make` to list everything. Stack commands act on all services unless you pass `s=<service>` (`frontend`, `backend`, `ocr-service`, `rag-classify`, `rag-regulatory`, `qdrant`, `ollama`).
+
+```bash
+make logs s=backend        # follow one service's logs
+make rebuild s=frontend    # rebuild and recreate after code changes
+make restart s=ocr-service # restart without rebuilding
+make stop / make start     # pause and resume containers
+make down                  # remove containers (volumes, models and indexes are kept)
+make shell s=backend       # shell inside a container
+make db-shell              # psql on the Supabase database
+make db-migrate f=supabase/migrations/007_x.sql
+```
+
+Containers copy the source in at build time, so code changes need `make rebuild s=<service>`.
+
+## Running one service outside Docker
+
+This is useful for fast reloads while working on the backend or the frontend.
+
+```bash
+make up                    # everything else in Docker
+make stop s=backend
+cd apps/backend-service && npm run dev
+```
+
+Outside Docker, the backend can't resolve container hostnames, so point it at the published ports in `.env.development`:
+
+```dotenv
+OCR_SERVICE_URL=http://localhost:8000
+RAG_SERVICE_URL=http://localhost:8001
+REGULATORY_RAG_URL=http://localhost:8002
+```
+
+The frontend works the same way: `make stop s=frontend`, then `cd apps/web-app && npm run dev`.
+
+## Tests
+
+```bash
+make setup     # once: npm installs plus a .venv for the Python tests
+make check     # what CI runs: lint, every test suite, the web build
+make test-backend   # or test-web, test-ocr, test-classify, test-regulatory
+```
+
+| Suite | Runner | Covers |
+| --- | --- | --- |
+| Web app | Vitest + Testing Library | Pages render, review keyboard flow, filing states |
+| Backend | `node --test` | Auth middleware, filing summary, finalized-year rules, quantity and date normalisation |
+| OCR | pytest | Line-item and date parsing, PDF page handling, concurrent requests |
+| Classifier | pytest | Category taxonomy, model response parsing |
+| Regulatory | pytest | Header stripping, chunking, prompt building |
+
+The tests need no network or credentials, and CI runs them with no `.env` files. Keep it that way: a test must not import a module that creates the Supabase client.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+| --- | --- |
+| The `ollama` container won't start, or the port is already in use | The Ollama Mac app is also using port 11434. Quit it, or remove the `ollama` port mapping. |
+| A container exits with code 137 | Out of memory. Give Docker more memory, or stop services you don't need. |
+| Backend logs show `ENOTFOUND ocr-service` | The backend is running outside Docker with container hostnames. Use the `localhost` URLs above. |
+| Backend warns "Missing optional schema" | A migration hasn't been applied. The message names it. Apply it with `make db-migrate`. |
+| Sign-in or password reset lands on the deployed site | `http://localhost:5173/**` isn't in Supabase's Redirect URLs. |
+| Regulatory research says the source library is unavailable | The index is empty or the service is down. Run `make ingest` and check `make logs s=rag-regulatory`. |
+| Every line comes back "Needs material" | The classifier can't reach Ollama, or the model isn't pulled. Run `make models`, then `make logs s=rag-classify`. |
+| An upload says "Already uploaded as …" | Working as intended. The same file exists, possibly dated in another financial year. The message names the year. |
+| Documents stuck as failed after a restart | Expected while processing is in-process. Retry them from Documents. |
