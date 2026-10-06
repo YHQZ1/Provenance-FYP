@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-app:
+    name: Web app · lint, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web-app/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-placeholder
+          VITE_API_URL: http://localhost:3000
+
+  backend:
+    name: Backend · tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/backend-service/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  ocr-service:
+    name: OCR service · unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/ocr-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      # Parsing and PDF tests don't need PaddleOCR, which is loaded lazily.
+      - run: pip install pytest httpx python-multipart==0.0.20 pymupdf==1.24.14 pdf2image==1.17.0 Pillow==11.1.0 opencv-python-headless==4.10.0.84 numpy==1.26.4 pydantic==2.10.6 fastapi==0.115.6
+      - run: python -m pytest tests/unit -q
+        env:
+          PYTHONPATH: src
+
+  rag-classify:
+    name: Classifier · unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/rag-classify
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      # Taxonomy and response parsing tests don't load the embedding model.
+      - run: pip install pytest httpx==0.25.2 tenacity==8.2.3 pydantic==2.5.3 pydantic-settings==2.1.0
+      - run: python -m pytest tests -q
+
+  rag-regulatory:
+    name: Regulatory RAG · unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/rag-regulatory
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pytest
+      - run: python -m pytest tests -q
+      - run: python -m compileall -q src scripts
