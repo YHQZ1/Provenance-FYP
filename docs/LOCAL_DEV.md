@@ -23,6 +23,7 @@ docker exec infra-rag-regulatory-1 python scripts/ingest.py --config src/config/
 #   003_company_epr_registration.sql stores the company's CPCB EPR registration number.
 #   004_review_audit_and_upload_dedupe.sql records who reviewed each line and blocks duplicate uploads.
 #   005_lock_down_public_access.sql stops the public anon key from reading other companies' data.
+#   006_read_only_client_access.sql makes direct client access read-only; all writes go through the backend.
 #   seed.sql loads the polymer list and trade-name synonyms the classifier needs.
 
 # Backend API
