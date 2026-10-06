@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { filingPosition } from "../src/services/internal/filing.lock.js";
+import { filingPosition } from "../src/services/internal/filing.summary.js";
 
 const doc = (id, date) => ({
   id,

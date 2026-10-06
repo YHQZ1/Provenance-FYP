@@ -2,7 +2,9 @@ import { supabaseAdmin } from "../../config/database.js";
 import { schema } from "../../config/schema.js";
 import { financialYearOf, financialYearRange } from "../external/normalization.js";
 import { conflict } from "../../utils/errors.js";
-import { effectiveDate } from "./filing.summary.js";
+import { effectiveDate, filingPosition } from "./filing.summary.js";
+
+export { filingPosition };
 
 export const isYearFinalized = async (userId, fyStart) => {
   if (!(await schema()).fyFilings) return false;
@@ -43,16 +45,6 @@ export const finalizedYears = async (userId) => {
     );
   }
   return years;
-};
-
-// Where a document stands against finalized years: `included` is part of signed-off numbers,
-// `late` is dated in a finalized year but arrived after it was signed off.
-export const filingPosition = (document, years) => {
-  const fy = financialYearOf(effectiveDate(document));
-  const covered = years.get(fy);
-  if (!covered) return { financial_year: fy, finalized: false, included: false, late: false };
-  const included = covered.has(document.id);
-  return { financial_year: fy, finalized: true, included, late: !included };
 };
 
 // A late document never reached the signed-off numbers, so removing it changes nothing filed.

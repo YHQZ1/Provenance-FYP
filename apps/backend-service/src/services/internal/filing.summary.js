@@ -32,6 +32,16 @@ export const documentStage = (document) => {
   return "review";
 };
 
+// Where a document stands against finalized years: `included` is part of signed-off numbers,
+// `late` is dated in a finalized year but arrived after it was signed off.
+export const filingPosition = (document, years) => {
+  const fy = financialYearOf(effectiveDate(document));
+  const covered = years.get(fy);
+  if (!covered) return { financial_year: fy, finalized: false, included: false, late: false };
+  const included = covered.has(document.id);
+  return { financial_year: fy, finalized: true, included, late: !included };
+};
+
 // The values a reviewer signed off: corrections win over the original suggestion.
 export const effectiveLine = (line) => ({
   material_code: line.corrected_material_code || line.material_code || null,
