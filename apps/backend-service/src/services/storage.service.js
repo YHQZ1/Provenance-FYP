@@ -53,6 +53,16 @@ export const storageService = {
     return data.signedUrl;
   },
 
+  async downloadFile(storagePath) {
+    const { data, error } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .download(storagePath);
+
+    if (error) throw new Error(`Failed to download file: ${error.message}`);
+
+    return Buffer.from(await data.arrayBuffer());
+  },
+
   async deleteFile(storagePath) {
     const { error } = await supabaseAdmin.storage
       .from(BUCKET_NAME)

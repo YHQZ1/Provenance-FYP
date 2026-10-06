@@ -1,30 +1,21 @@
 import { documentService } from "../services/internal/document.service.js";
-import { supabaseAdmin } from "../config/database.js";
+import { badRequest } from "../utils/errors.js";
 
 export const documentController = {
   async upload(req, res, next) {
     try {
-      if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          message: "No file uploaded",
-        });
-      }
+      if (!req.file) throw badRequest("No file uploaded");
 
       const document = await documentService.createDocument(
         req.user.id,
         req.file,
+        { documentType: req.body?.document_type },
       );
 
       res.status(201).json({
         success: true,
-        message: "Document uploaded and processing started",
-        data: {
-          id: document.id,
-          filename: document.filename,
-          status: document.status,
-          created_at: document.created_at,
-        },
+        message: "Document uploaded. Processing has started.",
+        data: document,
       });
     } catch (error) {
       next(error);
@@ -34,8 +25,8 @@ export const documentController = {
   async list(req, res, next) {
     try {
       const result = await documentService.listDocuments(req.user.id, {
-        page: parseInt(req.query.page) || 1,
-        limit: parseInt(req.query.limit) || 20,
+        page: Math.max(parseInt(req.query.page) || 1, 1),
+        limit: Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200),
         status: req.query.status,
       });
 
@@ -55,38 +46,40 @@ export const documentController = {
         req.params.id,
         req.user.id,
       );
-
-      res.json({
-        success: true,
-        data: document,
-      });
+      res.json({ success: true, data: document });
     } catch (error) {
       next(error);
     }
   },
 
-  async getStatus(req, res, next) {
+  async update(req, res, next) {
     try {
-      const { data: document, error } = await supabaseAdmin
-        .from("documents")
-        .select(
-          "id, status, ocr_confidence, rag_confidence, requires_human_review, verified_by_user, updated_at",
-        )
-        .eq("id", req.params.id)
-        .eq("company_id", req.user.id)
-        .single();
-
-      if (error || !document) {
-        return res.status(404).json({
-          success: false,
-          message: "Document not found",
-        });
+      const { document_date } = req.body || {};
+      if (
+        document_date !== undefined &&
+        document_date !== null &&
+        !/^\d{4}-\d{2}-\d{2}$/.test(document_date)
+      ) {
+        throw badRequest("document_date must be YYYY-MM-DD");
       }
+      const document = await documentService.updateDocument(
+        req.params.id,
+        req.user.id,
+        { document_date },
+      );
+      res.json({ success: true, data: document });
+    } catch (error) {
+      next(error);
+    }
+  },
 
-      res.json({
-        success: true,
-        data: document,
-      });
+  async retry(req, res, next) {
+    try {
+      const data = await documentService.retryDocument(
+        req.params.id,
+        req.user.id,
+      );
+      res.status(202).json({ success: true, data });
     } catch (error) {
       next(error);
     }
@@ -94,32 +87,8 @@ export const documentController = {
 
   async deleteDocument(req, res, next) {
     try {
-      const { id } = req.params;
-
-      const { data: document, error: fetchError } = await supabaseAdmin
-        .from("documents")
-        .select("id, file_path")
-        .eq("id", id)
-        .eq("company_id", req.user.id)
-        .single();
-
-      if (fetchError || !document) {
-        return res.status(404).json({
-          success: false,
-          message: "Document not found",
-        });
-      }
-
-      await supabaseAdmin
-        .from("document_classifications")
-        .delete()
-        .eq("document_id", id);
-      await supabaseAdmin.from("documents").delete().eq("id", id);
-
-      res.json({
-        success: true,
-        message: "Document deleted successfully",
-      });
+      await documentService.deleteDocument(req.params.id, req.user.id);
+      res.json({ success: true, message: "Document deleted" });
     } catch (error) {
       next(error);
     }

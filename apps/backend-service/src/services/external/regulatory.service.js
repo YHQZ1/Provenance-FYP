@@ -1,7 +1,28 @@
 import axios from "axios";
 import { env } from "../../config/env.js";
 
+const baseUrl = () => {
+  if (!env.REGULATORY_RAG_URL) {
+    const error = new Error("Regulatory research isn't configured");
+    error.status = 503;
+    throw error;
+  }
+  return env.REGULATORY_RAG_URL.replace(/\/$/, "");
+};
+
 export const regulatoryService = {
+  async sources() {
+    try {
+      const response = await axios.get(`${baseUrl()}/sources`, { timeout: 10000 });
+      return response.data.sources || [];
+    } catch (error) {
+      if (error.status) throw error;
+      const serviceError = new Error("The regulatory library is unavailable");
+      serviceError.status = 502;
+      throw serviceError;
+    }
+  },
+
   async query(query) {
     const normalizedQuery = typeof query === "string" ? query.trim() : "";
 

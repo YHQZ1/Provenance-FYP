@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../config/database.js";
 import { env } from "../../config/env.js";
+import { schema } from "../../config/schema.js";
 import {
   buildClassificationText,
   normalizeMaterialCode,
@@ -8,17 +9,21 @@ import {
 
 const REVIEW_THRESHOLD = 0.85;
 
+// Runs fn over items with at most `limit` in flight, keeping result order.
+const mapWithConcurrency = async (items, limit, fn) => {
+  const results = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index], index);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+};
+
 export const ragService = {
-  async submitForClassification(documentId, items, companyId) {
-    const jobId = `rag-${documentId}-${Date.now()}`;
-
-    void this.processDocument(documentId, items, companyId).catch((error) => {
-      console.error(`[RAG] Failed for document ${documentId}:`, error);
-    });
-
-    return { jobId, status: "SUBMITTED" };
-  },
-
   async processDocument(documentId, items) {
     await supabaseAdmin
       .from("documents")
@@ -50,16 +55,11 @@ export const ragService = {
         ? this.mockClassifyItems(items)
         : await this.classifyItems(items);
 
-      await supabaseAdmin
-        .from("document_classifications")
-        .delete()
-        .eq("document_id", documentId);
-
-      const requiresHumanReview = classifications.some(
-        (classification) => classification.requires_human_review,
-      );
-
+      // Suggestions are never auto-approved: a person confirms every line,
+      // high-confidence ones in bulk. verified_by_user stays a human signal.
+      const { classificationCategory } = await schema();
       const classificationInserts = classifications.map((classification) => ({
+        ...(classificationCategory && { cpcb_category: classification.cpcb_category || null }),
         document_id: documentId,
         material_code: classification.material_code,
         quantity_kg: classification.quantity_kg,
@@ -68,39 +68,39 @@ export const ragService = {
         matched_synonym: classification.matched_synonym,
         vector_similarity: classification.vector_similarity,
         requires_human_review: classification.requires_human_review,
-        verified_by_user: !classification.requires_human_review,
+        verified_by_user: false,
       }));
 
-      if (classificationInserts.length > 0) {
-        const { error } = await supabaseAdmin
-          .from("document_classifications")
-          .insert(classificationInserts);
+      const { error: deleteError } = await supabaseAdmin
+        .from("document_classifications")
+        .delete()
+        .eq("document_id", documentId);
+      if (deleteError) throw new Error(`Classification reset failed: ${deleteError.message}`);
 
-        if (error) {
-          throw new Error(`Classification insert failed: ${error.message}`);
-        }
+      const { error } = await supabaseAdmin
+        .from("document_classifications")
+        .insert(classificationInserts);
+
+      if (error) {
+        throw new Error(`Classification insert failed: ${error.message}`);
       }
 
-      const averageConfidence = classifications.length
-        ? classifications.reduce(
-            (sum, classification) => sum + classification.confidence_score,
-            0,
-          ) / classifications.length
-        : 1;
-
-      const status = classifications.length === 0
-        ? "COMPLETED"
-        : requiresHumanReview
-          ? "CLASSIFIED"
-          : "VERIFIED";
+      const failedCount = classifications.filter((c) => c.failed).length;
+      const averageConfidence =
+        classifications.reduce((sum, c) => sum + c.confidence_score, 0) /
+        classifications.length;
 
       const { error: updateError } = await supabaseAdmin
         .from("documents")
         .update({
           rag_confidence: averageConfidence,
-          status,
-          verified_by_user: !requiresHumanReview,
-          requires_human_review: requiresHumanReview,
+          status: failedCount === classifications.length ? "RAG_FAILED" : "CLASSIFIED",
+          verified_by_user: false,
+          requires_human_review: true,
+          reasoning:
+            failedCount > 0
+              ? `${failedCount} of ${classifications.length} line(s) could not be classified automatically and need a material chosen manually.`
+              : "Materials suggested for every line. Confirm them in review.",
           updated_at: new Date().toISOString(),
         })
         .eq("id", documentId);
@@ -130,37 +130,59 @@ export const ragService = {
   },
 
   async classifyItems(items) {
-    const classifications = [];
+    return mapWithConcurrency(items, env.RAG_CONCURRENCY, async (item) => {
+      try {
+        const response = await requestRagService(buildClassificationText(item));
+        const result = response.classifications?.[0];
+        if (!result) throw new Error("RAG service returned no classification");
 
-    for (const item of items) {
-      const response = await requestRagService(buildClassificationText(item));
-      const result = response.classifications?.[0];
+        const confidence = Number(result.confidence_score) || 0;
+        const match = result.matched_synonyms?.[0];
+        const materialCode = normalizeMaterialCode(result.material_code);
+        const reasoning = [
+          result.reasoning || "Classification returned by the RAG service.",
+          match?.synonym
+            ? `Closest catalogue match: "${match.synonym}" (${match.material_code}).`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" ");
 
-      if (!result) {
-        throw new Error("RAG service returned no classification");
+        return {
+          material_code: materialCode,
+          cpcb_category: result.cpcb_category || null,
+          quantity_kg: normalizeQuantity(item),
+          confidence_score: confidence,
+          reasoning,
+          matched_synonym: item.description,
+          vector_similarity: match?.similarity_score ?? null,
+          requires_human_review:
+            !materialCode ||
+            !result.cpcb_category ||
+            Boolean(result.requires_human_review) ||
+            confidence < REVIEW_THRESHOLD,
+        };
+      } catch (error) {
+        console.error("[RAG] Line classification failed:", error.message);
+        return {
+          material_code: null,
+          cpcb_category: null,
+          quantity_kg: normalizeQuantity(item),
+          confidence_score: 0,
+          reasoning: `Automatic classification failed (${error.message}). Choose the material manually.`,
+          matched_synonym: item.description,
+          vector_similarity: null,
+          requires_human_review: true,
+          failed: true,
+        };
       }
-
-      const confidence = Number(result.confidence_score) || 0;
-      const matchedSynonym = result.matched_synonyms?.[0];
-
-      classifications.push({
-        material_code: normalizeMaterialCode(result.material_code),
-        quantity_kg: normalizeQuantity(item),
-        confidence_score: confidence,
-        reasoning: result.reasoning || "Classification returned by the RAG service.",
-        matched_synonym: matchedSynonym?.synonym || item.description,
-        vector_similarity: matchedSynonym?.similarity_score ?? null,
-        requires_human_review:
-          Boolean(result.requires_human_review) || confidence < REVIEW_THRESHOLD,
-      });
-    }
-
-    return classifications;
+    });
   },
 
   mockClassifyItems(items) {
     return items.map((item) => ({
-      material_code: "UNKNOWN",
+      material_code: null,
+      cpcb_category: null,
       quantity_kg: normalizeQuantity(item),
       confidence_score: 0,
       reasoning: "Mock classification result.",

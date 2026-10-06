@@ -9,6 +9,7 @@ import companyRoutes from "./routes/company.routes.js";
 import feedbackRoutes from "./routes/feedback.routes.js";
 import complianceRoutes from "./routes/compliance.routes.js";
 import regulatoryRoutes from "./routes/regulatory.routes.js";
+import systemRoutes from "./routes/system.routes.js";
 
 const app = express();
 const configuredOrigins = env.CORS_ORIGIN.split(",")
@@ -30,20 +31,14 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-User-ID",
-      "X-User-Email",
-      "X-Gateway-Verified",
-    ],
+    allowedHeaders: ["Content-Type", "Authorization"],
     optionsSuccessStatus: 204,
   }),
 );
 
 app.use(cookieParser());
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 app.get("/", (_, res) => res.json({ message: "Provenance API is running" }));
 app.get("/health", (_, res) =>
@@ -56,6 +51,7 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/compliance", complianceRoutes);
 app.use("/api/regulatory", regulatoryRoutes);
+app.use("/api/system", systemRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -6,11 +6,11 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get("/pending", feedbackController.getPending);
+router.get("/queue", feedbackController.queue);
+router.post("/approve-suggested", feedbackController.approveSuggested);
 router.get("/:id", feedbackController.getById);
-router.post("/:id/verify", feedbackController.verify);
-router.post("/:id/reject", feedbackController.reject);
+router.post("/:id/approve", feedbackController.approve);
 router.post("/:id/correct", feedbackController.correct);
-router.post("/bulk-verify", feedbackController.bulkVerify);
+router.post("/:id/exclude", feedbackController.exclude);
 
 export default router;

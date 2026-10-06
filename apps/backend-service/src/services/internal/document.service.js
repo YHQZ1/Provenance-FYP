@@ -1,19 +1,112 @@
+import crypto from "crypto";
+import fs from "fs/promises";
 import { supabaseAdmin } from "../../config/database.js";
+import { env } from "../../config/env.js";
 import { storageService } from "../storage.service.js";
 import { ocrService } from "../external/ocr.service.js";
 import { ragService } from "../external/rag.service.js";
-import fs from "fs/promises";
+import {
+  documentTypeOf,
+  financialYearOf,
+  financialYearRange,
+  normalizeDocumentType,
+} from "../external/normalization.js";
+import { conflict, notFound } from "../../utils/errors.js";
+import { schema } from "../../config/schema.js";
+import { PROCESSING_STATUSES, effectiveDate } from "./filing.summary.js";
+import {
+  assertDocumentEditable,
+  assertDocumentRemovable,
+  filingPosition,
+  finalizedYears,
+} from "./filing.lock.js";
+
+export { PROCESSING_STATUSES, effectiveDate };
+
+const LIST_COLUMNS =
+  "id, filename, status, reasoning, mime_type, file_size, created_at, updated_at, ocr_confidence, rag_confidence, requires_human_review, verified_by_user, extracted_data, document_classifications(id, material_code, quantity_kg, verified_by_user, requires_human_review)";
+
+// Past this, a document still marked as processing has lost its worker and can be removed.
+const STALE_PROCESSING_MS = env.OCR_TIMEOUT_MS + env.RAG_TIMEOUT_MS + 2 * 60 * 1000;
+
+const isStale = (document) =>
+  Date.now() - new Date(document.updated_at || document.created_at).getTime() >
+  STALE_PROCESSING_MS;
+
+const duplicateError = (duplicate) => {
+  // Say where the existing copy lives: it may be dated in another financial year
+  // and so not visible in the list the user is looking at.
+  const fy = financialYearOf(effectiveDate(duplicate));
+  const range = financialYearRange(fy);
+  return conflict(
+    `Already uploaded as "${duplicate.filename}" (${range.label}). Uploading it again would double-count its quantities.`,
+    {
+      document_id: duplicate.id,
+      filename: duplicate.filename,
+      financial_year: fy,
+      financial_year_label: range.label,
+    },
+  );
+};
+
+const findByHash = async (userId, fileHash) => {
+  const { data } = await supabaseAdmin
+    .from("documents")
+    .select("id, filename, created_at, extracted_data")
+    .eq("company_id", userId)
+    .eq("extracted_data->>file_hash", fileHash)
+    .limit(1)
+    .maybeSingle();
+  return data;
+};
+
+const toListItem = (doc, years = new Map()) => {
+  const items = doc.document_classifications || [];
+  const { extracted_data: extracted = {}, document_classifications, ...rest } =
+    doc;
+  return {
+    ...rest,
+    document_type: documentTypeOf(extracted),
+    document_date: extracted.document_date || null,
+    effective_date: effectiveDate(doc),
+    financial_year: financialYearOf(effectiveDate(doc)),
+    fields: extracted.fields || {},
+    warnings: extracted.warnings || [],
+    items_count: items.length,
+    items_verified: items.filter((c) => c.verified_by_user).length,
+    items_pending: items.filter((c) => !c.verified_by_user).length,
+    filing: describePosition(filingPosition(doc, years)),
+  };
+};
+
+const describePosition = (position) => ({
+  ...position,
+  financial_year_label: financialYearRange(position.financial_year).label,
+});
 
 export const documentService = {
-  async createDocument(userId, fileInfo) {
+  async createDocument(userId, fileInfo, options = {}) {
     const { originalname, mimetype, size, path: localPath } = fileInfo;
+    const documentType = normalizeDocumentType(options.documentType);
     const fileBuffer = await fs.readFile(localPath);
+    const fileHash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
 
-    const { path: storagePath } = await storageService.uploadFile(
-      localPath,
-      userId,
-      originalname,
-    );
+    const duplicate = await findByHash(userId, fileHash);
+    if (duplicate) {
+      await fs.unlink(localPath).catch(() => {});
+      throw duplicateError(duplicate);
+    }
+
+    let storagePath;
+    try {
+      ({ path: storagePath } = await storageService.uploadFile(
+        localPath,
+        userId,
+        originalname,
+      ));
+    } finally {
+      await fs.unlink(localPath).catch(() => {});
+    }
 
     const { data: document, error } = await supabaseAdmin
       .from("documents")
@@ -24,61 +117,176 @@ export const documentService = {
         mime_type: mimetype,
         file_size: size,
         status: "PENDING",
-        extracted_data: {},
+        extracted_data: { document_type: documentType, file_hash: fileHash },
       })
       .select()
       .single();
 
     if (error) {
       await storageService.deleteFile(storagePath).catch(() => {});
+      // An identical upload that arrived at the same moment won the unique index.
+      if (error.code === "23505") {
+        const winner = await findByHash(userId, fileHash);
+        if (winner) throw duplicateError(winner);
+      }
       throw new Error(`Database insert failed: ${error.message}`);
     }
 
-    this.startOcrProcessing(
-      document.id,
-      { buffer: fileBuffer, originalname, mimetype },
-      userId,
-    ).catch((err) => {
-      console.error(`[Document] OCR startup failed for ${document.id}:`, err);
-      supabaseAdmin
-        .from("documents")
-        .update({
-          status: "OCR_FAILED",
-          error_message: err.message,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", document.id)
-        .then();
+    this.runProcessing(document.id, {
+      buffer: fileBuffer,
+      originalname,
+      mimetype,
+      meta: { document_type: documentType, file_hash: fileHash },
     });
 
-    return document;
+    return toListItem(
+      { ...document, document_classifications: [] },
+      await finalizedYears(userId),
+    );
   },
 
-  async startOcrProcessing(documentId, file, userId) {
+  runProcessing(documentId, file) {
+    this.startOcrProcessing(documentId, file).catch((err) => {
+      console.error(`[Document] Processing failed for ${documentId}:`, err.message);
+    });
+  },
+
+  async startOcrProcessing(documentId, file) {
     await supabaseAdmin
       .from("documents")
       .update({
         status: "OCR_PROCESSING",
+        reasoning: "Reading the document.",
         updated_at: new Date().toISOString(),
       })
       .eq("id", documentId);
 
-    const ocrResult = await ocrService.submitForOcr(documentId, file);
-    const items = ocrResult.line_items ||
-      ocrResult.extracted_data?.line_items ||
-      ocrResult.extracted_data?.items ||
-      [];
+    const ocrResult = await ocrService.submitForOcr(documentId, file, file.meta);
+    const items = ocrResult.line_items || [];
 
     if (items.length > 0) {
-      try {
-        await ragService.submitForClassification(documentId, items, userId);
-      } catch (error) {
-        console.error(
-          `[Document] RAG trigger failed for ${documentId}:`,
-          error,
-        );
-      }
+      await ragService.processDocument(documentId, items);
     }
+  },
+
+  async retryDocument(documentId, userId) {
+    const { data: document } = await supabaseAdmin
+      .from("documents")
+      .select("id, filename, file_path, mime_type, status, extracted_data, created_at")
+      .eq("id", documentId)
+      .eq("company_id", userId)
+      .maybeSingle();
+
+    if (!document) throw notFound("Document not found");
+    await assertDocumentEditable(userId, document);
+    if (PROCESSING_STATUSES.includes(document.status)) {
+      throw conflict("This document is already being processed.");
+    }
+
+    const buffer = await storageService.downloadFile(document.file_path);
+
+    await supabaseAdmin
+      .from("documents")
+      .update({
+        status: "PENDING",
+        reasoning: "Queued for reprocessing.",
+        verified_by_user: false,
+        requires_human_review: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", documentId);
+
+    this.runProcessing(documentId, {
+      buffer,
+      originalname: document.filename,
+      mimetype: document.mime_type,
+      meta: {
+        document_type: documentTypeOf(document.extracted_data),
+        file_hash: document.extracted_data?.file_hash,
+      },
+    });
+
+    return { id: documentId, status: "PENDING" };
+  },
+
+  async updateDocument(documentId, userId, updates) {
+    const { data: document } = await supabaseAdmin
+      .from("documents")
+      .select("id, extracted_data, created_at")
+      .eq("id", documentId)
+      .eq("company_id", userId)
+      .maybeSingle();
+
+    if (!document) throw notFound("Document not found");
+    await assertDocumentEditable(userId, document);
+
+    const extracted = { ...(document.extracted_data || {}) };
+    if (updates.document_date !== undefined) {
+      extracted.document_date = updates.document_date || null;
+      // Moving a document into a finalized year would change signed-off evidence.
+      await assertDocumentEditable(userId, { ...document, extracted_data: extracted });
+    }
+
+    const { error } = await supabaseAdmin
+      .from("documents")
+      .update({ extracted_data: extracted, updated_at: new Date().toISOString() })
+      .eq("id", documentId);
+
+    if (error) throw new Error(`Update failed: ${error.message}`);
+    return this.getDocument(documentId, userId);
+  },
+
+  // Work running in-process is lost on restart; surface it so the user can retry.
+  async recoverInterruptedDocuments() {
+    const { data, error } = await supabaseAdmin
+      .from("documents")
+      .update({
+        status: "OCR_FAILED",
+        reasoning: "Processing was interrupted by a server restart. Retry the document.",
+        updated_at: new Date().toISOString(),
+      })
+      .in("status", PROCESSING_STATUSES)
+      .select("id");
+
+    if (error) {
+      console.error("[Document] Recovery check failed:", error.message);
+      return;
+    }
+    if (data?.length) {
+      console.log(`[Document] Marked ${data.length} interrupted document(s) for retry`);
+    }
+  },
+
+  async deleteDocument(documentId, userId) {
+    const { data: document } = await supabaseAdmin
+      .from("documents")
+      .select("id, file_path, status, extracted_data, created_at, updated_at")
+      .eq("id", documentId)
+      .eq("company_id", userId)
+      .maybeSingle();
+
+    if (!document) throw notFound("Document not found");
+    // Deleting mid-run would leave the pipeline writing lines for a document that's gone.
+    if (PROCESSING_STATUSES.includes(document.status) && !isStale(document)) {
+      throw conflict("This document is still being processed. Delete it once it finishes.");
+    }
+    await assertDocumentRemovable(userId, document);
+
+    await supabaseAdmin
+      .from("document_classifications")
+      .delete()
+      .eq("document_id", documentId);
+    const { error } = await supabaseAdmin
+      .from("documents")
+      .delete()
+      .eq("id", documentId);
+    if (error) throw new Error(`Delete failed: ${error.message}`);
+
+    await storageService.deleteFile(document.file_path).catch((err) => {
+      console.error(`[Document] Stored file cleanup failed: ${err.message}`);
+    });
+
+    return document;
   },
 
   async getDocument(documentId, userId) {
@@ -87,39 +295,33 @@ export const documentService = {
       .select(`*, document_classifications(*)`)
       .eq("id", documentId)
       .eq("company_id", userId)
-      .single();
+      .maybeSingle();
 
     if (error || !document) {
-      throw new Error("Document not found");
+      throw notFound("Document not found");
     }
 
-    const fileUrl = await storageService.getSignedUrl(document.file_path, 300);
+    const fileUrl = await storageService
+      .getSignedUrl(document.file_path, 600)
+      .catch(() => null);
+    const classifications = [...(document.document_classifications || [])].sort(
+      (a, b) => String(a.created_at).localeCompare(String(b.created_at)),
+    );
 
     return {
-      ...document,
+      ...toListItem(document, await finalizedYears(userId)),
+      raw_text: document.raw_text,
       file_url: fileUrl,
-      summary: {
-        total_items: document.document_classifications?.length || 0,
-        pending_review:
-          document.document_classifications?.filter((c) => !c.verified_by_user)
-            .length || 0,
-        verified:
-          document.document_classifications?.filter((c) => c.verified_by_user)
-            .length || 0,
-        avg_confidence: document.rag_confidence || document.ocr_confidence,
-      },
+      classifications,
     };
   },
 
   async listDocuments(userId, options = {}) {
-    const { page = 1, limit = 20, status } = options;
+    const { page = 1, limit = 50, status } = options;
 
     let query = supabaseAdmin
       .from("documents")
-      .select(
-        `id, filename, status, created_at, updated_at, ocr_confidence, rag_confidence, requires_human_review, verified_by_user, document_classifications(id)`,
-        { count: "exact" },
-      )
+      .select(LIST_COLUMNS, { count: "exact" })
       .eq("company_id", userId)
       .order("created_at", { ascending: false });
 
@@ -131,17 +333,36 @@ export const documentService = {
 
     if (error) throw new Error(`Failed to fetch documents: ${error.message}`);
 
+    const years = await finalizedYears(userId);
     return {
-      data: (data || []).map((doc) => ({
-        ...doc,
-        items_count: doc.document_classifications?.length || 0,
-      })),
+      data: (data || []).map((doc) => toListItem(doc, years)),
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total: count || 0,
         totalPages: Math.ceil((count || 0) / limit),
       },
     };
+  },
+
+  async listAllWithClassifications(userId) {
+    const { classificationCategory } = await schema();
+    const lineColumns = [
+      "id, material_code, quantity_kg, corrected_material_code, corrected_quantity_kg, verified_by_user, requires_human_review",
+      classificationCategory && "cpcb_category, corrected_cpcb_category",
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const { data, error } = await supabaseAdmin
+      .from("documents")
+      .select(
+        `id, filename, status, reasoning, created_at, verified_by_user, extracted_data, document_classifications(${lineColumns})`,
+      )
+      .eq("company_id", userId)
+      .order("created_at", { ascending: true });
+
+    if (error) throw new Error(`Failed to fetch documents: ${error.message}`);
+    return data || [];
   },
 };

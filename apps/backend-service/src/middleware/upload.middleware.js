@@ -2,6 +2,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { env } from "../config/env.js";
+import { AppError } from "../utils/errors.js";
 
 const uploadDir = env.UPLOAD_TEMP_DIR || "./uploads";
 
@@ -36,8 +37,10 @@ const fileFilter = (req, file, cb) => {
     cb(null, true);
   } else {
     cb(
-      new Error(
-        "Invalid file type. Only PDF, JPEG, PNG, and TIFF files are allowed.",
+      new AppError(
+        415,
+        "Unsupported file type. Upload a PDF, JPG, PNG, or TIFF file.",
+        "UNSUPPORTED_FILE",
       ),
       false,
     );
@@ -64,7 +67,9 @@ export const handleUploadError = (err, req, res, next) => {
   }
 
   if (err) {
-    return res.status(400).json({ success: false, message: err.message });
+    return res
+      .status(err.status || 400)
+      .json({ success: false, message: err.message });
   }
 
   next();

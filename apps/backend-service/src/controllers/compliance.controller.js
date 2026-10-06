@@ -1,124 +1,34 @@
-import { complianceService } from "../services/internal/compliance.service.js";
+import {
+  complianceService,
+  currentFinancialYear,
+} from "../services/internal/compliance.service.js";
+import { badRequest } from "../utils/errors.js";
+
+const readYear = (req) => {
+  const raw = req.query.fy ?? req.body?.fy;
+  if (raw === undefined || raw === "") return currentFinancialYear();
+  const year = Number(raw);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    throw badRequest("fy must be the financial year's start year, e.g. 2026");
+  }
+  return year;
+};
+
+const handle = (fn) => async (req, res, next) => {
+  try {
+    res.json({ success: true, data: await fn(req) });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const complianceController = {
-  async listFilings(req, res, next) {
-    try {
-      const data = await complianceService.getFilingPeriods(req.user.id, {
-        year: req.query.year ? parseInt(req.query.year) : null,
-        status: req.query.status,
-      });
-      res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async getCurrent(req, res, next) {
-    try {
-      const data = await complianceService.getCurrentFiling(req.user.id);
-      res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async getFiling(req, res, next) {
-    try {
-      const data = await complianceService.getFilingDetails(
-        req.params.id,
-        req.user.id,
-      );
-      res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async getFilingDocuments(req, res, next) {
-    try {
-      const result = await complianceService.getFilingDocuments(
-        req.params.id,
-        req.user.id,
-        {
-          page: parseInt(req.query.page) || 1,
-          limit: parseInt(req.query.limit) || 20,
-        },
-      );
-      res.json({
-        success: true,
-        data: result.data,
-        pagination: result.pagination,
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async submitFiling(req, res, next) {
-    try {
-      const data = await complianceService.submitFiling(
-        req.params.id,
-        req.user.id,
-        req.body.notes,
-      );
-      res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async getDashboardStats(req, res, next) {
-    try {
-      const data = await complianceService.getDashboardStats(req.user.id);
-      res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async getRecentActivity(req, res, next) {
-    try {
-      const data = await complianceService.getRecentActivity(
-        req.user.id,
-        parseInt(req.query.limit) || 10,
-      );
-      res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async getAnnualReport(req, res, next) {
-    try {
-      const data = await complianceService.generateAnnualReport(
-        req.user.id,
-        req.query.year ? parseInt(req.query.year) : null,
-      );
-      res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async getRegulatoryReview(req, res, next) {
-    try {
-      const data = await complianceService.getRegulatoryReview(req.user.id, req.body);
-      res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async getQuarterlyReport(req, res, next) {
-    try {
-      const data = await complianceService.generateQuarterlyReport(
-        req.user.id,
-        req.query.year ? parseInt(req.query.year) : null,
-        req.query.quarter,
-      );
-      res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  },
+  getFiling: handle((req) => complianceService.getFiling(req.user.id, readYear(req))),
+  finalize: handle((req) =>
+    complianceService.finalize(req.user.id, readYear(req), req.body?.notes),
+  ),
+  reopen: handle((req) => complianceService.reopen(req.user.id, readYear(req))),
+  regulatoryReview: handle((req) =>
+    complianceService.getRegulatoryReview(req.user.id, readYear(req)),
+  ),
 };

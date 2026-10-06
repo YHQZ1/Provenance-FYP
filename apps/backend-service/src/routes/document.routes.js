@@ -17,8 +17,9 @@ router.post(
   documentController.upload,
 );
 router.get("/", documentController.list);
-router.get("/:id/status", documentController.getStatus);
 router.get("/:id", documentController.getById);
+router.patch("/:id", documentController.update);
+router.post("/:id/retry", documentController.retry);
 router.delete("/:id", documentController.deleteDocument);
 
 export default router;

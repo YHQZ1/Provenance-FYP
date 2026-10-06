@@ -6,21 +6,9 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get("/filings", complianceController.listFilings);
-router.get("/filings/current", complianceController.getCurrent);
-router.get("/filings/:id", complianceController.getFiling);
-router.get("/filings/:id/documents", complianceController.getFilingDocuments);
-router.post("/filings/:id/submit", complianceController.submitFiling);
-router.get("/dashboard/stats", complianceController.getDashboardStats);
-router.get(
-  "/dashboard/recent-activity",
-  complianceController.getRecentActivity,
-);
-router.get(
-  "/reports/quarterly-summary",
-  complianceController.getQuarterlyReport,
-);
-router.get("/reports/annual", complianceController.getAnnualReport);
-router.post("/reports/regulatory-review", complianceController.getRegulatoryReview);
+router.get("/filing", complianceController.getFiling);
+router.post("/filing/finalize", complianceController.finalize);
+router.post("/filing/reopen", complianceController.reopen);
+router.post("/filing/regulatory-review", complianceController.regulatoryReview);
 
 export default router;

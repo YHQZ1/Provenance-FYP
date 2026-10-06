@@ -23,6 +23,7 @@ export const updateCompany = async (userId, updates) => {
     "company_name",
     "gst_number",
     "Pibo_category",
+    "epr_registration_number",
     "onboarding_completed",
   ];
   const filteredUpdates = {};

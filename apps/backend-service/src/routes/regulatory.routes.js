@@ -5,6 +5,7 @@ import { regulatoryController } from "../controllers/regulatory.controller.js";
 const router = Router();
 
 router.use(authenticate);
+router.get("/sources", regulatoryController.sources);
 router.post("/query", regulatoryController.query);
 
 export default router;
