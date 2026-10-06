@@ -1,93 +1,99 @@
 import axios from "axios";
+import { supabase } from "./supabase";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
   withCredentials: true,
-  headers: { "Content-Type": "application/json" },
 });
 
+// Always use the live Supabase session so refreshed tokens are picked up.
 api.interceptors.request.use(async (config) => {
-  const token = localStorage.getItem("sb-access-token");
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
+export class ApiError extends Error {
+  constructor(message, status, details) {
+    super(message);
+    this.status = status;
+    this.details = details;
+  }
+}
+
 api.interceptors.response.use(
   (response) => response.data,
-  (error) => {
+  async (error) => {
+    const status = error.response?.status;
     const message =
-      error.response?.data?.message || "An unexpected error occurred";
-    if (
-      error.response?.status === 401 &&
-      !window.location.pathname.includes("/auth")
-    ) {
-      localStorage.removeItem("sb-access-token");
-      window.location.href = "/auth?mode=login";
+      error.response?.data?.message ||
+      (error.code === "ERR_NETWORK"
+        ? "Can't reach the Provenance server. Check that the backend is running."
+        : "Something went wrong. Please try again.");
+
+    if (status === 401) {
+      await supabase.auth.signOut();
+      if (!window.location.pathname.startsWith("/auth")) {
+        window.location.href = "/auth?mode=login&expired=1";
+      }
     }
-    return Promise.reject(new Error(message));
+
+    return Promise.reject(new ApiError(message, status, error.response?.data?.details));
   },
 );
 
 export const authAPI = {
   sync: (token) => api.post("/auth/sync", { token }),
-  getCurrentUser: () => api.get("/auth/me"),
+  me: () => api.get("/auth/me"),
   logout: () => api.post("/auth/logout"),
 };
 
 export const documentAPI = {
-  upload: (file) => {
+  upload: (file, documentType) => {
     const formData = new FormData();
+    formData.append("document_type", documentType);
     formData.append("file", file);
-    return api.post("/documents/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    return api.post("/documents/upload", formData);
   },
   list: (params) => api.get("/documents", { params }),
-  getById: (id) => api.get(`/documents/${id}`),
-  getStatus: (id) => api.get(`/documents/${id}/status`),
-  delete: (id) => api.delete(`/documents/${id}`),
+  get: (id) => api.get(`/documents/${id}`),
+  update: (id, data) => api.patch(`/documents/${id}`, data),
+  retry: (id) => api.post(`/documents/${id}/retry`),
+  remove: (id) => api.delete(`/documents/${id}`),
 };
 
-export const feedbackAPI = {
-  getPending: (params) => api.get("/feedback/pending", { params }),
-  verify: (id, notes) => api.post(`/feedback/${id}/verify`, { notes }),
-  reject: (id, notes) => api.post(`/feedback/${id}/reject`, { notes }),
+export const reviewAPI = {
+  queue: (params) => api.get("/feedback/queue", { params }),
+  approve: (id, notes) => api.post(`/feedback/${id}/approve`, { notes }),
   correct: (id, data) => api.post(`/feedback/${id}/correct`, data),
-  bulkVerify: (ids) =>
-    api.post("/feedback/bulk-verify", { classification_ids: ids }),
+  exclude: (id, reason) => api.post(`/feedback/${id}/exclude`, { reason }),
+  approveSuggested: (documentId) =>
+    api.post("/feedback/approve-suggested", { document_id: documentId }),
 };
 
-export const complianceAPI = {
-  getStats: () => api.get("/compliance/dashboard/stats"),
-  getRecentActivity: (limit = 10) =>
-    api.get("/compliance/dashboard/recent-activity", { params: { limit } }),
-  listFilings: (year) => api.get("/compliance/filings", { params: { year } }),
-  getCurrentFiling: () => api.get("/compliance/filings/current"),
-  getFilingDetails: (id) => api.get(`/compliance/filings/${id}`),
-  getFilingDocuments: (id, params) =>
-    api.get(`/compliance/filings/${id}/documents`, { params }),
-  submitFiling: (id, notes) =>
-    api.post(`/compliance/filings/${id}/submit`, { notes }),
-  getQuarterlyReport: (year, quarter) =>
-    api.get("/compliance/reports/quarterly-summary", {
-      params: { year, quarter },
-    }),
-  getAnnualReport: (year) =>
-    api.get("/compliance/reports/annual", { params: { year } }),
-  getRegulatoryReview: (data) =>
-    api.post("/compliance/reports/regulatory-review", data),
+export const filingAPI = {
+  get: (fy) => api.get("/compliance/filing", { params: { fy } }),
+  finalize: (fy, notes) => api.post("/compliance/filing/finalize", { fy, notes }),
+  reopen: (fy) => api.post("/compliance/filing/reopen", { fy }),
+  regulatoryReview: (fy) =>
+    api.post("/compliance/filing/regulatory-review", { fy }),
 };
 
 export const companyAPI = {
-  getProfile: () => api.get("/company/me"),
-  updateProfile: (data) => api.patch("/company", data),
-  createProfile: (data) => api.post("/company", data),
+  get: () => api.get("/company/me"),
+  update: (data) => api.patch("/company", data),
 };
 
-export default api;
+export const systemAPI = {
+  status: () => api.get("/system/status"),
+};
 
 export const regulatoryAPI = {
   query: (query) => api.post("/regulatory/query", { query }),
+  sources: () => api.get("/regulatory/sources"),
 };
+
+export default api;

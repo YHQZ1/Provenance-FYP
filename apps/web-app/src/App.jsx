@@ -1,99 +1,73 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+} from "react-router-dom";
 import Provenance from "./pages/Provenance.jsx";
 import Auth from "./pages/Auth.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
-import UploadData from "./pages/Upload.jsx";
-import DataValidation from "./pages/Validation.jsx";
-import ComplianceMapping from "./pages/ComplianceMapping.jsx";
-import Reports from "./pages/Reports.jsx";
-import Insights from "./pages/Insights.jsx";
+import Home from "./pages/Home.jsx";
+import Documents from "./pages/Documents.jsx";
+import Review from "./pages/Review.jsx";
+import Filing from "./pages/Filing.jsx";
 import RegulatoryResearch from "./pages/RegulatoryResearch.jsx";
 import Settings from "./pages/Settings.jsx";
+import NotFound from "./pages/NotFound.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Layout from "./components/Layout.jsx";
+import { ToastProvider } from "./components/ui.jsx";
+import { WorkspaceProvider } from "./lib/workspace.jsx";
 
-function ProtectedLayout({ children }) {
+function AppShell() {
   return (
     <ProtectedRoute>
-      <Layout>{children}</Layout>
+      <WorkspaceProvider>
+        <Layout>
+          <Outlet />
+        </Layout>
+      </WorkspaceProvider>
     </ProtectedRoute>
   );
 }
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Provenance />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Provenance />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedLayout>
-              <Dashboard />
-            </ProtectedLayout>
-          }
-        />
-        <Route
-          path="/upload"
-          element={
-            <ProtectedLayout>
-              <UploadData />
-            </ProtectedLayout>
-          }
-        />
-        <Route
-          path="/validation"
-          element={
-            <ProtectedLayout>
-              <DataValidation />
-            </ProtectedLayout>
-          }
-        />
-        <Route
-          path="/mapping"
-          element={
-            <ProtectedLayout>
-              <ComplianceMapping />
-            </ProtectedLayout>
-          }
-        />
-        <Route
-          path="/reports"
-          element={
-            <ProtectedLayout>
-              <Reports />
-            </ProtectedLayout>
-          }
-        />
-        <Route
-          path="/insights"
-          element={
-            <ProtectedLayout>
-              <Insights />
-            </ProtectedLayout>
-          }
-        />
-        <Route
-          path="/regulatory"
-          element={
-            <ProtectedLayout>
-              <RegulatoryResearch />
-            </ProtectedLayout>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedLayout>
-              <Settings />
-            </ProtectedLayout>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
+          <Route element={<AppShell />}>
+            <Route path="/dashboard" element={<Home />} />
+            <Route path="/documents" element={<Documents />} />
+            <Route path="/review" element={<Review />} />
+            <Route path="/filing" element={<Filing />} />
+            <Route path="/regulatory" element={<RegulatoryResearch />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+
+          {/* Old routes from the previous navigation. */}
+          <Route
+            path="/upload"
+            element={<Navigate to="/documents" replace />}
+          />
+          <Route
+            path="/validation"
+            element={<Navigate to="/review" replace />}
+          />
+          <Route path="/mapping" element={<Navigate to="/filing" replace />} />
+          <Route path="/reports" element={<Navigate to="/filing" replace />} />
+          <Route
+            path="/insights"
+            element={<Navigate to="/dashboard" replace />}
+          />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
   );
 }

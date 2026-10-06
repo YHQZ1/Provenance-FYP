@@ -1,88 +1,34 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import BrandedLoader from "./BrandedLoader";
 import { supabase } from "../lib/supabase";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-
-async function syncBackendCookie(token) {
-  try {
-    const res = await fetch(`${API_URL}/api/auth/sync`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include", // ← required so the cookie is actually saved
-      body: JSON.stringify({ token }),
-    });
-    if (!res.ok) console.warn("Backend sync returned", res.status);
-  } catch (e) {
-    console.warn("Backend sync failed:", e.message);
-  }
-}
-
-function Spinner() {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        background: "#fff",
-      }}
-    >
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: "50%",
-          border: "2px solid var(--border)",
-          borderTopColor: "var(--success)",
-          animation: "spin 0.7s linear infinite",
-        }}
-      />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
-}
+import { authAPI } from "../lib/api";
 
 export default function ProtectedRoute({ children }) {
-  // "loading"  → still checking session + syncing cookie
-  // "ready"    → session confirmed, cookie set, safe to render
-  // "unauth"   → no session, redirect to login
   const [status, setStatus] = useState("loading");
+  const location = useLocation();
 
   useEffect(() => {
     let mounted = true;
 
-    async function init() {
+    const init = async () => {
       const { data } = await supabase.auth.getSession();
       const session = data?.session;
-
       if (!session) {
         if (mounted) setStatus("unauth");
         return;
       }
-
-      // Ensure the httpOnly cookie is set BEFORE children mount and fire API calls.
-      // Without this, Dashboard's API calls race ahead with no cookie → 401.
-      localStorage.setItem("sb-access-token", session.access_token);
-      await syncBackendCookie(session.access_token);
-
+      // Ensures the company record exists before pages start loading data.
+      await authAPI.sync(session.access_token).catch(() => {});
       if (mounted) setStatus("ready");
-    }
+    };
 
     init();
 
-    // Also handle token refresh — Supabase rotates tokens silently.
-    // Re-sync the cookie whenever the session changes so it never goes stale.
     const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!session) {
-          if (mounted) setStatus("unauth");
-          return;
-        }
-        localStorage.setItem("sb-access-token", session.access_token);
-        await syncBackendCookie(session.access_token);
-        if (mounted) setStatus("ready");
+      (event, session) => {
+        if (!session && mounted) setStatus("unauth");
+        if (event === "SIGNED_IN" && session && mounted) setStatus("ready");
       },
     );
 
@@ -92,7 +38,15 @@ export default function ProtectedRoute({ children }) {
     };
   }, []);
 
-  if (status === "loading") return <Spinner />;
-  if (status === "unauth") return <Navigate to="/auth?mode=login" replace />;
+  if (status === "loading") return <BrandedLoader />;
+  if (status === "unauth") {
+    return (
+      <Navigate
+        to="/auth?mode=login"
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
+  }
   return children;
 }

@@ -1,838 +1,631 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { Alert, Button, Field, Input } from "../components/ui";
+import AuthLayout from "../components/AuthLayout";
+import BrandedLoader from "../components/BrandedLoader";
 
-const styles = {
-  container: {
-    fontFamily: "'DM Sans', sans-serif",
-    background: "#fff",
-    color: "#0a0a0a",
-    minHeight: "100vh",
-    width: "100vw",
-    maxWidth: "100%",
-    display: "flex",
-    overflow: "hidden",
-  },
-  leftPanel: {
-    width: "42%",
-    flexShrink: 0,
-    background: "#0a0a0a",
-    padding: "48px 40px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    position: "relative",
-    overflow: "hidden",
-  },
-  gridOverlay: {
-    position: "absolute",
-    inset: 0,
-    backgroundImage:
-      "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
-    backgroundSize: "32px 32px",
-    pointerEvents: "none",
-  },
-  rightPanel: {
-    flex: 1,
-    padding: "48px 40px",
-    display: "flex",
-    flexDirection: "column",
-    overflowY: "auto",
-  },
-  modeToggle: {
-    display: "flex",
-    border: "1px solid var(--border)",
-    borderRadius: 8,
-    overflow: "hidden",
-    marginBottom: 28,
-    minHeight: 42,
-  },
-  modeButton: (active) => ({
-    flex: 1,
-    minHeight: 40,
-    padding: "10px 16px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11,
-    fontWeight: 500,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    border: "none",
-    background: active ? "#0a0a0a" : "#fafafa",
-    color: active ? "#fff" : "#a3a3a3",
-    cursor: "pointer",
-    transition: "background 0.15s, color 0.15s",
-  }),
-  socialButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: "11px 16px",
-    border: "1px solid var(--border)",
-    borderRadius: 8,
-    background: "#fafafa",
-    cursor: "pointer",
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11,
-    fontWeight: 500,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    color: "#525252",
-    transition: "border-color 0.15s, background 0.15s, color 0.15s",
-  },
-  submitButton: (loading) => ({
-    width: "100%",
-    padding: "13px 0",
-    background: "#0a0a0a",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    fontFamily: "'DM Mono', monospace",
-    fontSize: 11,
-    fontWeight: 500,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    cursor: loading ? "not-allowed" : "pointer",
-    opacity: loading ? 0.6 : 1,
-    marginTop: 8,
-    transition: "background 0.2s",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  }),
-  errorAlert: {
-    background: "var(--error-bg)",
-    border: "1px solid #fecaca",
-    borderRadius: 8,
-    padding: "12px 14px",
-    fontSize: 13,
-    color: "var(--error)",
-    marginBottom: 16,
-  },
-  successAlert: {
-    background: "var(--success-bg)",
-    border: "1px solid #a7f3d0",
-    borderRadius: 8,
-    padding: "12px 14px",
-    fontSize: 13,
-    color: "var(--success)",
-    marginBottom: 16,
-  },
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/;
+const MIN_PASSWORD = 8;
+
+const cx = (...classes) => classes.filter(Boolean).join(" ");
+
+const readParams = () => new URLSearchParams(window.location.search);
+
+// Creates the company record for a new user; signing in still works if it fails.
+const syncWithBackend = async (token) => {
+  try {
+    await fetch(`${API_URL}/api/auth/sync`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ token }),
+    });
+  } catch (error) {
+    console.warn("Backend sync failed, continuing:", error.message);
+  }
 };
 
-const animations = `
-  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-  @keyframes spin { to { transform: rotate(360deg) } }
-  @keyframes pulse { 0%, 100% { opacity: 0.35 } 50% { opacity: 1 } }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
-`;
+function GoogleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        fill="#34A853"
+      />
+      <path
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+        fill="#EA4335"
+      />
+    </svg>
+  );
+}
+
+function MicrosoftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 21 21" aria-hidden>
+      <path d="M1 1h9v9H1z" fill="#F25022" />
+      <path d="M11 1h9v9h-9z" fill="#7FBA00" />
+      <path d="M1 11h9v9H1z" fill="#00A4EF" />
+      <path d="M11 11h9v9h-9z" fill="#FFB900" />
+    </svg>
+  );
+}
+
+// Supabase's raw messages ("Email address … is invalid") read like a bug; say what happened instead.
+const friendlyAuthError = (error) => {
+  const code = error?.code || "";
+  const text = error?.message || "Something went wrong. Please try again.";
+  if (
+    code === "email_address_invalid" ||
+    /email address .* is invalid/i.test(text)
+  ) {
+    return "We can't send email to this address. Check it's an inbox you can receive mail at, or ask your administrator to reset your password.";
+  }
+  if (code === "over_email_send_rate_limit" || /rate limit/i.test(text)) {
+    return "Too many emails have been sent recently. Wait a few minutes, then try again.";
+  }
+  if (
+    code === "invalid_credentials" ||
+    /invalid login credentials/i.test(text)
+  ) {
+    return "That email and password don't match. Check them, or reset your password.";
+  }
+  if (code === "email_not_confirmed" || /email not confirmed/i.test(text)) {
+    return "Confirm your email first. Open the link we sent when you created your account.";
+  }
+  if (code === "user_already_exists" || /already registered/i.test(text)) {
+    return "An account with this email already exists. Sign in instead.";
+  }
+  return text;
+};
 
 function FullscreenLoader({ message }) {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "#0a0a0a",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 9999,
-        animation: "fadeIn 0.25s ease",
-      }}
-    >
-      <style>{animations}</style>
-      <div
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: "50%",
-          border: "1.5px solid #1f1f1f",
-          borderTop: "1.5px solid #059669",
-          animation: "spin 0.75s linear infinite",
-          marginBottom: 28,
-        }}
-      />
-      <p
-        style={{
-          fontFamily: "'DM Mono', monospace",
-          fontSize: 10,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          color: "#059669",
-          animation: "pulse 1.6s ease-in-out infinite",
-        }}
-      >
-        {message}
-      </p>
-    </div>
-  );
-}
-
-function FieldWrap({ label, children }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <label
-        style={{
-          display: "block",
-          fontFamily: "'DM Mono', monospace",
-          fontSize: 10,
-          fontWeight: 500,
-          color: "#0a0a0a",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-function AuthInput(props) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <input
-      {...props}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      style={{
-        width: "100%",
-        fontFamily: "'DM Sans', sans-serif",
-        fontSize: 14,
-        fontWeight: 400,
-        padding: "11px 14px",
-        border: `1px solid ${focused ? "#059669" : "#e5e5e5"}`,
-        borderRadius: 8,
-        background: focused ? "#fff" : "#fafafa",
-        color: "#0a0a0a",
-        outline: "none",
-        transition: "border-color 0.2s, background 0.2s",
-      }}
-    />
-  );
+  return <BrandedLoader message={message} />;
 }
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState(
-    () => new URLSearchParams(window.location.search).get("email") || "",
+  const navigate = useNavigate();
+  const location = useLocation();
+  const destination = location.state?.from || "/dashboard";
+
+  // "form" is sign in / create account; "forgot" asks for an email; "reset-sent" confirms it went out.
+  const [view, setView] = useState(() =>
+    readParams().get("mode") === "forgot" ? "forgot" : "form",
   );
+  const [resetSentTo, setResetSentTo] = useState(null);
+  const [resendIn, setResendIn] = useState(0);
+  const [isLogin, setIsLogin] = useState(
+    () => readParams().get("mode") !== "signup",
+  );
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState(() => readParams().get("email") || "");
   const [password, setPassword] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [gstNumber, setGstNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
-  const [transitioning, setTransitioning] = useState(false);
-  const [transitionMessage, setTransitionMessage] =
-    useState("Authenticating...");
-  const [error, setError] = useState(null);
+  const [transition, setTransition] = useState(null);
+  const [error, setError] = useState(() =>
+    readParams().get("expired")
+      ? "Your session expired. Please sign in again."
+      : null,
+  );
   const [message, setMessage] = useState(null);
-
-  // ✅ FIX 1: Guard so the init effect only ever runs once,
-  //    preventing double-execution on re-renders / StrictMode.
+  const [confirmationSentTo, setConfirmationSentTo] = useState(null);
   const didInit = useRef(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
-  const navigate = useNavigate();
-
-  const syncWithBackend = async (token) => {
-    const response = await fetch(`${API_URL}/api/auth/sync`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ token }),
-    });
-    if (!response.ok) throw new Error("Failed to sync with backend");
-  };
-
-  // ✅ FIX 2: Never sign the user out on a sync failure.
-  //    Just log a warning and proceed to the dashboard.
-  //    Signing out here was what destroyed the session that
-  //    ProtectedRoute was watching, causing the redirect loop.
-  const syncSafe = async (token) => {
-    try {
-      await syncWithBackend(token);
-    } catch (err) {
-      console.warn("Backend sync failed, proceeding anyway:", err.message);
-    }
-  };
-
-  const redirectToHome = (msg) => {
-    setTransitionMessage(msg);
-    setTransitioning(true);
-    navigate("/dashboard", { replace: true });
+  const enterApp = (label) => {
+    setTransition(label);
+    navigate(destination, { replace: true });
   };
 
   useEffect(() => {
-    // ✅ FIX 1 (continued): Bail out if already ran.
     if (didInit.current) return;
     didInit.current = true;
 
-    const handleAuth = async () => {
-      // --- Handle OAuth redirect (Google / Microsoft) ---
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get("access_token");
-
+    const init = async () => {
+      // Returning from Google or Microsoft: the session arrives in the URL hash.
+      const hash = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hash.get("access_token");
       if (accessToken) {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.setSession({
+        const { data, error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
-          refresh_token: hashParams.get("refresh_token"),
+          refresh_token: hash.get("refresh_token"),
         });
-
-        if (error || !session) {
-          setError("OAuth sign-in failed. Please try again.");
-          setInitializing(false);
-          return;
-        }
-
         window.history.replaceState(
           {},
           document.title,
           window.location.pathname,
         );
-        await syncSafe(session.access_token);
-        redirectToHome("Signing in...");
+        if (sessionError || !data.session) {
+          setError(
+            "Signing in with that account didn't work. Please try again.",
+          );
+          setInitializing(false);
+          return;
+        }
+        await syncWithBackend(data.session.access_token);
+        enterApp("Signing in…");
         return;
       }
 
-      // --- Handle already-logged-in user landing on /auth ---
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session) {
-        // ✅ FIX 2 (continued): Don't sign out on failure — just navigate.
-        await syncSafe(session.access_token);
-        navigate("/dashboard", { replace: true });
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        await syncWithBackend(data.session.access_token);
+        navigate(destination, { replace: true });
         return;
       }
-
       setInitializing(false);
     };
 
-    handleAuth();
+    init();
+    // Runs once on mount; navigation targets are read from the initial location.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const setModeInUrl = (mode) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("mode", mode);
+    url.searchParams.delete("expired");
+    window.history.replaceState({}, "", url);
+  };
+
+  const switchMode = (login) => {
+    setIsLogin(login);
+    setView("form");
+    setError(null);
+    setMessage(null);
+    setModeInUrl(login ? "login" : "signup");
+  };
+
+  const openForgot = () => {
+    setView("forgot");
+    setError(null);
+    setMessage(null);
+    setModeInUrl("forgot");
+  };
+
+  // Counts down the "Resend link" cooldown.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setIsLogin(params.get("mode") !== "signup");
-  }, []);
+    if (resendIn <= 0) return undefined;
+    const timer = setTimeout(() => setResendIn((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
 
-  const handleGoogleLogin = async () => {
-    setTransitionMessage("Redirecting to Google...");
-    setTransitioning(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/auth" },
+  const signInWith = async (provider, label) => {
+    setTransition(`Redirecting to ${label}…`);
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/auth` },
     });
-    if (error) {
-      setTransitioning(false);
-      setError(error.message);
+    if (oauthError) {
+      setTransition(null);
+      setError(friendlyAuthError(oauthError));
     }
   };
 
-  const handleMicrosoftLogin = async () => {
-    setTransitionMessage("Redirecting to Microsoft...");
-    setTransitioning(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "azure",
-      options: { redirectTo: window.location.origin + "/auth" },
-    });
-    if (error) {
-      setTransitioning(false);
-      setError(error.message);
-    }
-  };
+  const gst = gstNumber.trim().toUpperCase();
+  const gstError =
+    !isLogin && gst && !GSTIN_PATTERN.test(gst)
+      ? "Enter a valid 15-character GSTIN, or leave it blank for now."
+      : null;
+  const passwordError =
+    !isLogin && password && password.length < MIN_PASSWORD
+      ? `Use at least ${MIN_PASSWORD} characters.`
+      : null;
 
-  const handleEmailAuth = async (e) => {
-    e.preventDefault();
+  const submit = async (event) => {
+    event.preventDefault();
+    if (gstError || passwordError) return;
     setLoading(true);
     setError(null);
     setMessage(null);
+
     try {
       if (isLogin) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw new Error(error.message);
-        if (!data.session) throw new Error("Login failed. Please try again.");
-        localStorage.setItem("sb-access-token", data.session.access_token);
-        await syncSafe(data.session.access_token);
-        redirectToHome("Signing in...");
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-              company_name: companyName,
-              gst_number: gstNumber,
-            },
-          },
-        });
-        if (error) throw new Error(error.message);
-        if (!data.session) {
-          setMessage(
-            "Check your email to confirm your account before signing in.",
-          );
-          setLoading(false);
-          return;
-        }
-        localStorage.setItem("sb-access-token", data.session.access_token);
-        await syncSafe(data.session.access_token);
-        redirectToHome("Creating your workspace...");
+        const { data, error: signInError } =
+          await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) throw signInError;
+        await syncWithBackend(data.session.access_token);
+        enterApp("Signing in…");
+        return;
       }
-    } catch (err) {
-      setError(err.message);
+
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+            company_name: companyName.trim(),
+            gst_number: gst || null,
+          },
+          emailRedirectTo: `${window.location.origin}/auth?mode=login`,
+        },
+      });
+      if (signUpError) throw signUpError;
+      if (!data.session) {
+        setConfirmationSentTo(email);
+        setLoading(false);
+        return;
+      }
+      await syncWithBackend(data.session.access_token);
+      enterApp("Setting up your workspace…");
+    } catch (submitError) {
+      setError(friendlyAuthError(submitError));
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      setError("Please enter your email address first");
+  const sendReset = async (event) => {
+    event?.preventDefault();
+    const address = email.trim();
+    if (!address) {
+      setError("Enter the email you sign in with.");
       return;
     }
     setLoading(true);
     setError(null);
-    setMessage(null);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      address,
+      {
         redirectTo: `${window.location.origin}/reset-password`,
-      });
-      if (error) throw error;
-      setMessage("Password reset link sent to your email.");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleMode = () => {
-    const nextMode = isLogin ? "signup" : "login";
-    setIsLogin(!isLogin);
-    setError(null);
-    setMessage(null);
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.set("mode", nextMode);
-    window.history.replaceState({}, "", newUrl);
-  };
-
-  if (initializing || transitioning) {
-    return (
-      <FullscreenLoader
-        message={transitioning ? transitionMessage : "Loading..."}
-      />
+      },
     );
+    setLoading(false);
+    if (resetError) {
+      setError(friendlyAuthError(resetError));
+      return;
+    }
+    setResetSentTo(address);
+    setResendIn(30);
+    setView("reset-sent");
+  };
+
+  if (initializing || transition) {
+    return <FullscreenLoader message={transition || "Loading…"} />;
   }
 
   return (
-    <div style={styles.container}>
-      <style>{animations}</style>
-
-      <div style={styles.leftPanel}>
-        <div style={styles.gridOverlay} />
-        <div style={{ position: "relative", zIndex: 1 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              marginBottom: 48,
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "#059669",
-              }}
-            />
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: 11,
-                fontWeight: 500,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "#fff",
-              }}
-            >
-              Provenance
-            </span>
-          </div>
-          <h2
-            style={{
-              fontSize: 36,
-              fontWeight: 600,
-              letterSpacing: "-0.025em",
-              lineHeight: 1.1,
-              color: "#fff",
-              maxWidth: 280,
-            }}
-          >
-            The immutable ledger for your compliance posture.
-          </h2>
-        </div>
-        <div
-          style={{
-            position: "relative",
-            zIndex: 1,
-            borderTop: "1px solid #1f1f1f",
-            paddingTop: 20,
-          }}
-        >
-          <p
-            style={{
-              fontFamily: "'DM Mono', monospace",
-              fontSize: 10,
-              color: "#059669",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              marginBottom: 6,
-            }}
-          >
-            System_Status
-          </p>
-          <p style={{ fontSize: 13, color: "#737373", fontWeight: 400 }}>
-            All telemetry pipelines active.
-          </p>
-        </div>
-      </div>
-
-      <div style={styles.rightPanel}>
-        <Link
-          to="/"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            fontFamily: "'DM Mono', monospace",
-            fontSize: 11,
-            fontWeight: 500,
-            color: "#a3a3a3",
-            textDecoration: "none",
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            marginBottom: 40,
-            transition: "color 0.15s",
-          }}
-          className="hover:text-[#0a0a0a]"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-          Back to website
-        </Link>
-
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            width: "100%",
-            maxWidth: 480,
-            margin: "0 auto",
-          }}
-        >
-          <div style={styles.modeToggle}>
-            {[
-              { label: "Sign In", mode: true },
-              { label: "Create Workspace", mode: false },
-            ].map(({ label, mode }) => (
+    <AuthLayout>
+      <>
+        {view === "forgot" ? (
+          <div>
+            <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
+              Account recovery
+            </p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight">
+              Reset your password
+            </h2>
+            <p className="mt-2 text-neutral-600">
+              Enter the email you sign in with and we'll send you a link to set
+              a new password.
+            </p>
+            <form onSubmit={sendReset} className="mt-8 space-y-4">
+              {error && <Alert tone="error">{error}</Alert>}
+              <Field label="Email" htmlFor="reset-email">
+                <Input
+                  id="reset-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  placeholder="you@company.com"
+                  autoFocus
+                  required
+                />
+              </Field>
+              <Button
+                type="submit"
+                variant="primary"
+                className="h-11 w-full"
+                loading={loading}
+              >
+                Send reset link
+              </Button>
+            </form>
+            <p className="mt-6 text-center text-sm text-neutral-500">
+              Remembered it?{" "}
               <button
-                key={label}
-                onClick={() => {
-                  setIsLogin(mode);
-                  setError(null);
-                  setMessage(null);
-                }}
-                style={styles.modeButton(isLogin === mode)}
+                type="button"
+                onClick={() => switchMode(true)}
+                className="font-medium text-neutral-950 underline underline-offset-4 hover:text-emerald-700"
               >
-                {label}
+                Back to sign in
               </button>
-            ))}
+            </p>
           </div>
-
-          <p
-            style={{
-              fontSize: 14,
-              color: "#737373",
-              fontWeight: 400,
-              lineHeight: 1.5,
-              marginBottom: 28,
-            }}
-          >
-            {isLogin
-              ? "Enter your credentials to access your enterprise dashboard."
-              : "Set up your workspace to begin syncing telemetry data."}
-          </p>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 10,
-              marginBottom: 24,
-            }}
-          >
-            {[
-              {
-                label: "Google",
-                icon: (
-                  <svg width="16" height="16" viewBox="0 0 24 24">
-                    <path
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      fill="#4285F4"
-                    />
-                    <path
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      fill="#34A853"
-                    />
-                    <path
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      fill="#FBBC05"
-                    />
-                    <path
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      fill="#EA4335"
-                    />
-                  </svg>
-                ),
-                onClick: handleGoogleLogin,
-              },
-              {
-                label: "Microsoft",
-                icon: (
-                  <svg width="16" height="16" viewBox="0 0 21 21">
-                    <path d="M1 1h9v9H1z" fill="#F25022" />
-                    <path d="M11 1h9v9h-9z" fill="#7FBA00" />
-                    <path d="M1 11h9v9H1z" fill="#00A4EF" />
-                    <path d="M11 11h9v9h-9z" fill="#FFB900" />
-                  </svg>
-                ),
-                onClick: handleMicrosoftLogin,
-              },
-            ].map(({ label, icon, onClick }) => (
-              <button
-                key={label}
-                onClick={onClick}
-                disabled={loading}
-                style={styles.socialButton}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.borderColor = "#d4d4d4";
-                  e.currentTarget.style.color = "#0a0a0a";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.borderColor = "#e5e5e5";
-                  e.currentTarget.style.color = "#525252";
-                }}
-              >
-                {icon}
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              marginBottom: 24,
-            }}
-          >
-            <div style={{ flex: 1, height: 1, background: "#f0f0f0" }} />
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                fontSize: 10,
-                color: "#a3a3a3",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                whiteSpace: "nowrap",
-              }}
-            >
-              or continue with email
-            </span>
-            <div style={{ flex: 1, height: 1, background: "#f0f0f0" }} />
-          </div>
-
-          {error && <div style={styles.errorAlert}>{error}</div>}
-          {message && <div style={styles.successAlert}>{message}</div>}
-
-          <form onSubmit={handleEmailAuth}>
-            {!isLogin && (
-              <>
-                <FieldWrap label="Your name">
-                  <AuthInput
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-                </FieldWrap>
-                <FieldWrap label="Company name">
-                  <AuthInput
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    required
-                  />
-                </FieldWrap>
-                <FieldWrap label="GST number">
-                  <AuthInput
-                    type="text"
-                    value={gstNumber}
-                    onChange={(e) => setGstNumber(e.target.value)}
-                    required
-                  />
-                </FieldWrap>
-              </>
-            )}
-            <FieldWrap label="Your email address">
-              <AuthInput
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </FieldWrap>
-            <div style={{ marginBottom: 16 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 8,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "'DM Mono', monospace",
-                    fontSize: 10,
-                    fontWeight: 500,
-                    color: "#0a0a0a",
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Password
-                </span>
-                {isLogin && (
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    style={{
-                      fontFamily: "'DM Mono', monospace",
-                      fontSize: 10,
-                      fontWeight: 500,
-                      color: "#059669",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                      cursor: "pointer",
-                      background: "none",
-                      border: "none",
-                    }}
-                  >
-                    Forgot password?
-                  </button>
-                )}
+        ) : view === "reset-sent" ? (
+          <div>
+            <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
+              Check your inbox
+            </p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight">
+              Reset link sent
+            </h2>
+            <p className="mt-3 text-neutral-600">
+              If an account exists for{" "}
+              <span className="font-medium text-neutral-950">
+                {resetSentTo}
+              </span>
+              , you'll get an email with a link to set a new password. It can
+              take a minute, so check your spam folder too.
+            </p>
+            {error && (
+              <div className="mt-6">
+                <Alert tone="error">{error}</Alert>
               </div>
-              <AuthInput
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              style={styles.submitButton(loading)}
-              onMouseOver={(e) => {
-                if (!loading) e.currentTarget.style.background = "#1a1a1a";
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = "#0a0a0a";
+            )}
+            <Button
+              variant="primary"
+              className="mt-8 h-11 w-full"
+              onClick={() => switchMode(true)}
+            >
+              Back to sign in
+            </Button>
+            <p className="mt-6 text-center text-sm text-neutral-500">
+              Didn't get it?{" "}
+              <button
+                type="button"
+                onClick={() => sendReset()}
+                disabled={resendIn > 0 || loading}
+                className="font-medium text-neutral-950 underline underline-offset-4 hover:text-emerald-700 disabled:cursor-not-allowed disabled:text-neutral-400 disabled:no-underline"
+              >
+                {resendIn > 0 ? `Resend link in ${resendIn}s` : "Resend link"}
+              </button>
+            </p>
+          </div>
+        ) : confirmationSentTo ? (
+          <div>
+            <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
+              Check your inbox
+            </p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight">
+              Confirm your email
+            </h2>
+            <p className="mt-3 text-neutral-600">
+              We sent a confirmation link to{" "}
+              <span className="font-medium text-neutral-950">
+                {confirmationSentTo}
+              </span>
+              . Open it to activate your account, then sign in.
+            </p>
+            <Button
+              variant="primary"
+              className="mt-8 w-full"
+              onClick={() => {
+                setConfirmationSentTo(null);
+                setPassword("");
+                switchMode(true);
               }}
             >
-              {loading ? (
-                <>
-                  <span
-                    style={{
-                      width: 12,
-                      height: 12,
-                      borderRadius: "50%",
-                      border: "1.5px solid rgba(255,255,255,0.25)",
-                      borderTop: "1.5px solid #fff",
-                      display: "inline-block",
-                      animation: "spin 0.7s linear infinite",
-                    }}
-                  />
-                  Processing...
-                </>
-              ) : isLogin ? (
-                "Sign In"
-              ) : (
-                "Create Workspace"
-              )}
-            </button>
-          </form>
+              Back to sign in
+            </Button>
+          </div>
+        ) : (
+          <>
+            <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
+              {isLogin ? "Welcome back" : "Get started"}
+            </p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight">
+              {isLogin ? "Sign in to Provenance" : "Create your account"}
+            </h2>
+            <p className="mt-2 text-neutral-600">
+              {isLogin
+                ? "Pick up your EPR filing where you left off."
+                : "Set up your company and start with this year's invoices."}
+            </p>
 
-          <p
-            style={{
-              textAlign: "center",
-              marginTop: 20,
-              fontSize: 13,
-              color: "#737373",
-            }}
-          >
-            {isLogin ? "Don't have an account? " : "Already have an account? "}
-            <button
-              type="button"
-              onClick={toggleMode}
-              style={{
-                background: "none",
-                border: "none",
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#0a0a0a",
-                cursor: "pointer",
-                textDecoration: "underline",
-              }}
+            <div
+              className="relative mt-6 grid grid-cols-2 rounded-md border border-neutral-200 p-1"
+              role="tablist"
+              aria-label="Account"
             >
-              {isLogin ? "Create Workspace" : "Sign In"}
-            </button>
-          </p>
-        </div>
-      </div>
-    </div>
+              {/* The highlight slides between the two tabs instead of jumping. */}
+              <span
+                aria-hidden
+                className={cx(
+                  "absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-sm bg-neutral-950 transition-transform duration-300 ease-out motion-reduce:transition-none",
+                  isLogin ? "translate-x-0" : "translate-x-full",
+                )}
+              />
+              {[
+                [true, "Sign in"],
+                [false, "Create account"],
+              ].map(([login, label]) => (
+                <button
+                  key={label}
+                  type="button"
+                  role="tab"
+                  aria-selected={isLogin === login}
+                  onClick={() => switchMode(login)}
+                  className={cx(
+                    "relative z-10 rounded-sm py-2 text-sm font-medium transition-colors duration-300",
+                    isLogin === login
+                      ? "text-white"
+                      : "text-neutral-500 hover:text-neutral-950",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <Button
+                onClick={() => signInWith("google", "Google")}
+                disabled={loading}
+              >
+                <GoogleIcon /> Google
+              </Button>
+              <Button
+                onClick={() => signInWith("azure", "Microsoft")}
+                disabled={loading}
+              >
+                <MicrosoftIcon /> Microsoft
+              </Button>
+            </div>
+
+            <div className="my-5 flex items-center gap-4">
+              <span className="h-px flex-1 bg-neutral-200" />
+              <span className="mono text-[11px] uppercase tracking-[0.14em] text-neutral-400">
+                or with email
+              </span>
+              <span className="h-px flex-1 bg-neutral-200" />
+            </div>
+
+            <div className="space-y-3">
+              {error && <Alert tone="error">{error}</Alert>}
+              {message && <Alert tone="ok">{message}</Alert>}
+            </div>
+
+            <form
+              onSubmit={submit}
+              className={cx((error || message) && "mt-4")}
+            >
+              {/* Sign-up fields expand and collapse in place instead of popping in. */}
+              <div
+                className={cx(
+                  "grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none",
+                  isLogin
+                    ? "grid-rows-[0fr] opacity-0"
+                    : "grid-rows-[1fr] opacity-100",
+                )}
+                inert={isLogin}
+              >
+                <div className="min-h-0 overflow-hidden">
+                  <div className="space-y-4 pb-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Your name" htmlFor="full-name">
+                        <Input
+                          id="full-name"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          autoComplete="name"
+                          required={!isLogin}
+                        />
+                      </Field>
+                      <Field label="Company name" htmlFor="company-name">
+                        <Input
+                          id="company-name"
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          autoComplete="organization"
+                          required={!isLogin}
+                        />
+                      </Field>
+                    </div>
+                    <Field
+                      label={
+                        <>
+                          GSTIN{" "}
+                          <span className="font-normal text-neutral-500">
+                            (optional, needed before finalizing)
+                          </span>
+                        </>
+                      }
+                      htmlFor="gstin"
+                      error={gstError}
+                    >
+                      <Input
+                        id="gstin"
+                        value={gstNumber}
+                        onChange={(e) =>
+                          setGstNumber(e.target.value.toUpperCase())
+                        }
+                        maxLength={15}
+                        placeholder="27ABCDE1234F1Z5"
+                        className="mono uppercase"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <Field label={isLogin ? "Email" : "Work email"} htmlFor="email">
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
+                    placeholder="you@company.com"
+                    required
+                  />
+                </Field>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor="password"
+                      className="text-sm font-medium text-neutral-800"
+                    >
+                      Password
+                    </label>
+                    {isLogin ? (
+                      <button
+                        type="button"
+                        onClick={openForgot}
+                        className="text-sm font-medium text-emerald-700 hover:text-emerald-600"
+                      >
+                        Forgot password?
+                      </button>
+                    ) : (
+                      <span className="text-xs text-neutral-500">
+                        At least {MIN_PASSWORD} characters
+                      </span>
+                    )}
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete={isLogin ? "current-password" : "new-password"}
+                    required
+                  />
+                  {passwordError && (
+                    <p className="text-xs text-red-600">{passwordError}</p>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="h-11 w-full"
+                  loading={loading}
+                >
+                  {isLogin ? "Sign in" : "Create account"}
+                </Button>
+              </div>
+            </form>
+
+            <p className="mt-6 text-center text-sm text-neutral-500">
+              {isLogin ? "New to Provenance? " : "Already have an account? "}
+              <button
+                type="button"
+                onClick={() => switchMode(!isLogin)}
+                className="font-medium text-neutral-950 underline underline-offset-4 hover:text-emerald-700"
+              >
+                {isLogin ? "Create an account" : "Sign in"}
+              </button>
+            </p>
+          </>
+        )}
+      </>
+    </AuthLayout>
   );
 }

@@ -1,0 +1,33 @@
+export const filingFixture = (overrides = {}) => ({
+  financial_year: { start_year: 2026, label: "FY 2026-27", start_date: "2026-04-01", end_date: "2027-03-31" },
+  available_years: [2026],
+  entity: { company_name: "Acme Packaging", gst_number: "27ABCDE1234F1Z5", pibo_category: ["BRAND_OWNER"] },
+  totals: {
+    introduced: { by_material: { PET: 1200, HDPE: 300 }, total_kg: 1500 },
+    recycled: { by_material: { PET: 400 }, total_kg: 400 },
+    collected: { by_material: {}, total_kg: 0 },
+  },
+  counts: { documents: 2, processing: 0, failed: 0, review: 1, verified: 1, evidence: 0, pending_items: 3, excluded_items: 0 },
+  documents: [
+    {
+      id: "d1",
+      filename: "invoice-001.pdf",
+      document_type: "purchase_invoice",
+      document_type_label: "Purchase invoice",
+      stage: "verified",
+      status: "VERIFIED",
+      effective_date: "2026-05-01",
+      date_source: "document",
+      items_total: 2,
+      items_pending: 0,
+      verified_kg: 1500,
+    },
+  ],
+  blockers: [{ key: "review", message: "3 line item(s) are waiting for review.", action: "review" }],
+  ready: false,
+  status: "OPEN",
+  snapshot: null,
+  finalization_available: true,
+  source_basis: [{ title: "CPCB guidance", url: "https://example.org" }],
+  ...overrides,
+});

@@ -1,6 +1,16 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
+/* Slightly sharper corners across the app: each step is ~2px tighter than Tailwind's default. */
+@theme {
+  --radius-sm: 0.125rem;
+  --radius: 0.1875rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.875rem;
+}
+
 :root {
   --bg: #ffffff;
   --surface: #fafafa;
@@ -23,65 +33,69 @@
   --dark: #0a0a0a;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* Base styles live in the base layer: unlayered rules would override every
+   Tailwind utility (for example, a global padding reset wiped out all p-* classes). */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 80px;
+  }
+
+  body {
+    font-family: "DM Sans", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--bg);
+    color: var(--text-primary);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "DM Sans", sans-serif;
+    font-weight: 600;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font-family: "DM Sans", sans-serif;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: white;
+  }
+
+  /* Tailwind v4 resets buttons to the default cursor; anything clickable should show a pointer. */
+  a[href],
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  summary,
+  label[for],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="file"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
 }
 
-html {
-  scroll-behavior: smooth;
-  scroll-padding-top: 80px;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-}
-
-body {
-  font-family: "DM Sans", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: var(--bg);
-  color: var(--text-primary);
-}
-
-#root {
-  display: flex;
-  flex-direction: column;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-family: "DM Sans", sans-serif;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-
-button,
-input,
-textarea,
-select {
-  font-family: "DM Sans", sans-serif;
-}
-
-::selection {
-  background: var(--accent);
-  color: white;
-}
-
-.mono {
-  font-family: "DM Mono", monospace;
+@layer utilities {
+  .mono {
+    font-family: "DM Mono", monospace;
+  }
 }
 
 .auth-input {
@@ -104,4 +118,15 @@ select {
 
 .auth-input::placeholder {
   color: var(--text-light);
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  button,
+  nav,
+  aside {
+    display: none !important;
+  }
 }
