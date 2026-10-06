@@ -37,5 +37,11 @@ def extract_pdf_tokens(pdf_path: str | Path) -> tuple[list[dict], int]:
         doc.close()
 
 
-def render_pdf_pages(pdf_path: str | Path, dpi: int = 300):
-    return convert_from_path(str(pdf_path), dpi=dpi)
+def render_pdf_pages(pdf_path: str | Path, dpi: int = 300, page_numbers: list[int] | None = None):
+    """Render pages to images. page_numbers are zero-based; None renders every page."""
+    if page_numbers is None:
+        return convert_from_path(str(pdf_path), dpi=dpi)
+    images = []
+    for page in page_numbers:
+        images.extend(convert_from_path(str(pdf_path), dpi=dpi, first_page=page + 1, last_page=page + 1))
+    return images

@@ -1,8 +1,10 @@
 import os
 import tempfile
+import threading
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 
 from ocr_service.core.config import settings
 from ocr_service.pipeline import OCRPipeline
@@ -11,6 +13,16 @@ from ocr_service.schemas import OCRResponse
 router = APIRouter(prefix="/v1", tags=["ocr"])
 pipeline = OCRPipeline()
 SUPPORTED_TYPES = {"application/pdf", "image/png", "image/jpeg", "image/tiff"}
+
+# PaddleOCR's engine is a shared, non-thread-safe object: two documents running through it
+# at once corrupt its tensors ("Tensor holds no memory"). Documents take turns; /health,
+# which never touches the engine, stays responsive because the work runs off the event loop.
+_engine_lock = threading.Lock()
+
+
+def _process_exclusively(path: str, filename: str | None) -> OCRResponse:
+    with _engine_lock:
+        return pipeline.process(path, filename)
 
 
 @router.post("/ocr", response_model=OCRResponse, status_code=status.HTTP_200_OK)
@@ -32,7 +44,8 @@ async def process_document(file: UploadFile = File(...)) -> OCRResponse:
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
             temp_file.write(payload)
             temp_path = temp_file.name
-        return pipeline.process(temp_path, file.filename)
+        # OCR is CPU-bound; run it off the event loop so /health stays responsive.
+        return await run_in_threadpool(_process_exclusively, temp_path, file.filename)
     except ValueError as exc:
         raise HTTPException(status_code=415, detail=str(exc)) from exc
     except Exception as exc:

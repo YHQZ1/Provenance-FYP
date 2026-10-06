@@ -1,16 +1,50 @@
 import re
 
+# 1,00,000 (Indian grouping), 1,250.50, 2375.000, 12
+NUMBER = r"\d{1,3}(?:,\d{2,3})+(?:\.\d+)?|\d+(?:\.\d+)?"
+WEIGHT_UNITS = r"kgs?|kilograms?|grams?|gms?|g|mt|tonnes?|tons?|qtls?|quintals?"
+COUNT_UNITS = r"mtrs?|pcs|nos|units?"
+UNITS = rf"(?:{WEIGHT_UNITS}|{COUNT_UNITS})"
+
+
+_DAY = r"(?:0?[1-9]|[12][0-9]|3[01])"
+_MONTH = r"(?:0?[1-9]|1[0-2])"
+# Valid day/month ranges and no surrounding digits, so references like 012/20-21 aren't read as dates.
+DATE = (
+    rf"(?<![\d/]){_DAY}[/.-]{_MONTH}[/.-](?:[0-9]{{4}}|[0-9]{{2}})(?![\d/])"
+    rf"|(?<!\d){_DAY}(?:st|nd|rd|th)?[\s/.-]+(?:jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*[\s/.,-]+(?:[0-9]{{4}}|[0-9]{{2}})(?!\d)"
+)
+
+DATE_LABELS = r"invoice\s*date|inv\.?\s*date|bill\s*date|certificate\s*date|date\s*of\s*issue|dated"
+
+# Summary rows repeat the column totals; they are not line items.
+TOTAL_ROW = re.compile(r"^(?:sub[\s-]*total|grand\s+total|total|net\s+(?:amount|total)|amount\s+chargeable)\b", re.I)
 
 FIELD_PATTERNS = {
     "invoice_number": [
         r"(?im)\b(?:invoice|inv)\s*(?:no|number|#)\s*[:#.-]*\s*([A-Z0-9][A-Z0-9./\\-]*)",
     ],
     "invoice_date": [
-        r"(?im)\b(?:invoice\s*date|inv\.?\s*date)\b[^\n]{0,80}?([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})",
-        r"(?im)(?<!due\s)\bdate\b[^\n]{0,80}?([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})",
+        rf"(?im)\b(?:{DATE_LABELS})\b[^\n]{{0,80}}?({DATE})",
+        # Stacked and column-header layouts put the value on the line below the label.
+        rf"(?im)\b(?:{DATE_LABELS})\b[^\n]{{0,40}}\n[^\n]{{0,80}}?({DATE})",
+        rf"(?im)(?<!due\s)\bdate\b[^\n]{{0,80}}?({DATE})",
     ],
     "gstin": [r"\b([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9])\b"],
 }
+
+
+def _same_line(token: dict, line: list[dict]) -> bool:
+    """Tokens share a line when their vertical centres are within half a line height.
+
+    A fixed page-relative threshold merged consecutive lines of small (10-11pt) text.
+    """
+    anchor = line[0]
+    token_height = token.get("h") or 0.01
+    anchor_height = anchor.get("h") or 0.01
+    token_centre = token["y"] + token_height / 2
+    anchor_centre = anchor["y"] + anchor_height / 2
+    return abs(token_centre - anchor_centre) <= 0.5 * max(token_height, anchor_height)
 
 
 def tokens_to_text(tokens: list[dict]) -> str:
@@ -20,10 +54,10 @@ def tokens_to_text(tokens: list[dict]) -> str:
         page_tokens.sort(key=lambda token: (token["y"], token["x"]))
         lines: list[list[dict]] = []
         for token in page_tokens:
-            if not lines or abs(token["y"] - lines[-1][0]["y"]) >= 0.02:
-                lines.append([token])
-            else:
+            if lines and _same_line(token, lines[-1]):
                 lines[-1].append(token)
+            else:
+                lines.append([token])
         pages.append("\n".join(" ".join(t["text"] for t in sorted(line, key=lambda x: x["x"])) for line in lines))
     return "\n\n".join(pages)
 
@@ -44,24 +78,48 @@ def extract_fields(text: str, average_confidence: float) -> dict[str, dict]:
 
 
 def parse_line_items(text: str, average_confidence: float) -> list[dict]:
+    lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
+    lines = [line for line in lines if not TOTAL_ROW.match(line)]
+
     items: list[dict] = []
-    normalized_lines = [" ".join(line.split()) for line in text.splitlines() if line.strip()]
+    table_lines = _append_table_row_items(items, lines, average_confidence)
+    remaining = [line for line in lines if line not in table_lines]
 
     quantity_pattern = re.compile(
-        r"(?P<description>.+?)\s+(?P<quantity>\d+(?:[,.]\d+)?)\s*"
-        r"(?P<unit>kg|kgs|mt|mtr|pcs|nos|units?)\b"
-        r"(?:\s+(?P<rate>\d+(?:[,.]\d+)?))?\s*$",
+        rf"(?P<description>.+?)\s+(?P<quantity>{NUMBER})\s*"
+        rf"(?P<unit>{UNITS})\b\.?"
+        rf"(?:\s+(?P<rate>{NUMBER}))?\s*$",
         re.I,
     )
-    for line in normalized_lines:
+    for line in remaining:
         match = quantity_pattern.match(line)
         if match:
             items.append(_make_item(match.group("description"), match.group("quantity"), match.group("unit"), match.group("rate"), line, average_confidence))
 
-    _append_description_quantity_items(items, normalized_lines, average_confidence)
-    _append_hsn_quantity_items(items, normalized_lines, average_confidence)
-    _append_numbered_table_items(items, normalized_lines, average_confidence)
-    return _deduplicate_items(items)
+    _append_description_quantity_items(items, remaining, average_confidence)
+    _append_hsn_quantity_items(items, remaining, average_confidence)
+    _append_numbered_table_items(items, remaining, average_confidence)
+    return _deduplicate_items([item for item in items if not TOTAL_ROW.match(item["description"])])
+
+
+def _append_table_row_items(items: list[dict], lines: list[str], confidence: float) -> set[str]:
+    """Invoice table rows: [serial] description HSN quantity+unit [rate [per-unit]] ...
+
+    Only the first quantity after the HSN code is taken; later numbers are rates and amounts.
+    Returns the lines it consumed so looser strategies don't re-read them.
+    """
+    pattern = re.compile(
+        rf"^(?:\d+\s+)?(?P<description>[A-Za-z][A-Za-z &()./-]*?)\s+\d{{4,8}}\s+"
+        rf"(?P<quantity>{NUMBER})\s*(?P<unit>{UNITS})\b(?:\s+(?P<rate>{NUMBER}))?",
+        re.I,
+    )
+    consumed: set[str] = set()
+    for line in lines:
+        match = pattern.match(line)
+        if match:
+            items.append(_make_item(match.group("description"), match.group("quantity"), match.group("unit"), match.group("rate"), line, confidence))
+            consumed.add(line)
+    return consumed
 
 
 def _append_description_quantity_items(items: list[dict], lines: list[str], confidence: float) -> None:
@@ -147,7 +205,7 @@ def _collapse_repeated_description(description: str) -> str:
 
 
 def _find_first_quantity_with_unit(lines: list[str]) -> tuple[str, str] | None:
-    pattern = re.compile(r"\b(\d+(?:[,.]\d+)?)\s*(kg|kgs|mt|mtr|pcs|nos|units?)\b", re.I)
+    pattern = re.compile(rf"\b({NUMBER})\s*({UNITS})\b", re.I)
     for line in lines:
         match = pattern.search(line)
         if match:
@@ -179,7 +237,7 @@ def _deduplicate_items(items: list[dict]) -> list[dict]:
 
 
 def _find_date_on_invoice_line(text: str) -> str | None:
-    date_pattern = re.compile(r"\b([0-9]{1,2}[/-][0-9]{1,2}[/-][0-9]{2,4})\b")
+    date_pattern = re.compile(rf"\b({DATE})\b", re.I)
     for line in text.splitlines():
         if re.search(r"\b(?:invoice|inv)\b", line, re.I):
             match = date_pattern.search(line)

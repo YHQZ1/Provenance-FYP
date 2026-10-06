@@ -2,6 +2,11 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from ocr_service.core.config import settings
+
+MAX_DESKEW_DEGREES = 15
+MIN_CONTOUR_SHARE = 0.25
+
 
 def deskew_image(image: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY) if image.ndim == 3 else image
@@ -11,15 +16,20 @@ def deskew_image(image: np.ndarray) -> np.ndarray:
         return image
 
     contour = max(contours, key=cv2.contourArea)
+    height, width = image.shape[:2]
+    # Only trust the outline when it spans most of the page; a logo or table cell
+    # would otherwise rotate the whole document.
+    if cv2.contourArea(contour) < MIN_CONTOUR_SHARE * height * width:
+        return image
+
     angle = cv2.minAreaRect(contour)[-1]
     if angle < -45:
         angle = -(90 + angle)
     elif angle > 45:
         angle = 90 - angle
-    if abs(angle) <= 1:
+    if abs(angle) <= 1 or abs(angle) > MAX_DESKEW_DEGREES:
         return image
 
-    height, width = image.shape[:2]
     matrix = cv2.getRotationMatrix2D((width // 2, height // 2), angle, 1.0)
     return cv2.warpAffine(
         image,
@@ -41,6 +51,8 @@ def enhance_contrast(image: np.ndarray) -> np.ndarray:
     enhanced = cv2.cvtColor(
         cv2.merge([lightness, a_channel, b_channel]), cv2.COLOR_LAB2RGB
     )
+    if not settings.denoise:
+        return enhanced
     return cv2.fastNlMeansDenoisingColored(enhanced, None, 10, 10, 7, 21)
 
 

@@ -100,3 +100,79 @@ def test_hsn_rows_extract_quantity_when_unit_precedes_hsn_code():
     assert items[0]["description"] == "PLASTIC SCRAP"
     assert items[0]["quantity"] == 2375.0
     assert items[0]["unit"] == "kgs"
+
+
+def test_indian_number_grouping_and_weight_units_are_extracted():
+    text = "\n".join(
+        [
+            "PET Preform 1,00,000 kg",
+            "HDPE Granules 1,250.50 kg",
+            "PP Caps 500 g",
+            "LDPE Liner 12 tonnes",
+        ]
+    )
+
+    items = parse_line_items(text, 0.9)
+
+    assert [(item["description"], item["quantity"], item["unit"]) for item in items] == [
+        ("PET Preform", 100000.0, "kg"),
+        ("HDPE Granules", 1250.5, "kg"),
+        ("PP Caps", 500.0, "g"),
+        ("LDPE Liner", 12.0, "tonnes"),
+    ]
+
+
+def test_month_name_invoice_dates_are_extracted():
+    assert extract_fields("Invoice Date: 12-Jul-2022", 0.9)["invoice_date"]["value"] == "12-Jul-2022"
+    assert extract_fields("Bill Date 03 Sept 2026", 0.9)["invoice_date"]["value"] == "03 Sept 2026"
+
+
+def test_tightly_spaced_lines_stay_separate():
+    def token(text, x, y):
+        return {"text": text, "x": x, "y": y, "w": 0.2, "h": 0.012, "page": 0, "conf": 1.0, "source": "pdf"}
+
+    text = tokens_to_text(
+        [
+            token("PET Preform", 0.1, 0.100),
+            token("1,00,000 kg", 0.5, 0.101),
+            token("HDPE Caps", 0.1, 0.1155),
+            token("500 g", 0.5, 0.1155),
+        ]
+    )
+
+    assert text.splitlines() == ["PET Preform 1,00,000 kg", "HDPE Caps 500 g"]
+
+
+def test_separate_table_rows_take_quantity_not_rate():
+    text = "\n".join(
+        [
+            "Plastic Compounds 3902 11,000.00KG 63.50 KG",
+            "2 Plastic Compounds 3902 7,000.00KG 62.00 KG",
+            "Total 18,000.00KG",
+        ]
+    )
+
+    items = parse_line_items(text, 0.9)
+
+    assert [(item["description"], item["quantity"], item["unit"]) for item in items] == [
+        ("Plastic Compounds", 11000.0, "kg"),
+        ("Plastic Compounds", 7000.0, "kg"),
+    ]
+    assert items[0]["rate"] == 63.5
+
+
+def test_total_rows_are_not_line_items():
+    assert parse_line_items("Grand Total 18,000 kg", 0.9) == []
+
+
+def test_date_below_its_label_is_extracted():
+    assert extract_fields("Dated\n22-Jul-2020\nDelivery Note", 0.9)["invoice_date"]["value"] == "22-Jul-2020"
+
+
+def test_date_in_column_header_row_is_extracted():
+    text = "AMG POLYCHEM Invoice No. e-Way Bill No. Dated\nGala No.6 Ground Floor 012/20-21 22-Jul-2020"
+    assert extract_fields(text, 0.9)["invoice_date"]["value"] == "22-Jul-2020"
+
+
+def test_invoice_references_are_not_mistaken_for_dates():
+    assert extract_fields("Invoice No. Dated\n012/20-21 22-Jul-2020", 0.9)["invoice_date"]["value"] == "22-Jul-2020"

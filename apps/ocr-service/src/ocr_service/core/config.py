@@ -11,6 +11,9 @@ class Settings:
         os.getenv("OCR_CONFIDENCE_THRESHOLD", "0.5")
     )
     ocr_language: str = os.getenv("OCR_LANGUAGE", "en")
+    max_pages: int = int(os.getenv("OCR_MAX_PAGES", "20"))
+    render_dpi: int = int(os.getenv("OCR_RENDER_DPI", "300"))
+    denoise: bool = os.getenv("OCR_DENOISE", "true").lower() == "true"
 
 
 settings = Settings()

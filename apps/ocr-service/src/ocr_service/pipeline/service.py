@@ -10,6 +10,29 @@ from ocr_service.schemas import BoundingBox, ExtractedField, InvoiceLineItem, OC
 
 
 class OCRPipeline:
+    def _extract_pdf(self, path: Path) -> tuple[list[dict], int, list[str]]:
+        """Use the text layer where it exists and OCR only the pages that are scanned."""
+        warnings: list[str] = []
+        tokens, pages = extract_pdf_tokens(path)
+        limit = min(pages, settings.max_pages)
+        if pages > settings.max_pages:
+            warnings.append(
+                f"Only the first {settings.max_pages} of {pages} pages were processed."
+            )
+            tokens = [token for token in tokens if token["page"] < limit]
+
+        pages_with_text = {token["page"] for token in tokens}
+        scanned = [page for page in range(limit) if page not in pages_with_text]
+        if scanned:
+            images = render_pdf_pages(path, dpi=settings.render_dpi, page_numbers=scanned)
+            tokens.extend(extract_ocr_tokens(images, page_numbers=scanned))
+            warnings.append(
+                "No text layer found; the document was read with OCR."
+                if len(scanned) == limit
+                else f"{len(scanned)} scanned page(s) were read with OCR."
+            )
+        return tokens, pages, warnings
+
     def process(self, file_path: str | Path, filename: str | None = None) -> OCRResponse:
         path = Path(file_path)
         suffix = path.suffix.lower()
@@ -18,10 +41,8 @@ class OCRPipeline:
 
         warnings: list[str] = []
         if suffix == ".pdf":
-            tokens, pages = extract_pdf_tokens(path)
-            if not tokens:
-                tokens = extract_ocr_tokens(render_pdf_pages(path))
-                warnings.append("No native PDF text layer found; OCR fallback was used.")
+            tokens, pages, pdf_warnings = self._extract_pdf(path)
+            warnings.extend(pdf_warnings)
         else:
             with Image.open(path) as image:
                 tokens = extract_ocr_tokens([image.copy()])
