@@ -42,7 +42,7 @@ The interface is deliberately quiet: a compliance tool should look precise, not 
 
 - **Colour.** White, near-black `#0a0a0a`, the neutral greys and one accent, emerald `#059669`. Red is used only for errors. Don't add hues or gradients.
 - **Shape.** Sharp corners. The radius scale is defined in `src/index.css` and runs from about 2 px to 14 px. Buttons are rectangles with a small radius, never pills.
-- **Type.** DM Sans for text, DM Mono (the `.mono` class) for numbers, codes and small uppercase labels. Quantities are right-aligned in mono.
+- **Type.** Inter for everything. The `.mono` class gives numbers, codes and small uppercase labels tabular figures so columns line up. Quantities are right-aligned.
 - **Layout.** Content fills nearly the full width with small gutters (`max-w-[1680px]`, 16–32 px padding). It must work at 390 px wide; give grid and flex children `min-w-0` so they can shrink.
 - **Interaction.** Everything clickable gets `cursor: pointer` (set globally in `@layer base`) and a visible emerald focus ring. Respect `prefers-reduced-motion`.
 - **No emojis.** Icons come from `lucide-react`.

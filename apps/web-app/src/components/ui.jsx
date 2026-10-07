@@ -114,7 +114,7 @@ export function PageHeader({ eyebrow, title, description, actions }) {
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div className="max-w-2xl">
         {eyebrow && (
-          <p className="mb-2 font-mono text-[11px] font-medium uppercase tracking-widest text-emerald-700">
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-widest text-emerald-700">
             {eyebrow}
           </p>
         )}

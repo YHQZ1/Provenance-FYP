@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -39,7 +38,7 @@
   }
 
   body {
-    font-family: "DM Sans", sans-serif;
+    font-family: "Inter", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background: var(--bg);
@@ -52,7 +51,7 @@
   h4,
   h5,
   h6 {
-    font-family: "DM Sans", sans-serif;
+    font-family: "Inter", sans-serif;
     font-weight: 600;
   }
 
@@ -60,7 +59,7 @@
   input,
   textarea,
   select {
-    font-family: "DM Sans", sans-serif;
+    font-family: "Inter", sans-serif;
   }
 
   ::selection {
@@ -90,7 +89,7 @@
 
 @layer utilities {
   .mono {
-    font-family: "DM Mono", monospace;
+    font-variant-numeric: tabular-nums;
   }
 }
 
