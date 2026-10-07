@@ -1,0 +1,150 @@
+{{- range $name, $app := .Values.apps }}
+{{- if ne (toString $app.enabled) "false" }}
+{{- range $volume := $app.volumes }}
+{{- if eq $volume.type "pvc" }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}-{{ $volume.name }}
+  labels:
+    {{- include "provenance.labels" $ | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- include "provenance.storageClass" $ | nindent 2 }}
+  resources:
+    requests:
+      storage: {{ $volume.size }}
+{{- end }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "provenance.labels" $ | nindent 4 }}
+spec:
+  replicas: {{ $app.replicas | default 1 }}
+  {{- if $app.volumes }}
+  strategy:
+    type: Recreate
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "provenance.selector" (dict "name" $name "root" $) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "provenance.selector" (dict "name" $name "root" $) | nindent 8 }}
+        {{- include "provenance.labels" $ | nindent 8 }}
+      annotations:
+        checksum/config: {{ toYaml $.Values.config | sha256sum }}
+        {{- with $app.imageId }}
+        provenance/image-id: {{ . | quote }}
+        {{- end }}
+    spec:
+      {{- with $app.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $name }}
+          image: {{ $app.image }}
+          imagePullPolicy: {{ $.Values.imagePullPolicy }}
+          {{- with $app.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          {{- if $app.port }}
+          ports:
+            - name: http
+              containerPort: {{ $app.port }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: provenance-config
+            {{- range $secret := $app.secrets }}
+            - secretRef:
+                name: {{ $secret }}
+            {{- end }}
+          {{- if or $app.env $app.envFromConfig }}
+          env:
+            {{- range $key, $value := $app.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- range $key, $source := $app.envFromConfig }}
+            - name: {{ $key }}
+              valueFrom:
+                configMapKeyRef:
+                  name: provenance-config
+                  key: {{ $source }}
+            {{- end }}
+          {{- end }}
+          {{- if $app.probePath }}
+          startupProbe:
+            httpGet:
+              path: {{ $app.probePath }}
+              port: http
+            periodSeconds: 5
+            failureThreshold: {{ $app.startupFailureThreshold | default 24 }}
+          readinessProbe:
+            httpGet:
+              path: {{ $app.probePath }}
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: {{ $app.probePath }}
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- end }}
+          resources:
+            {{- toYaml $app.resources | nindent 12 }}
+          {{- if $app.volumes }}
+          volumeMounts:
+            {{- range $volume := $app.volumes }}
+            - name: {{ $volume.name }}
+              mountPath: {{ $volume.mountPath }}
+            {{- end }}
+          {{- end }}
+      {{- if $app.volumes }}
+      volumes:
+        {{- range $volume := $app.volumes }}
+        - name: {{ $volume.name }}
+          {{- if eq $volume.type "pvc" }}
+          persistentVolumeClaim:
+            claimName: {{ $name }}-{{ $volume.name }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+{{- if $app.port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "provenance.labels" $ | nindent 4 }}
+spec:
+  selector:
+    {{- include "provenance.selector" (dict "name" $name "root" $) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $app.port }}
+      targetPort: http
+{{- end }}
+{{- end }}
+{{- end }}

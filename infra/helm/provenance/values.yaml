@@ -1,0 +1,152 @@
+config:
+  REDIS_URL: redis://redis:6379
+  QDRANT_HOST: qdrant
+  QDRANT_PORT: "6333"
+  OLLAMA_HOST: http://ollama:11434
+  OLLAMA_MODEL: llama3.2:3b
+  OCR_SERVICE_URL: http://ocr-service:8000
+  RAG_SERVICE_URL: http://rag-classify:8001
+  REGULATORY_RAG_URL: http://rag-regulatory:8002
+  CORS_ORIGIN: http://provenance.localhost
+  FRONTEND_URL: http://provenance.localhost
+  PUBLIC_API_URL: http://provenance.localhost
+  EPR_PORTAL_URL: https://eprplastic.cpcb.gov.in/
+  EPR_GUIDANCE_MANUAL_URL: https://eprplastic.cpcb.gov.in/assets/pdfs/Guidance_Manual.pdf
+
+redis:
+  enabled: true
+  image: redis:7.4-alpine
+  storage: 1Gi
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+qdrant:
+  enabled: true
+  image: qdrant/qdrant:v1.19.0
+  storage: 2Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+
+ollama:
+  enabled: true
+  image: ollama/ollama:0.32.15
+  storage: 10Gi
+  resources:
+    requests: { cpu: 500m, memory: 3Gi }
+    limits: { memory: 5Gi }
+
+imagePullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  className: nginx
+  host: provenance.localhost
+  bodySize: 12m
+  timeoutSeconds: 300
+
+jobs:
+  ollamaPull:
+    enabled: true
+    timeoutSeconds: 1800
+  ingest:
+    enabled: true
+    onUpgrade: false
+    force: false
+    timeoutSeconds: 1800
+    resources:
+      requests: { cpu: 250m, memory: 768Mi }
+      limits: { memory: 3Gi }
+
+storageClassName: ""
+
+apps:
+  frontend:
+    image: provenance/web:local
+    port: 8080
+    probePath: /healthz
+    secrets: [provenance-web-config]
+    envFromConfig:
+      VITE_API_URL: PUBLIC_API_URL
+      VITE_SITE_URL: FRONTEND_URL
+      VITE_EPR_PORTAL_URL: EPR_PORTAL_URL
+    podSecurityContext: { runAsNonRoot: true, runAsUser: 101 }
+    resources:
+      requests: { cpu: 10m, memory: 32Mi }
+      limits: { memory: 128Mi }
+
+  backend:
+    image: provenance/backend:local
+    port: 3000
+    probePath: /health
+    secrets: [provenance-backend-secrets]
+    env:
+      PORT: "3000"
+      NODE_ENV: production
+      RUN_WORKER: "false"
+      USE_MOCK_SERVICES: "false"
+      REGULATORY_RAG_TIMEOUT_MS: "180000"
+      UPLOAD_TEMP_DIR: /app/uploads
+    volumes:
+      - { name: uploads, type: emptyDir, mountPath: /app/uploads }
+    podSecurityContext: { runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000 }
+    resources:
+      requests: { cpu: 100m, memory: 192Mi }
+      limits: { memory: 512Mi }
+
+  worker:
+    image: provenance/backend:local
+    command: ["node", "src/worker.js"]
+    secrets: [provenance-backend-secrets]
+    env:
+      PORT: "3000"
+      NODE_ENV: production
+      USE_MOCK_SERVICES: "false"
+      PROCESSING_CONCURRENCY: "2"
+      UPLOAD_TEMP_DIR: /app/uploads
+    volumes:
+      - { name: uploads, type: emptyDir, mountPath: /app/uploads }
+    podSecurityContext: { runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000 }
+    resources:
+      requests: { cpu: 100m, memory: 192Mi }
+      limits: { memory: 512Mi }
+
+  ocr-service:
+    image: provenance/ocr:local
+    port: 8000
+    probePath: /health
+    startupFailureThreshold: 36
+    volumes:
+      - { name: paddle-models, type: pvc, size: 256Mi, mountPath: /home/appuser/.paddleocr }
+    podSecurityContext: { runAsNonRoot: true, runAsUser: 1000, fsGroup: 1000 }
+    resources:
+      requests: { cpu: 250m, memory: 768Mi }
+      limits: { memory: 2560Mi }
+
+  rag-classify:
+    image: provenance/rag-classify:local
+    port: 8001
+    probePath: /health
+    startupFailureThreshold: 60
+    secrets: [provenance-classifier-secrets]
+    volumes:
+      - { name: model-cache, type: pvc, size: 1Gi, mountPath: /root/.cache/huggingface }
+    resources:
+      requests: { cpu: 250m, memory: 768Mi }
+      limits: { memory: 2Gi }
+
+  rag-regulatory:
+    image: provenance/rag-regulatory:local
+    port: 8002
+    probePath: /health
+    startupFailureThreshold: 60
+    env:
+      QDRANT_COLLECTION: regulatory_docs
+    envFromConfig:
+      CORS_ORIGINS: CORS_ORIGIN
+    volumes:
+      - { name: model-cache, type: pvc, size: 1Gi, mountPath: /root/.cache/huggingface }
+    resources:
+      requests: { cpu: 250m, memory: 768Mi }
+      limits: { memory: 1536Mi }

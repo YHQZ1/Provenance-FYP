@@ -68,6 +68,16 @@ def point_id(source, index):
     return str(UUID(digest[:32]))
 
 
+def indexed_passages(source):
+    return client.count(
+        collection_name=QDRANT_COLLECTION,
+        count_filter=Filter(
+            must=[FieldCondition(key="source_url", match=MatchValue(value=source["url"]))]
+        ),
+        exact=True,
+    ).count
+
+
 def ingest(source):
     chunks = chunk_pages(strip_repeated_lines(extract_source(source)))
     if not chunks:
@@ -104,12 +114,20 @@ def ingest(source):
 def main():
     parser = argparse.ArgumentParser(description="Ingest official regulatory sources into Qdrant.")
     parser.add_argument("--config", default="src/config/sources.yaml")
+    parser.add_argument(
+        "--skip-if-indexed",
+        action="store_true",
+        help="Do nothing when every configured source already has passages.",
+    )
     args = parser.parse_args()
 
     with open(args.config, "r", encoding="utf-8") as handle:
         sources = yaml.safe_load(handle)["sources"]
 
     ensure_collection()
+    if args.skip_if_indexed and all(indexed_passages(source) for source in sources):
+        print("Every source is already indexed; skipping.")
+        return
     failures = 0
     for source in sources:
         try:

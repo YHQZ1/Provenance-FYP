@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: provenance-config
+  labels:
+    {{- include "provenance.labels" . | nindent 4 }}
+data:
+  {{- range $name, $value := .Values.config }}
+  {{ $name }}: {{ $value | quote }}
+  {{- end }}

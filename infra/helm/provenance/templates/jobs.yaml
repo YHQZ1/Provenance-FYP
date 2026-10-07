@@ -1,0 +1,81 @@
+{{- if and .Values.ollama.enabled .Values.jobs.ollamaPull.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-pull
+  labels:
+    {{- include "provenance.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: {{ .Values.jobs.ollamaPull.timeoutSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "provenance.selector" (dict "name" "ollama-pull" "root" .) | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: pull
+          image: {{ .Values.ollama.image }}
+          command:
+            - sh
+            - -c
+            - until ollama list >/dev/null 2>&1; do sleep 2; done; ollama pull "$OLLAMA_MODEL"
+          envFrom:
+            - configMapRef:
+                name: provenance-config
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
+{{- end }}
+{{- if .Values.jobs.ingest.enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: regulatory-ingest
+  labels:
+    {{- include "provenance.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: {{ ternary "post-install,post-upgrade" "post-install" .Values.jobs.ingest.onUpgrade }}
+    helm.sh/hook-weight: "1"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: {{ .Values.jobs.ingest.timeoutSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "provenance.selector" (dict "name" "regulatory-ingest" "root" .) | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: ingest
+          image: {{ index .Values.apps "rag-regulatory" "image" }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          command:
+            - python
+            - scripts/ingest.py
+            - --config
+            - src/config/sources.yaml
+            {{- if not .Values.jobs.ingest.force }}
+            - --skip-if-indexed
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: provenance-config
+          env:
+            - name: QDRANT_COLLECTION
+              value: regulatory_docs
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: provenance-config
+                  key: CORS_ORIGIN
+          resources:
+            {{- toYaml .Values.jobs.ingest.resources | nindent 12 }}
+{{- end }}

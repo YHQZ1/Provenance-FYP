@@ -1,0 +1,6 @@
+apiVersion: v2
+name: provenance
+description: "Provenance, a Plastic EPR compliance app: web app, API, worker, document and regulatory services, and their data stores."
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

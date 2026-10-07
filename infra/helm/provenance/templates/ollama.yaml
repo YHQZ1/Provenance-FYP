@@ -1,0 +1,71 @@
+{{- if .Values.ollama.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  labels:
+    {{- include "provenance.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "provenance.selector" (dict "name" "ollama" "root" .) | nindent 4 }}
+  ports:
+    - name: http
+      port: 11434
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+  labels:
+    {{- include "provenance.labels" . | nindent 4 }}
+spec:
+  serviceName: ollama
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "provenance.selector" (dict "name" "ollama" "root" .) | nindent 6 }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  template:
+    metadata:
+      labels:
+        {{- include "provenance.selector" (dict "name" "ollama" "root" .) | nindent 8 }}
+        {{- include "provenance.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: ollama
+          image: {{ .Values.ollama.image }}
+          env:
+            - name: OLLAMA_KEEP_ALIVE
+              value: 30m
+          ports:
+            - name: http
+              containerPort: 11434
+          readinessProbe:
+            httpGet:
+              path: /api/tags
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.ollama.resources | nindent 12 }}
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+  volumeClaimTemplates:
+    - metadata:
+        name: models
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- include "provenance.storageClass" . | nindent 8 }}
+        resources:
+          requests:
+            storage: {{ .Values.ollama.storage }}
+{{- end }}

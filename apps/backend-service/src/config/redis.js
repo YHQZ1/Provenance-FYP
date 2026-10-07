@@ -21,8 +21,20 @@ const cacheConnection = () => (cacheClient?.status === "ready" ? cacheClient : n
 
 export const cache = createCache({ client: cacheConnection });
 
+const waitUntilReady = (client, timeoutMs) =>
+  client.status === "ready"
+    ? Promise.resolve()
+    : new Promise((resolve) => {
+        const timer = setTimeout(resolve, timeoutMs);
+        client.once("ready", () => {
+          clearTimeout(timer);
+          resolve();
+        });
+      });
+
 export const redisStatus = async () => {
   if (!redisEnabled) return { status: "not_configured" };
+  if (cacheClient) await waitUntilReady(cacheClient, 1500);
   const client = cacheConnection();
   if (!client) return { status: "down", detail: "Can't connect to Redis" };
   try {

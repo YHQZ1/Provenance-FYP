@@ -1,6 +1,7 @@
 -include infra/.env
 
 COMPOSE := docker compose --env-file infra/.env -f infra/docker-compose.yaml
+KUBECTL = kubectl --context $(K8S_CONTEXT) -n $(K8S_NAMESPACE)
 s ?=
 
 VENV := .venv
@@ -8,12 +9,12 @@ PY := $(VENV)/bin/python
 DB_URL := $$(grep -E '^DATABASE_URL=' apps/rag-classify/.env 2>/dev/null | cut -d= -f2- | tr -d '"')
 
 .DEFAULT_GOAL := help
-.PHONY: help env setup install venv up down stop start restart rebuild logs ps status shell \
+.PHONY: help env setup k8s-bootstrap k8s-secrets k8s-up k8s-status k8s-logs k8s-restart k8s-shell k8s-models k8s-ingest k8s-lint k8s-cache-clear k8s-down k8s-purge install venv up down stop start restart rebuild logs ps status shell \
 	models ingest cache-clear db-shell db-migrate test test-web test-backend test-ocr test-classify \
 	test-regulatory lint format build check bench clean
 
 help:
-	@awk 'BEGIN {FS = ":.*## "} /^## / {printf "\n\033[1m%s\033[0m\n", substr($$0, 4)} /^[a-z-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "} /^## / {printf "\n\033[1m%s\033[0m\n", substr($$0, 4)} /^[a-z0-9-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo
 
 ## Setup
@@ -71,6 +72,56 @@ status: ## Check each service's health endpoint
 shell: ## Open a shell in a container (s=service, required)
 	@test -n "$(s)" || { echo "Usage: make shell s=backend"; exit 1; }
 	$(COMPOSE) exec $(s) sh
+
+## Kubernetes (local cluster, same chart as production)
+
+k8s-bootstrap: ## Install the NGINX ingress controller (once per cluster)
+	infra/k8s/bootstrap.sh
+
+k8s-secrets: ## Create or update the Kubernetes Secrets from your .env files
+	infra/k8s/secrets.sh
+
+k8s-up: ## Build images and deploy or update everything (s=service rebuilds only that one)
+	infra/k8s/up.sh $(s)
+
+k8s-status: ## Pods, volumes, ingress and the release
+	$(KUBECTL) get pods,pvc,ingress
+	helm --kube-context $(K8S_CONTEXT) status $(K8S_RELEASE) -n $(K8S_NAMESPACE) | head -6
+	@echo "app: http://$(INGRESS_HOST)"
+
+k8s-logs: ## Follow logs (s=service for one, otherwise every app pod)
+	$(if $(s),$(KUBECTL) logs -f --tail=100 deploy/$(s),$(KUBECTL) logs -f --tail=20 --prefix --max-log-requests=20 -l app.kubernetes.io/part-of=provenance)
+
+k8s-restart: ## Restart pods without rebuilding (s=service, required)
+	@test -n "$(s)" || { echo "Usage: make k8s-restart s=backend"; exit 1; }
+	$(KUBECTL) rollout restart deploy/$(s)
+
+k8s-shell: ## Open a shell in a pod (s=service, required)
+	@test -n "$(s)" || { echo "Usage: make k8s-shell s=backend"; exit 1; }
+	$(KUBECTL) exec -it deploy/$(s) -- sh
+
+k8s-models: ## Pull the Ollama model again
+	$(KUBECTL) exec ollama-0 -- ollama pull "$$($(KUBECTL) get configmap provenance-config -o jsonpath='{.data.OLLAMA_MODEL}')"
+
+k8s-ingest: ## Re-index the regulatory sources
+	infra/k8s/ingest.sh
+
+k8s-lint: ## Lint the Helm chart and render it
+	helm lint infra/helm/provenance -f infra/helm/provenance/values-local.yaml
+	helm template $(K8S_RELEASE) infra/helm/provenance -f infra/helm/provenance/values-local.yaml > /dev/null
+
+k8s-cache-clear: ## Empty the cache in the cluster (the processing queue is kept)
+	$(KUBECTL) exec redis-0 -- sh -c "redis-cli --scan --pattern 'prov:*' | xargs -r redis-cli del" > /dev/null
+	@echo "Cache cleared."
+
+k8s-down: ## Remove the app from the cluster (volumes, models and the ingest are kept)
+	helm --kube-context $(K8S_CONTEXT) uninstall $(K8S_RELEASE) -n $(K8S_NAMESPACE)
+
+k8s-purge: ## Delete the app AND all its data. Needs CONFIRM=yes
+	@test "$(CONFIRM)" = "yes" || { echo "This deletes volumes, including the downloaded model and the regulatory index. Run: make k8s-purge CONFIRM=yes"; exit 1; }
+	-helm --kube-context $(K8S_CONTEXT) uninstall $(K8S_RELEASE) -n $(K8S_NAMESPACE)
+	$(KUBECTL) delete pvc --all
+	kubectl --context $(K8S_CONTEXT) delete namespace $(K8S_NAMESPACE)
 
 ## Models and data
 

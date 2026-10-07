@@ -1,0 +1,8 @@
+redis:
+  storage: 512Mi
+
+qdrant:
+  storage: 1Gi
+
+ollama:
+  storage: 8Gi

@@ -1,0 +1,13 @@
+controller:
+  replicaCount: 1
+  service:
+    type: LoadBalancer
+  allowSnippetAnnotations: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 384Mi
+  admissionWebhooks:
+    enabled: true
