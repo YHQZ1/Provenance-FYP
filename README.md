@@ -120,7 +120,7 @@ Makefile              Everyday commands
 
 ## Status and roadmap
 
-The Plastic EPR workflow works end to end, on Docker Compose or Kubernetes. The full list of what is left, with reasons and sizes, is in [ROADMAP.md](docs/ROADMAP.md). The next items are:
+The Plastic EPR workflow works end to end, on Docker Compose or Kubernetes. The full list of what is left, the plan for next week and the decisions behind it are in [ROADMAP.md](docs/ROADMAP.md). The next items are:
 
 1. **Better regulatory search.** The search behind Regulatory research and Trace sometimes ranks the passage with the answer too low for the model to see it. Combining keyword and vector search with re-ranking should fix it; a larger model alone did not.
 2. **Rate limiting** on the regulatory query, uploads and the rest of the API. Only Trace is limited today.

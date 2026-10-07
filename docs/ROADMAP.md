@@ -2,6 +2,39 @@
 
 What's built is described in [PRODUCT.md](PRODUCT.md) and [ARCHITECTURE.md](ARCHITECTURE.md). This page lists what is left, in rough priority order, and why each item matters. Size is a rough guide: S is under a day, M is a few days, L is a week or more.
 
+## Next week
+
+The plan for the coming week, in the order to do it. Each item names where it lands in the repo, so it extends the existing infrastructure rather than sitting beside it.
+
+| Order | Work | Lands in | Size |
+| --- | --- | --- | --- |
+| 1 | **Better regulatory search**: hybrid keyword and vector search, re-ranking, more passages for the model. Keep the 13-question graded set in the repo (`apps/rag-regulatory/eval/`) with `make eval`, and aim for 11 of 13 or better. | `apps/rag-regulatory/src/rag/`, `scripts/` | M |
+| 2 | **Rate limiting**, as planned below: ingress annotations plus per-user Redis counters on the regulatory query, uploads and the general API. | `apps/backend-service/src/middleware/`, `infra/helm/provenance/templates/ingress.yaml` | S |
+| 3 | **Metrics**: a `/metrics` endpoint on the backend and each Python service, then Prometheus, Grafana and Alertmanager with our dashboards and alert rules. | App code; `infra/monitoring/`; optional `servicemonitor.yaml` and `prometheusrule.yaml` in the app chart; `infra/k8s/monitoring.sh` | M |
+| 4 | **Logs**: structured JSON logging with a request or document ID in every service, then Loki for storage and Alloy for collection, viewed in the same Grafana. | App code; `infra/monitoring/loki-values.yaml`, `alloy-values.yaml` | M |
+| 5 | **Error tracking**: Sentry for the frontend and backend. | `apps/web-app`, `apps/backend-service` | S |
+| 6 | **GitOps with Argo CD**: an `Application` for the app chart and one for the monitoring stack, so the cluster follows Git. Needs images in a registry first (see the decision below). | `infra/argocd/`; image push step in `.github/workflows/` | M |
+| 7 | **End-to-end test in CI** (Playwright: sign in, upload, review, finalize, export), if time allows. | `apps/web-app/e2e/`, `.github/workflows/ci.yml` | M |
+
+New Make targets with these: `make k8s-monitoring-up`, `k8s-monitoring-down`, `k8s-grafana`, `k8s-argocd-up` and `k8s-argocd` (opens the UI), plus `make eval`.
+
+**Memory budget.** The local cluster has 12 GB and the app already uses about 8 GB. Prometheus, Grafana, Alertmanager and Loki add roughly 2 GB, and Argo CD another 0.5 to 1 GB. Treat monitoring and Argo CD as opt-in stacks started on demand and stopped afterwards, not always on. If memory gets tight, scale the Ollama and classifier pods down while working on them.
+
+## Decisions
+
+| Question | Decision | Reason |
+| --- | --- | --- |
+| Log stack | **Loki, Alloy and Grafana**, not ELK | Far lighter (a few hundred MB against several GB for Elasticsearch), and logs sit next to metrics in one Grafana. Alloy can ship to OpenSearch later if ever needed. |
+| Metrics and alerts | Prometheus, Grafana, Alertmanager (`kube-prometheus-stack`) | Standard, free, adds the metrics server Docker Desktop lacks, and carries over to EKS. |
+| GitOps | **Argo CD**, added after the registry step; Flux is the lighter alternative | The cluster follows Git, with drift correction, rollback by revert and a UI. It is most useful once there is more than one environment. |
+| Commercial monitoring (Datadog) | Not now | Paid, and costs grow with hosts and log volume. OpenTelemetry keeps the door open to it. |
+| Tracing | Optional: OpenTelemetry into Tempo | Useful for latency questions; metrics and structured logs answer most others first. |
+| Infrastructure as code | Terraform (or OpenTofu) when deploying; not Ansible | Terraform creates the cloud cluster and services. Ansible configures servers, and containers and Helm already do that here. |
+| Error tracking | Sentry | Frontend crashes are invisible today. |
+| Model | `llama3.2:3b` for the classifier, the regulatory service and Trace; no paid APIs | Tested larger models (Llama 3.1 8B, Qwen 2.5 7B): same accuracy on the regulatory set, so the cause is retrieval, not model size. |
+
+**Open question: where do images live for Argo CD?** Argo CD deploys images by tag from a registry, while local development builds images on the laptop. Options: GitHub Container Registry pushed by CI (free for this repo, and works for a cloud cluster later), or a small registry running in the cluster. GHCR is the one I would use. Local `make k8s-up` keeps working unchanged either way.
+
 ## 1. Accuracy and trust
 
 | Item | Why | Size |
@@ -47,14 +80,15 @@ Counters fail open: if Redis is unavailable, requests are allowed rather than bl
 | Item | Why | Size |
 | --- | --- | --- |
 | **Metrics, dashboards and alerts** | Prometheus, Grafana and Alertmanager, with a `/metrics` endpoint on each service. Queue depth, processing time, answer latency, cache hit rate, restarts. | M |
-| **Logs** | Loki for storage and Alloy for collection, plus structured JSON logging with a request or document ID so logs are searchable. | M |
+| **Logs** | Loki for storage and Alloy for collection (decided against ELK), plus structured JSON logging with a request or document ID so logs are searchable. | M |
 | **Error tracking** | Sentry for frontend crashes and backend errors. A blank page for a user is invisible today. | S |
 | **Tracing (optional)** | OpenTelemetry into Tempo, only if latency questions need it. | M |
 | **Email provider** | Password reset and confirmation emails use Supabase's built-in sender, which is rate-limited and meant for testing. Connect a real SMTP provider. | S |
+| **GitOps (Argo CD)** | Argo CD watches this repo and keeps the cluster in sync, with drift correction and rollback by Git revert. Needs images pushed to a registry by CI. | M |
 | **Infrastructure as code** | When deploying: Terraform (or OpenTofu) for the cloud cluster, registry, DNS, secrets and managed services, with the existing chart deployed on top. Not needed for local work. | L |
 | **Deployment** | Target undecided. The Helm chart is ready for a cloud cluster; see [KUBERNETES.md](KUBERNETES.md#moving-to-a-cloud-cluster). | L |
 
-Where monitoring would live in the repo: stack settings and dashboards under `infra/monitoring/`, scrape and alert rules as optional templates in the app chart, and an install script in `infra/k8s/`.
+Where these live in the repo: monitoring settings and dashboards under `infra/monitoring/`, scrape and alert rules as optional templates in the app chart, Argo CD applications under `infra/argocd/`, Terraform under `infra/terraform/` (modules plus one folder per environment), and install scripts in `infra/k8s/`.
 
 ## 5. Product gaps
 
@@ -72,7 +106,7 @@ Where monitoring would live in the repo: stack settings and dashboards under `in
 
 ## Suggested order
 
-1. Better regulatory search, then rate limiting (both are contained and high impact).
+1. Better regulatory search, then rate limiting (both are contained and high impact). See "Next week" above for the full plan.
 2. An end-to-end test in CI.
 3. Metrics, logs and error tracking.
 4. Test on real invoices, in parallel with the above, since it needs collecting documents.
