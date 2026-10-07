@@ -28,6 +28,15 @@ export const regulatoryService = {
     }
   },
 
+  async search(query, topK) {
+    const response = await axios.post(
+      `${baseUrl()}/search`,
+      { query, top_k: topK },
+      { timeout: 30000 },
+    );
+    return response.data;
+  },
+
   async query(query) {
     const normalizedQuery = typeof query === "string" ? query.trim() : "";
 

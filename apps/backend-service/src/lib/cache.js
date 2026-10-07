@@ -58,6 +58,17 @@ export const createCache = ({ client, prefix = "prov:", log = console.warn } = {
       return run("incr", (redis) => redis.incr(name));
     },
 
+    async count(name, ttlSeconds) {
+      const results = await run("count", (redis) =>
+        redis
+          .multi()
+          .incr(name)
+          .expire(name, Math.max(1, Math.round(ttlSeconds)), "NX")
+          .exec(),
+      );
+      return results ? results[0][1] : null;
+    },
+
     async wrap(name, ttlSeconds, compute, { shouldCache = () => true } = {}) {
       const hit = await cache.get(name);
       if (hit !== null) return hit;

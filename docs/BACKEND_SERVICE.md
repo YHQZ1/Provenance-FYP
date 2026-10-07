@@ -46,6 +46,8 @@ npm test
 | `REGULATORY_RAG_URL`, `REGULATORY_RAG_TIMEOUT_MS` | `180000` | Regulatory research |
 | `USE_MOCK_SERVICES` | `false` | Canned OCR and classification results, for UI work without the ML stack |
 | `EPR_PORTAL_URL`, `EPR_GUIDANCE_MANUAL_URL` | empty | CPCB links shown as the filing's sources. Omitted when empty. |
+| `OLLAMA_HOST`, `OLLAMA_MODEL` | empty | The model Trace uses; the same Ollama and model as the RAG services. Trace returns 503 while unset. |
+| `TRACE_RATE_LIMIT` | `20` | Trace questions per user per 5 minutes |
 | `REDIS_URL` | empty | Queue and cache; `redis://redis:6379` in Compose. Empty processes documents in the API process with no cache. |
 | `PROCESSING_CONCURRENCY` | `2` | Documents processed at once |
 | `PROCESSING_ATTEMPTS` | `3` | Attempts before a document is marked failed |
@@ -100,6 +102,12 @@ Every route except `GET /health` needs `Authorization: Bearer <Supabase access t
 | `POST` | `/api/regulatory/query` | `{ query }`: an answer with source passages |
 | `GET` | `/api/regulatory/sources` | The indexed source documents |
 | `GET` | `/api/system/status` | Service reachability and which optional schema features are on |
+
+### Trace
+
+| Method | Path | Does |
+| --- | --- | --- |
+| `POST` | `/api/trace/chat` | `{ message, history?, context: { page, fy, documentId? } }`. Streams server-sent events: `token` (`{ text }`) as the answer is written, then `done` (`{ links, sources }`) or `error` (`{ message }`). Read-only. `429` past the rate limit. |
 
 ### Workspace tools
 

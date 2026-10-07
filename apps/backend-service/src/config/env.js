@@ -50,6 +50,13 @@ export const env = {
   PROCESSING_CONCURRENCY: Math.max(parseInt(process.env.PROCESSING_CONCURRENCY, 10) || 2, 1),
   PROCESSING_ATTEMPTS: Math.max(parseInt(process.env.PROCESSING_ATTEMPTS, 10) || 3, 1),
   RUN_WORKER: process.env.RUN_WORKER !== "false",
+  OLLAMA_HOST: process.env.OLLAMA_HOST || "",
+  OLLAMA_MODEL: process.env.OLLAMA_MODEL || "",
+  TRACE_TIMEOUT_MS: parseInt(process.env.TRACE_TIMEOUT_MS, 10) || 180000,
+  TRACE_NUM_CTX: parseInt(process.env.TRACE_NUM_CTX, 10) || 4096,
+  TRACE_MAX_TOKENS: parseInt(process.env.TRACE_MAX_TOKENS, 10) || 400,
+  TRACE_RATE_LIMIT: parseInt(process.env.TRACE_RATE_LIMIT, 10) || 20,
+
   EPR_PORTAL_URL: process.env.EPR_PORTAL_URL || "",
   EPR_GUIDANCE_MANUAL_URL: process.env.EPR_GUIDANCE_MANUAL_URL || "",
   ADMIN_USER: process.env.ADMIN_USER || "",

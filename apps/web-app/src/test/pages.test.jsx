@@ -24,6 +24,7 @@ vi.mock("../lib/supabase", () => ({
   },
 }));
 vi.mock("../lib/workspace", () => ({ useWorkspace: () => workspace.current }));
+vi.mock("../lib/trace", () => ({ askTrace: vi.fn() }));
 vi.mock("../lib/api", () => ({
   reviewAPI: {
     approve: vi.fn().mockResolvedValue({ data: {} }),
@@ -405,20 +406,61 @@ describe("Forgot password", () => {
 });
 
 describe("Trace assistant", () => {
-  it("opens from the launcher, says it's coming soon, and closes on Escape", async () => {
+  it("answers from the workspace with links, says it can't change anything, and closes on Escape", async () => {
     const { fireEvent } = await import("@testing-library/react");
+    const { askTrace } = await import("../lib/trace");
+    askTrace.mockImplementation(async ({ onToken }) => {
+      onToken("invoice-002.pdf still has ");
+      onToken("3 lines waiting for review.");
+      return { links: [{ label: "invoice-002.pdf", to: "/documents?open=d2" }], sources: [] };
+    });
     const { default: Assistant } = await import("../components/Assistant");
     renderPage(<Assistant />);
 
     const dialog = screen.getByRole("dialog", { hidden: true });
     expect(dialog.getAttribute("aria-hidden")).toBe("true");
-
     fireEvent.click(screen.getByRole("button", { name: /open trace/i }));
     expect(dialog.getAttribute("aria-hidden")).toBe("false");
-    expect(screen.getByText("Coming soon")).toBeTruthy();
+    expect(screen.getByText(/It can't change anything/)).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "What's left before I can finalize this year?" }),
+    );
+    expect(
+      await screen.findByText("invoice-002.pdf still has 3 lines waiting for review."),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: /invoice-002\.pdf/ }).getAttribute("href")).toBe(
+      "/documents?open=d2",
+    );
+    expect(askTrace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "What's left before I can finalize this year?",
+        context: expect.objectContaining({ fy: 2026 }),
+      }),
+    );
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(dialog.getAttribute("aria-hidden")).toBe("true");
+    sessionStorage.clear();
+  });
+
+  it("shows the reason when Trace can't answer", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const { askTrace } = await import("../lib/trace");
+    askTrace.mockRejectedValueOnce(new Error("You've asked Trace a lot in the last few minutes."));
+    const { default: Assistant } = await import("../components/Assistant");
+    renderPage(<Assistant />);
+
+    fireEvent.click(screen.getByRole("button", { name: /open trace/i }));
+    fireEvent.change(screen.getByLabelText("Ask Trace"), {
+      target: { value: "What's my shortfall?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(
+      await screen.findByText("You've asked Trace a lot in the last few minutes."),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+    sessionStorage.clear();
   });
 });
 

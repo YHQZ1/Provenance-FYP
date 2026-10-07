@@ -11,6 +11,7 @@ import complianceRoutes from "./routes/compliance.routes.js";
 import regulatoryRoutes from "./routes/regulatory.routes.js";
 import systemRoutes from "./routes/system.routes.js";
 import workspaceRoutes from "./routes/workspace.routes.js";
+import traceRoutes from "./routes/trace.routes.js";
 import { mountQueueDashboard } from "./routes/admin.routes.js";
 
 const app = express();
@@ -44,6 +45,7 @@ app.use("/api/feedback", feedbackRoutes);
 app.use("/api/compliance", complianceRoutes);
 app.use("/api/regulatory", regulatoryRoutes);
 app.use("/api/system", systemRoutes);
+app.use("/api/trace", traceRoutes);
 app.use("/api", workspaceRoutes);
 mountQueueDashboard(app);
 

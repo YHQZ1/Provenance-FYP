@@ -16,7 +16,8 @@ from src.config import (
     QDRANT_PORT,
 )
 from src.rag.chatbot import chat
-from src.rag.retrieval import client, ensure_collection
+from src.rag.retrieval import client, ensure_collection, retrieve
+from src.rag.text import cite, group_sources
 from qdrant_client.http.models import FieldCondition, Filter, MatchValue
 
 SOURCES_FILE = Path(__file__).parent / "config" / "sources.yaml"
@@ -39,6 +40,11 @@ app.add_middleware(
 
 class QueryRequest(BaseModel):
     query: str = Field(min_length=3, max_length=2000)
+
+
+class SearchRequest(BaseModel):
+    query: str = Field(min_length=3, max_length=2000)
+    top_k: int = Field(default=4, ge=1, le=10)
 
 
 @app.get("/")
@@ -87,6 +93,25 @@ def query(request: QueryRequest):
         raise HTTPException(
             status_code=503, detail=f"The language model is unavailable: {error}"
         ) from error
+
+
+@app.post("/search")
+def search(request: SearchRequest):
+    contexts = retrieve(request.query, top_k=request.top_k)
+    return {
+        "passages": [
+            {
+                "text": item["text"],
+                "source": item["source"],
+                "page": item.get("page"),
+                "url": item.get("source_url"),
+                "score": round(item["score"], 4),
+                "citation": cite(item),
+            }
+            for item in contexts
+        ],
+        "sources": group_sources(contexts),
+    }
 
 
 @app.get("/sources")

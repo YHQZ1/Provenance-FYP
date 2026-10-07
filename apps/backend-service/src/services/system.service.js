@@ -37,6 +37,25 @@ const fromStatus = (body) => {
   return { status, ...(problems.length && { detail: problems.join("; ") }) };
 };
 
+const assistantService = async () => {
+  if (!env.OLLAMA_HOST || !env.OLLAMA_MODEL) return { name: "assistant", status: "not_configured" };
+  try {
+    const response = await fetch(`${env.OLLAMA_HOST.replace(/\/$/, "")}/api/tags`, {
+      signal: AbortSignal.timeout(4000),
+    });
+    const models = (await response.json()).models?.map((model) => model.name) || [];
+    return models.includes(env.OLLAMA_MODEL)
+      ? { name: "assistant", status: "up", detail: env.OLLAMA_MODEL }
+      : {
+          name: "assistant",
+          status: "degraded",
+          detail: `${env.OLLAMA_MODEL} isn't pulled yet. Run make models.`,
+        };
+  } catch (error) {
+    return { name: "assistant", status: "down", detail: error.message };
+  }
+};
+
 const queueService = async () => {
   const redis = await redisStatus();
   if (redis.status === "not_configured") {
@@ -69,19 +88,20 @@ export const systemService = {
       return shared;
     }
 
-    const [ocr, classifier, regulatory, queue, capabilities] = await Promise.all([
+    const [ocr, classifier, regulatory, queue, assistant, capabilities] = await Promise.all([
       ping("ocr", env.OCR_SERVICE_URL, fromStatus),
       ping("classifier", env.RAG_SERVICE_URL, fromStatus),
       ping("regulatory", env.REGULATORY_RAG_URL, fromStatus),
       queueService(),
+      assistantService(),
       schema(),
     ]);
 
     const value = {
       mock_services: env.USE_MOCK_SERVICES,
       services: env.USE_MOCK_SERVICES
-        ? [ocr, classifier, regulatory].map((s) => ({ ...s, status: "mocked" })).concat(queue)
-        : [ocr, classifier, regulatory, queue],
+        ? [ocr, classifier, regulatory].map((s) => ({ ...s, status: "mocked" })).concat(queue, assistant)
+        : [ocr, classifier, regulatory, queue, assistant],
       features: {
         finalization: capabilities.fyFilings,
         category_tracking: capabilities.classificationCategory,

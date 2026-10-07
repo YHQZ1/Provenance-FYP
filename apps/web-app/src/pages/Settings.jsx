@@ -41,6 +41,10 @@ const SERVICE_NAMES = {
     name: "Regulatory research",
     purpose: "Answers questions from CPCB and SEBI documents",
   },
+  assistant: {
+    name: "Trace assistant",
+    purpose: "Answers questions about your workspace and the regulations",
+  },
   queue: {
     name: "Processing queue",
     purpose: "Runs uploads in the background and retries failures",

@@ -19,6 +19,7 @@ upload documents → read them (OCR) → suggest materials (RAG) → a person re
 - **Work out obligations** per CPCB category: Q = A + B − C, the EPR target and the minimum recycling share, recycled so far, the shortfall and an optional compensation estimate. Default targets come from the 2022 EPR guidelines and can be overridden.
 - **Keep an audit trail.** Activity lists every upload, review decision, deletion, finalization and settings change, with who made it and when, and exports to CSV.
 - **Teach it your suppliers' names.** The Materials library holds your own trade names (for example `POLYPET 3020 → PET`), which are matched before the classifier runs. Lines you corrected in review are suggested as new entries.
+- **Ask Trace**, the in-app assistant (⌘J or Ctrl+J). It answers questions about your own filing, documents, reviews, obligations and activity, and about the regulations, with links to the documents and pages it used. It is read-only: it can't approve, edit, delete or finalize anything.
 - **Research** the regulations. Ask questions about the CPCB guidance and get answers that cite the source document and page.
 
 Provenance prepares the numbers and evidence. Filing on the CPCB portal is still done by the company.
@@ -117,8 +118,8 @@ Makefile              Everyday commands
 
 The Plastic EPR workflow works end to end. Next up:
 
-1. **Trace, the in-app assistant.** A preview is in the app now. It will answer questions on any page using the regulatory sources and the company's own filing.
-2. **A larger language model** for regulatory answers. The current 3B model misses some specific answers, such as filing deadlines.
+1. **Better regulatory search.** The search behind Regulatory research and Trace sometimes ranks the passage with the answer too low for the model to see it. Combining keyword and vector search with re-ranking should fix it; a larger model alone did not.
+2. **Integration and end-to-end tests.**
 
 Further out: EPR certificate tracking against obligations, BRSR Core reporting, and product-level carbon estimates. See [PRODUCT.md](docs/PRODUCT.md#roadmap).
 

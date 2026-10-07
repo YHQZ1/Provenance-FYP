@@ -46,3 +46,14 @@ test("unknown routes return 404 JSON", async () => {
     assert.equal((await response.json()).success, false);
   });
 });
+
+test("Trace requires a signed-in user", async () => {
+  await withServer(async (base) => {
+    const response = await fetch(`${base}/api/trace/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "What's my shortfall?" }),
+    });
+    assert.equal(response.status, 401);
+  });
+});
