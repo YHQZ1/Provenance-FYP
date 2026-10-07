@@ -95,3 +95,13 @@ jobs:
       - run: pip install pytest
       - run: python -m pytest tests -q
       - run: python -m compileall -q src scripts
+
+  helm-chart:
+    name: Helm chart · lint and render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: helm lint infra/helm/provenance -f infra/helm/provenance/values-local.yaml
+      - run: helm template provenance infra/helm/provenance -f infra/helm/provenance/values-local.yaml > /dev/null
+      - run: |
+          helm template provenance infra/helm/provenance -f infra/helm/provenance/values-local.yaml --set jobs.ingest.force=true --set jobs.ingest.onUpgrade=true > /dev/null

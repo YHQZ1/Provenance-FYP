@@ -80,6 +80,8 @@ make ingest    # first run only: indexes the regulatory sources
 make status    # all green? open http://localhost:5173
 ```
 
+To run the same stack on a local Kubernetes cluster instead, see [KUBERNETES.md](docs/KUBERNETES.md) (`make k8s-up`).
+
 `make` on its own lists every command. [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) has the full setup, including the Supabase settings (OAuth providers and redirect URLs) and troubleshooting.
 
 ## Repository layout
@@ -109,6 +111,7 @@ Makefile              Everyday commands
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Services, document lifecycle, filing model, security model |
 | [DATABASE.md](docs/DATABASE.md) | Tables, migrations, row-level security, reference data |
 | [LOCAL_DEV.md](docs/LOCAL_DEV.md) | Setting up, running, testing and troubleshooting locally |
+| [KUBERNETES.md](docs/KUBERNETES.md) | Running the stack on Kubernetes with Helm, and moving it to a cloud cluster |
 | [BACKEND_SERVICE.md](docs/BACKEND_SERVICE.md) | API endpoints, configuration and business rules |
 | [OCR_SERVICE.md](docs/OCR_SERVICE.md) | The OCR service on its own |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Workflow, conventions, UI design rules, tests and CI |

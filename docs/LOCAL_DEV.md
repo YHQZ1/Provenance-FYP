@@ -47,6 +47,10 @@ make status    # health of every service
 
 The first `make up` takes a while. It downloads images and the embedding model, and on Apple Silicon the OCR image runs under amd64 emulation.
 
+## Kubernetes instead of Docker Compose
+
+The same stack runs on a local Kubernetes cluster from a Helm chart. See [KUBERNETES.md](KUBERNETES.md).
+
 ## Everyday commands
 
 Run `make` to list everything. Stack commands act on all services unless you pass `s=<service>` (`frontend`, `backend`, `ocr-service`, `rag-classify`, `rag-regulatory`, `qdrant`, `ollama`).
