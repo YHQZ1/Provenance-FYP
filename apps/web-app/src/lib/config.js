@@ -1,10 +1,12 @@
-const required = (name, value) => {
-  if (!value)
-    throw new Error(
-      `Missing ${name}. Copy apps/web-app/.env.example to .env.development and fill it in.`,
-    );
+import { readEnv } from "./env";
+
+const required = (name) => {
+  const value = readEnv(name);
+  if (!value) {
+    throw new Error(`Missing ${name}. Set it in apps/web-app/.env.development or the deployment.`);
+  }
   return value;
 };
 
-export const API_URL = required("VITE_API_URL", import.meta.env.VITE_API_URL);
-export const EPR_PORTAL_URL = import.meta.env.VITE_EPR_PORTAL_URL || "";
+export const API_URL = required("VITE_API_URL");
+export const EPR_PORTAL_URL = readEnv("VITE_EPR_PORTAL_URL");
