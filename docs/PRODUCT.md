@@ -69,6 +69,8 @@ These shape most product decisions. Keep to them when adding features.
 
 ### Now: hardening the EPR workflow
 
+The full, prioritised list is in [ROADMAP.md](ROADMAP.md). In short:
+
 - **Better regulatory search** (keyword plus vector search, then re-ranking). Tests showed wrong regulatory answers come from the passage with the answer ranking too low, not from the model's size.
 - Using OCR confidence to flag hard-to-read lines.
 - **Integration and end-to-end tests**: the backend against a disposable database, and a browser test of upload → review → finalize.
