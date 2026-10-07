@@ -1,5 +1,12 @@
 import axios from "axios";
 import { env } from "../../config/env.js";
+import { cache } from "../../config/redis.js";
+import { digest, questionCacheText } from "../../lib/cache-keys.js";
+import { regulatoryTag } from "./answer-tags.js";
+
+// Answers come only from the indexed sources, so the same question gets the same answer until the
+// sources or the model change; both are part of the key.
+const ANSWER_CACHE_SECONDS = 7 * 24 * 3600;
 
 const baseUrl = () => {
   if (!env.REGULATORY_RAG_URL) {
@@ -38,14 +45,24 @@ export const regulatoryService = {
       throw error;
     }
 
-    try {
+    const ask = async () => {
       const response = await axios.post(
         env.REGULATORY_RAG_URL.replace(/\/$/, "") + "/query",
         { query: normalizedQuery },
         { timeout: env.REGULATORY_RAG_TIMEOUT_MS },
       );
-
       return response.data;
+    };
+
+    try {
+      const tag = await regulatoryTag();
+      if (!tag) return await ask();
+      const key = cache.key("answer", tag, digest(questionCacheText(normalizedQuery), 32));
+      const cached = await cache.get(key);
+      if (cached) return { ...cached, cached: true };
+      const answer = await ask();
+      if (answer?.answer && answer?.sources?.length) await cache.set(key, answer, ANSWER_CACHE_SECONDS);
+      return answer;
     } catch (error) {
       const detail =
         error.response?.data?.detail ||

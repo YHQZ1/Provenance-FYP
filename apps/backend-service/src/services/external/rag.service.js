@@ -7,6 +7,27 @@ import {
   normalizeQuantity,
 } from "./normalization.js";
 import { listTradeNames } from "../internal/materials.service.js";
+import { cache } from "../../config/redis.js";
+import { classificationCacheText, digest } from "../../lib/cache-keys.js";
+import { classifierTag } from "./answer-tags.js";
+
+// Suppliers repeat the same line descriptions every month; a classified line is reused for 30
+// days. Failed or unidentified results are never cached.
+const CLASSIFICATION_CACHE_SECONDS = 30 * 24 * 3600;
+
+const classifyLine = async (item) => {
+  const tag = await classifierTag();
+  if (!tag) return requestRagService(buildClassificationText(item));
+  return cache.wrap(
+    cache.key("classify", tag, digest(classificationCacheText(item), 32)),
+    CLASSIFICATION_CACHE_SECONDS,
+    () => requestRagService(buildClassificationText(item)),
+    {
+      shouldCache: (response) =>
+        Boolean(normalizeMaterialCode(response?.classifications?.[0]?.material_code)),
+    },
+  );
+};
 import { matchTradeName } from "../internal/trade-names.js";
 
 const REVIEW_THRESHOLD = 0.85;
@@ -162,7 +183,7 @@ export const ragService = {
   async classifyItems(items) {
     return mapWithConcurrency(items, env.RAG_CONCURRENCY, async (item) => {
       try {
-        const response = await requestRagService(buildClassificationText(item));
+        const response = await classifyLine(item);
         const result = response.classifications?.[0];
         if (!result) throw new Error("RAG service returned no classification");
 

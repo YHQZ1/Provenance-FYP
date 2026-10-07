@@ -6,6 +6,7 @@ import { financialYearOf, financialYearRange } from "../external/normalization.j
 import { PROCESSING_STATUSES, effectiveDate } from "./filing.summary.js";
 import { assertDocumentEditable, finalizedYears } from "./filing.lock.js";
 import { activityService } from "./activity.service.js";
+import { workspaceCache } from "./workspace.cache.js";
 
 export const MATERIAL_CODES = ["PET", "HDPE", "PVC", "LDPE", "PP", "PS", "MLP"];
 export const CPCB_CATEGORIES = [
@@ -41,15 +42,18 @@ const fetchOwned = async (classificationId, userId, { forWrite = true } = {}) =>
   return data;
 };
 
-// One audit entry per decision, tied to the document and the year it counts toward.
-const recordDecision = (reviewer, item, action, summary, details = {}) =>
-  activityService.record(reviewer, {
+// One audit entry per decision, tied to the document and the year it counts toward. A decision
+// changes the filing's totals, so it also invalidates the company's cached filing.
+const recordDecision = async (reviewer, item, action, summary, details = {}) => {
+  await workspaceCache.invalidate(reviewer.id);
+  return activityService.record(reviewer, {
     action,
     summary: `${summary} on ${item.documents.filename}`,
     documentId: item.document_id,
     financialYear: financialYearOf(effectiveDate(item.documents)),
     details: { filename: item.documents.filename, line: item.matched_synonym, ...details },
   });
+};
 
 const effectiveValues = (item) => ({
   material_code: item.corrected_material_code || item.material_code,
@@ -282,6 +286,7 @@ export const feedbackService = {
     }
 
     const approved = suggested.filter((_, index) => results[index].success);
+    await workspaceCache.invalidate(reviewer.id);
     if (approved.length) {
       const files = [...new Set(approved.map((item) => item.document_filename))];
       await activityService.record(reviewer, {

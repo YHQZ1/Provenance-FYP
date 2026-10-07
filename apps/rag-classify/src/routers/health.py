@@ -6,6 +6,7 @@ Health check endpoints for monitoring.
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
+from src.config import settings
 from src.services.rag_pipeline import get_pipeline
 from src.models.schemas import HealthResponse, HealthStatus, ServiceHealth
 
@@ -82,5 +83,8 @@ def health_check():
     
     return HealthResponse(
         status=overall_status,
+        model=settings.ollama_model,
+        embedding_model=settings.embedding_model,
+        synonyms=checks.get("synonyms"),
         services=services
     )

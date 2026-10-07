@@ -6,14 +6,20 @@ import { ragService } from "../external/rag.service.js";
 import { documentTypeOf } from "../external/normalization.js";
 import { PROCESSING_STATUSES } from "./filing.summary.js";
 import { failedMessage, readingMessage, retryingMessage } from "./processing.rules.js";
+import { workspaceCache } from "./workspace.cache.js";
 
 const now = () => new Date().toISOString();
 
-const updateDocument = (documentId, changes) =>
-  supabaseAdmin
+// Status changes move documents between the filing's counters, so each one invalidates the
+// company's cached filing.
+const updateDocument = async (documentId, changes) => {
+  const { data } = await supabaseAdmin
     .from("documents")
     .update({ ...changes, updated_at: now() })
-    .eq("id", documentId);
+    .eq("id", documentId)
+    .select("company_id");
+  await workspaceCache.invalidate(data?.[0]?.company_id);
+};
 
 const setStatus = (documentId, status, reasoning) => updateDocument(documentId, { status, reasoning });
 
@@ -46,6 +52,7 @@ export const processingService = {
 
     const items = ocrResult.line_items || [];
     if (items.length > 0) await ragService.processDocument(documentId, items);
+    await workspaceCache.invalidate(document.company_id);
     return { items: items.length };
   },
 

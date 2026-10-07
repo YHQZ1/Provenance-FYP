@@ -4,6 +4,24 @@ import { badRequest, conflict, notFound, unavailable } from "../../utils/errors.
 import { activityService, actorName } from "./activity.service.js";
 import { CPCB_CATEGORIES, MATERIAL_CODES } from "./feedback.service.js";
 import { suggestTradeNames } from "./trade-names.js";
+import { cache } from "../../config/redis.js";
+
+// Polymers and built-in trade names change only when the seed is re-run.
+const CATALOGUE_CACHE_SECONDS = 3600;
+
+const readCatalogue = () =>
+  cache.wrap(cache.key("catalogue", "v1"), CATALOGUE_CACHE_SECONDS, async () => {
+    const [materials, builtIn] = await Promise.all([
+      supabaseAdmin.from("materials_master").select("material_code, material_name, category, description"),
+      supabaseAdmin
+        .from("material_synonyms")
+        .select("id, material_code, synonym, manufacturer, description")
+        .order("material_code"),
+    ]);
+    if (materials.error) throw new Error(`Failed to read materials: ${materials.error.message}`);
+    if (builtIn.error) throw new Error(`Failed to read the catalogue: ${builtIn.error.message}`);
+    return { materials: materials.data || [], catalogue: builtIn.data || [] };
+  });
 
 const MIGRATION_HINT =
   "Trade names need supabase/migrations/007_activity_obligations_trade_names.sql.";
@@ -39,22 +57,16 @@ const readCorrections = async (userId) => {
 export const materialsService = {
   async library(userId) {
     const { tradeNames: available } = await schema();
-    const [materials, builtIn, tradeNames, corrections] = await Promise.all([
-      supabaseAdmin.from("materials_master").select("material_code, material_name, category, description"),
-      supabaseAdmin
-        .from("material_synonyms")
-        .select("id, material_code, synonym, manufacturer, description")
-        .order("material_code"),
+    const [{ materials, catalogue }, tradeNames, corrections] = await Promise.all([
+      readCatalogue(),
       listTradeNames(userId),
       readCorrections(userId),
     ]);
-    if (materials.error) throw new Error(`Failed to read materials: ${materials.error.message}`);
-    if (builtIn.error) throw new Error(`Failed to read the catalogue: ${builtIn.error.message}`);
 
     return {
       available,
-      materials: materials.data || [],
-      catalogue: builtIn.data || [],
+      materials,
+      catalogue,
       trade_names: tradeNames,
       suggestions: suggestTradeNames(corrections, tradeNames),
     };

@@ -245,6 +245,8 @@ function ResultCard({ entry, onRetry }) {
               <p className="text-xs text-neutral-500">
                 AI-generated from the cited documents. Check the cited pages
                 before relying on it.
+                {entry.result.cached &&
+                  " Answered earlier from the same sources, so it came back instantly."}
               </p>
               <Button size="sm" variant="ghost" onClick={copy}>
                 {copied ? (

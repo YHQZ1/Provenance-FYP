@@ -1,4 +1,6 @@
 import { supabaseAdmin } from "../config/database.js";
+import { cache } from "../config/redis.js";
+import { digest } from "../lib/cache-keys.js";
 import fs from "fs/promises";
 import path from "path";
 
@@ -43,14 +45,23 @@ export const storageService = {
     return { path: storagePath };
   },
 
+  // Signing is a round trip to Supabase each time a document is opened, so a link is reused for
+  // all but the last two minutes of its life.
   async getSignedUrl(storagePath, expiresInSeconds = 3600) {
-    const { data, error } = await supabaseAdmin.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(storagePath, expiresInSeconds);
-
-    if (error) throw new Error(`Failed to create signed URL: ${error.message}`);
-
-    return data.signedUrl;
+    const reuseFor = expiresInSeconds - 120;
+    const create = async () => {
+      const { data, error } = await supabaseAdmin.storage
+        .from(BUCKET_NAME)
+        .createSignedUrl(storagePath, expiresInSeconds);
+      if (error) throw new Error(`Failed to create signed URL: ${error.message}`);
+      return data.signedUrl;
+    };
+    if (reuseFor < 30) return create();
+    return cache.wrap(
+      cache.key("signed", expiresInSeconds, digest(storagePath, 32)),
+      reuseFor,
+      create,
+    );
   },
 
   async downloadFile(storagePath) {

@@ -12,6 +12,9 @@ import {
   computeObligations,
   introducedForBasis,
 } from "./obligation.calc.js";
+import { workspaceCache } from "./workspace.cache.js";
+
+const OBLIGATIONS_CACHE_SECONDS = 600;
 
 const BASES = ["current", "previous_two_years"];
 const INPUT_FIELDS = [
@@ -83,6 +86,12 @@ const parseInput = (field, value) => {
 export const obligationService = {
   async get(userId, fyStart, basis = "current") {
     if (!BASES.includes(basis)) throw badRequest(`basis must be one of ${BASES.join(", ")}`);
+    return workspaceCache.wrap(userId, ["obligations", fyStart, basis], OBLIGATIONS_CACHE_SECONDS, () =>
+      this.compute(userId, fyStart, basis),
+    );
+  },
+
+  async compute(userId, fyStart, basis) {
     const { obligations: available } = await schema();
     const years = [fyStart, fyStart - 1, fyStart - 2];
     const [{ ledgers, categoriesTracked }, inputs] = await Promise.all([
@@ -147,6 +156,7 @@ export const obligationService = {
       { onConflict: "company_id,financial_year,category" },
     );
     if (error) throw new Error(`Failed to save obligation inputs: ${error.message}`);
+    await workspaceCache.invalidate(actor.id);
 
     const label = category.replace("CATEGORY_", "Category ");
     await activityService.record(actor, {

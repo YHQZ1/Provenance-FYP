@@ -2,6 +2,7 @@ import { env } from "../config/env.js";
 import { schema } from "../config/schema.js";
 import { redisStatus } from "../config/redis.js";
 import { queueCounts } from "../queues/document.queue.js";
+import { cache } from "../config/redis.js";
 
 const CACHE_MS = 15000;
 let cached = null;
@@ -60,6 +61,12 @@ const queueService = async () => {
 export const systemService = {
   async status() {
     if (cached && Date.now() - cached.at < CACHE_MS) return cached.value;
+    // Shared through Redis so several API processes don't each ping every service.
+    const shared = await cache.get(cache.key("system", "status"));
+    if (shared) {
+      cached = { at: Date.now(), value: shared };
+      return shared;
+    }
 
     const [ocr, classifier, regulatory, queue, capabilities] = await Promise.all([
       ping("ocr", env.OCR_SERVICE_URL, fromStatus),
@@ -84,6 +91,7 @@ export const systemService = {
       checked_at: new Date().toISOString(),
     };
     cached = { at: Date.now(), value };
+    await cache.set(cache.key("system", "status"), value, CACHE_MS / 1000);
     return value;
   },
 };

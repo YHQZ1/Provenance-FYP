@@ -36,9 +36,10 @@ The service-role key and database URL are full-access credentials. Keep them out
 ## 3. Run
 
 ```bash
-make up        # build and start all seven services; the app is on http://localhost:5173
+make up        # build and start all eight services; the app is on http://localhost:5173
 make models    # first run: pull llama3.2:3b into the Ollama container
 make ingest    # first run: download and index the regulatory sources (a few minutes)
+make bench     # optional: time the slow paths, to compare before and after a change
 make status    # health of every service
 ```
 
@@ -111,4 +112,6 @@ The tests need no network or credentials, and CI runs them with no `.env` files.
 | Regulatory research says the source library is unavailable | The index is empty or the service is down. Run `make ingest` and check `make logs s=rag-regulatory`. |
 | Every line comes back "Needs material" | The classifier can't reach Ollama, or the model isn't pulled. Run `make models`, then `make logs s=rag-classify`. |
 | An upload says "Already uploaded as …" | Working as intended. The same file exists, possibly dated in another financial year. The message names the year. |
-| Documents stuck as failed after a restart | Expected while processing is in-process. Retry them from Documents. |
+| Documents stay "Queued" | The worker isn't running or can't reach Redis. Check `make status` and `make logs s=backend` for `[Worker]` lines. |
+| A change doesn't show up (for example, after editing data directly in the database) | The cache only knows about changes made through the API. Run `make cache-clear`. |
+| A document failed "after 3 attempts" | The message names the service that failed. Fix it (`make status`), then press Retry. |

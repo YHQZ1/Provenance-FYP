@@ -15,8 +15,8 @@ DB_URL := $$(grep -E '^DATABASE_URL=' apps/rag-classify/.env 2>/dev/null | cut -
 
 .DEFAULT_GOAL := help
 .PHONY: help setup install venv up down stop start restart rebuild logs ps status shell \
-	models ingest db-shell db-migrate test test-web test-backend test-ocr test-classify \
-	test-regulatory lint build check clean
+	models ingest cache-clear db-shell db-migrate test test-web test-backend test-ocr test-classify \
+	test-regulatory lint build check bench clean
 
 help:
 	@awk 'BEGIN {FS = ":.*## "} /^## / {printf "\n\033[1m%s\033[0m\n", substr($$0, 4)} /^[a-z-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -85,6 +85,10 @@ models: ## Pull the Ollama model (OLLAMA_MODEL=llama3.2:3b by default)
 ingest: ## Re-ingest the regulatory sources into the search index
 	$(COMPOSE) exec rag-regulatory python scripts/ingest.py --config src/config/sources.yaml
 
+cache-clear: ## Empty the cache (the processing queue is kept)
+	$(COMPOSE) exec redis sh -c "redis-cli --scan --pattern 'prov:*' | xargs -r redis-cli del" >/dev/null
+	@echo "Cache cleared."
+
 ## Database (uses DATABASE_URL from apps/rag-classify/.env)
 
 db-shell: ## Open psql on the database
@@ -123,6 +127,9 @@ build: ## Production build of the web app
 	cd apps/web-app && npm run build
 
 check: lint test build ## Everything CI runs: lint, all tests, build
+
+bench: ## Time the slow paths against the running stack (BENCH_TOKEN=… adds API calls)
+	cd apps/backend-service && REDIS_URL=$${REDIS_URL:-redis://localhost:6379} RUN_WORKER=false node scripts/bench.mjs
 
 clean: ## Remove build output and caches (not containers or data)
 	rm -rf apps/web-app/dist

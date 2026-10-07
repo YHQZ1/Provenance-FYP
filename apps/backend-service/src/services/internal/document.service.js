@@ -5,6 +5,7 @@ import { env } from "../../config/env.js";
 import { storageService } from "../storage.service.js";
 import { documentQueue, dequeueDocument } from "../../queues/document.queue.js";
 import { processingService } from "./processing.service.js";
+import { workspaceCache } from "./workspace.cache.js";
 import {
   documentTypeOf,
   financialYearOf,
@@ -132,6 +133,7 @@ export const documentService = {
       throw new Error(`Database insert failed: ${error.message}`);
     }
 
+    await workspaceCache.invalidate(userId);
     await processingService.schedule(document.id);
 
     return toListItem(
@@ -165,6 +167,7 @@ export const documentService = {
       })
       .eq("id", documentId);
 
+    await workspaceCache.invalidate(userId);
     await processingService.schedule(documentId);
 
     return {
@@ -199,6 +202,7 @@ export const documentService = {
       .eq("id", documentId);
 
     if (error) throw new Error(`Update failed: ${error.message}`);
+    await workspaceCache.invalidate(userId);
     return this.getDocument(documentId, userId);
   },
 
@@ -232,6 +236,7 @@ export const documentService = {
       .delete()
       .eq("id", documentId);
     if (error) throw new Error(`Delete failed: ${error.message}`);
+    await workspaceCache.invalidate(userId);
 
     await storageService.deleteFile(document.file_path).catch((err) => {
       console.error(`[Document] Stored file cleanup failed: ${err.message}`);

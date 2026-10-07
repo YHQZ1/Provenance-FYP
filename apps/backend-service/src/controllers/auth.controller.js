@@ -1,5 +1,8 @@
 import { authService } from "../services/auth.service.js";
 import { supabaseAdmin } from "../config/database.js";
+import { cache } from "../config/redis.js";
+import { authCacheKey } from "../middleware/auth.middleware.js";
+import { workspaceCache } from "../services/internal/workspace.cache.js";
 
 const readToken = (req) => {
   const header = req.headers.authorization;
@@ -26,6 +29,7 @@ export const authController = {
       }
 
       const company = await authService.getOrCreateCompany(user);
+      await workspaceCache.forgetCompany(user.id);
 
       return res.json({
         success: true,
@@ -37,7 +41,10 @@ export const authController = {
   },
 
   // Sessions live in the Supabase client. This clears the cookie older builds set.
-  logout(req, res) {
+  async logout(req, res) {
+    // Forget the cached identity so this token stops working here straight away.
+    const header = req.headers.authorization;
+    if (header?.startsWith("Bearer ")) await cache.del(authCacheKey(header.slice(7).trim()));
     res.clearCookie("token", { path: "/" });
     return res.json({ success: true, message: "Logout successful" });
   },

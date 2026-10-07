@@ -69,7 +69,6 @@ These shape most product decisions. Keep to them when adding features.
 
 ### Now: hardening the EPR workflow
 
-- **Job queue for processing**, so documents survive restarts and long OCR or classification runs don't tie up the API.
 - **Trace, the in-app assistant**, answering questions on any page using the regulatory sources and the company's own filing. A "coming soon" preview is live.
 - **A larger local model** (8B) for regulatory answers, and using OCR confidence to flag hard-to-read lines.
 - **Integration and end-to-end tests**: the backend against a disposable database, and a browser test of upload → review → finalize.

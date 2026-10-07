@@ -4,6 +4,10 @@ import { regulatoryService } from "../external/regulatory.service.js";
 import { financialYearOf } from "../external/normalization.js";
 import { documentService } from "./document.service.js";
 import { summarizeFiling } from "./filing.summary.js";
+import { workspaceCache } from "./workspace.cache.js";
+
+// Long enough to serve page loads and polling; any write replaces it via the data version.
+const FILING_CACHE_SECONDS = 600;
 import { conflict, unavailable } from "../../utils/errors.js";
 
 const SOURCE_BASIS = [
@@ -52,7 +56,13 @@ export const complianceService = {
     };
   },
 
-  async getFiling(userId, fyStart = currentFinancialYear()) {
+  getFiling(userId, fyStart = currentFinancialYear()) {
+    return workspaceCache.wrap(userId, ["filing", fyStart], FILING_CACHE_SECONDS, () =>
+      this.buildFilingView(userId, fyStart),
+    );
+  },
+
+  async buildFilingView(userId, fyStart) {
     const [filing, finalization] = await Promise.all([
       this.buildFiling(userId, fyStart),
       this.getFinalization(userId, fyStart),
@@ -78,7 +88,8 @@ export const complianceService = {
   },
 
   async finalize(userId, fyStart, notes) {
-    const filing = await this.getFiling(userId, fyStart);
+    // Decide from fresh data, never a cached summary.
+    const filing = await this.buildFilingView(userId, fyStart);
     if (!filing.finalization_available) {
       throw unavailable("Filing finalization needs the fy_filings table. Run supabase/migrations/001_fy_filings.sql.");
     }
@@ -98,6 +109,7 @@ export const complianceService = {
     });
     if (error?.code === "23505") throw conflict("This financial year is already finalized.");
     if (error) throw new Error(`Finalization failed: ${error.message}`);
+    await workspaceCache.invalidate(userId);
 
     return this.getFiling(userId, fyStart);
   },
@@ -110,6 +122,7 @@ export const complianceService = {
       .eq("company_id", userId)
       .eq("financial_year", fyStart);
     if (error) throw new Error(`Reopen failed: ${error.message}`);
+    await workspaceCache.invalidate(userId);
     return this.getFiling(userId, fyStart);
   },
 

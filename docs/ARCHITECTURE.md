@@ -11,6 +11,7 @@
 | `rag-regulatory` | Answers questions from indexed official documents and returns the passages it used. | Qdrant, Ollama |
 | Qdrant | Vector search: trade-name synonyms (`material_synonyms`) and regulatory passages (`regulatory_docs`). | |
 | Ollama | Local language model (`llama3.2:3b`) used by both RAG services. | |
+| Redis | The processing queue (BullMQ) and the cache. Append-only persistence keeps queued jobs across restarts. | |
 | Supabase | Postgres (application data), Storage (the private `documents` bucket), Auth (email, Google, Microsoft). | |
 
 Everything except Supabase runs from `infra/docker-compose.yaml`.
@@ -43,7 +44,39 @@ upload ──▶ PENDING ──▶ OCR_PROCESSING ──┬──▶ VERIFIED   
    - When every line is decided, the document becomes `VERIFIED`.
 5. **Filing.** Reviewed lines are summed into the year their document belongs to.
 
-Processing currently runs inside the backend process, not in a queue. On startup the backend marks anything left mid-processing as `OCR_FAILED` with a "retry" message. A document still processing can't be deleted, unless it has been stuck past the OCR and classifier timeouts plus a margin (about 10 minutes by default). Moving processing onto a job queue is the next architectural change.
+### The processing queue
+
+Processing runs as jobs on a BullMQ queue in Redis (`document-processing`), one job per document, keyed by the document id so it can't be queued twice.
+
+- **Concurrency.** A worker processes `PROCESSING_CONCURRENCY` documents at a time (default 2). OCR handles one page set at a time and the local model a few requests at once, so this cap keeps a large batch from queueing up behind them and timing itself out.
+- **Retries.** A failed run is retried up to `PROCESSING_ATTEMPTS` times (default 3), with exponential backoff (15 s, 30 s, …). Between attempts the document shows as queued, with the reason. Only after the last attempt does it become `OCR_FAILED`, with a message saying which service failed.
+- **Restarts.** A job interrupted by a restart or crash is picked up again automatically, after BullMQ's stalled-job check (about a minute). On startup the backend also re-queues any document marked as processing whose job is missing, for example after Redis was wiped.
+- **Idempotent runs.** Each run starts from the stored file. OCR output is cached by file hash for a day, so a retry after a classification failure doesn't read the document again.
+- **Deleting.** A queued document can be deleted, which removes its job. One a worker is reading right now can't be deleted until it finishes.
+- **Where it runs.** The worker runs inside the API process by default. Set `RUN_WORKER=false` on the API and run `npm run worker` to scale them separately.
+- **Without Redis** (`REDIS_URL` empty), documents are processed inside the API process as before. Nothing is retried or resumed after a restart, but the app keeps working.
+- **Dashboard.** With `ADMIN_USER` and `ADMIN_PASSWORD` set, Bull Board at `/admin/queues` shows every job, behind its own login. Settings → System status shows the queue's counts.
+
+## Caching
+
+Redis also holds a cache for the slow paths. It only ever stores data that can be recomputed from the source. If Redis is slow or down, every read is a miss and the request goes to the source: slower, never wrong. Each cache operation gives up after 300 ms.
+
+| What | Key | Kept for | Made stale by |
+| --- | --- | --- | --- |
+| Verified identity for a token | hash of the token | 60 s, never past the token's expiry | Logout deletes it |
+| Company row | company id | 5 min | Profile save or creation deletes it |
+| Filing summary, obligations | company, year (and basis), **data version** | 10 min | Any write bumps the company's data version |
+| Classifier result for a line | normalised description + unit, **classifier tag** | 30 days | A new model, embedding model or synonym count changes the tag |
+| Regulatory answer | normalised question, **sources tag** | 7 days | A new model or re-ingested sources change the tag |
+| OCR output | file hash | 1 day | Never (same file, same text) |
+| Signed file link | file path | 8 of its 10 minutes | Expiry |
+| Materials catalogue, system status | fixed | 1 h, 15 s | Expiry |
+
+- **Data version.** Every write that can change a company's filing bumps a per-company counter that is part of the cache key: uploads, deletes, date changes, retries, every processing status change, review decisions, finalize and reopen, profile saves and obligation inputs. A stale entry is never read again; it just expires. Finalizing always reads fresh data.
+- **Tags.** The backend asks the classifier and regulatory services what produces their answers (`/health`, `/sources`) at most every 5 minutes. A changed model or source set gives a new tag, so earlier answers are never served for it.
+- **Not cached:** failed classifications, answers without sources, document lists and the review queue (cheap, and they change constantly).
+- **Trade-off:** after "sign out of all devices", an already-issued token can keep working with the API for up to 60 s.
+- `make cache-clear` empties the cache without touching queued jobs.
 
 ## Filing model
 
@@ -106,7 +139,6 @@ Every write records one `activity_events` row: actor name, action, a readable su
 
 ## Known limits
 
-- In-process processing, as above. A queue is planned.
 - The 3B model sometimes misses specific regulatory facts that are in the indexed documents. A larger model is planned.
 - Each user account is one company; there are no teams or roles yet.
 - Obligations count recycling certificates as the only fulfilment. Other routes, such as end-of-life disposal or EPR certificates bought on the portal, aren't tracked yet.

@@ -10,7 +10,7 @@ upload documents → read them (OCR) → suggest materials (RAG) → a person re
 
 ## What it does today
 
-- **Upload** purchase invoices, recycling certificates, collection receipts and EPR records (PDF, JPEG, PNG, TIFF). Duplicate files are rejected, so nothing is counted twice.
+- **Upload** purchase invoices, recycling certificates, collection receipts and EPR records (PDF, JPEG, PNG, TIFF). Duplicate files are rejected, so nothing is counted twice. Processing runs in the background on a queue: a few documents at a time, retried automatically if a service hiccups, and resumed after a restart.
 - **Read** each document: invoice number, GSTIN, date and line items. Quantities are normalised to kilograms, including Indian number formats and units such as tonnes and quintals.
 - **Suggest** a polymer (PET, HDPE, LDPE, PP, PVC, PS, MLP) and a CPCB category (I–IV) for each line, using a synonym index of trade names and a local language model.
 - **Review** every line before it counts. Approve, correct or exclude it, with the source document beside it and keyboard shortcuts. High-confidence suggestions can be approved in bulk. Each decision records who made it and when.
@@ -40,7 +40,7 @@ Provenance prepares the numbers and evidence. Filing on the CPCB portal is still
              │ PaddleOCR  │ │classify  │ │CPCB/SEBI Q&A  │
              └────────────┘ └──┬───────┘ └──┬────────────┘
                                └─────┬──────┘
-                          Qdrant (vectors) · Ollama (llama3.2:3b)
+                Redis (queue, cache) · Qdrant (vectors) · Ollama (llama3.2:3b)
 ```
 
 | Service | Path | Port | Stack |
@@ -50,6 +50,7 @@ Provenance prepares the numbers and evidence. Filing on the CPCB portal is still
 | OCR | `apps/ocr-service` | 8000 | FastAPI, PyMuPDF, PaddleOCR |
 | Material classifier | `apps/rag-classify` | 8001 | FastAPI, sentence-transformers, Qdrant, Ollama |
 | Regulatory research | `apps/rag-regulatory` | 8002 | FastAPI, Qdrant, Ollama |
+| Queue and cache | `infra/docker-compose.yaml` | 6379 | Redis 7, BullMQ |
 | Vector store, LLM | `infra/docker-compose.yaml` | 6333, 11434 | Qdrant, Ollama |
 | Database, files, auth | Supabase (hosted) | | Postgres with row-level security, Storage, Auth |
 
@@ -115,9 +116,8 @@ Makefile              Everyday commands
 
 The Plastic EPR workflow works end to end. Next up:
 
-1. **Job queue for processing.** Documents are processed in the backend process today, so a restart marks in-flight documents as failed and they need a retry. A queue will resume them instead.
-2. **Trace, the in-app assistant.** A preview is in the app now. It will answer questions on any page using the regulatory sources and the company's own filing.
-3. **A larger language model** for regulatory answers. The current 3B model misses some specific answers, such as filing deadlines.
+1. **Trace, the in-app assistant.** A preview is in the app now. It will answer questions on any page using the regulatory sources and the company's own filing.
+2. **A larger language model** for regulatory answers. The current 3B model misses some specific answers, such as filing deadlines.
 
 Further out: EPR certificate tracking against obligations, BRSR Core reporting, and product-level carbon estimates. See [PRODUCT.md](docs/PRODUCT.md#roadmap).
 

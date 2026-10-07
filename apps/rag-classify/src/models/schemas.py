@@ -204,6 +204,10 @@ class HealthResponse(BaseModel):
     status: HealthStatus
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     version: str = "0.1.0"
+    # What produced the answers, so callers can tell when cached results are out of date.
+    model: Optional[str] = None
+    embedding_model: Optional[str] = None
+    synonyms: Optional[int] = None
     
     services: List[ServiceHealth]
     

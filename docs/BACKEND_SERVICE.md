@@ -45,6 +45,11 @@ npm test
 | `RAG_CONCURRENCY` | `2` | Lines classified in parallel per document |
 | `REGULATORY_RAG_URL`, `REGULATORY_RAG_TIMEOUT_MS` | `180000` | Regulatory research |
 | `USE_MOCK_SERVICES` | `false` | Canned OCR and classification results, for UI work without the ML stack |
+| `REDIS_URL` | empty | Queue and cache; `redis://redis:6379` in Compose. Empty processes documents in the API process with no cache. |
+| `PROCESSING_CONCURRENCY` | `2` | Documents processed at once |
+| `PROCESSING_ATTEMPTS` | `3` | Attempts before a document is marked failed |
+| `RUN_WORKER` | `true` | `false` makes the process API-only; run `npm run worker` alongside it |
+| `ADMIN_USER`, `ADMIN_PASSWORD` | empty | Login for the queue dashboard at `/admin/queues`; it's off while either is empty |
 
 The environment file is chosen by `NODE_ENV`: `.env.development` by default, `.env.production` with `npm start`.
 
@@ -117,7 +122,7 @@ Rules are enforced here, not in the UI, and the database lets clients read only 
 - **Late documents.** A document dated in a finalized year but not in its snapshot is flagged. It can't be reviewed until the year is reopened, but it can be deleted.
 - **Audit trail.** Uploads, deletes, retries, date changes, every review decision, bulk approvals, finalize and reopen, profile changes, obligation inputs and trade names each record an `activity_events` row. Recording never fails the action itself.
 - **Trade names.** Before classification, each line is matched against the company's trade names (whole words, case and punctuation ignored, longest name wins). A match is suggested with confidence 0.95 and still needs approval; without a category it stays out of bulk approval.
-- **Processing.** A document being processed can't be deleted or retried, unless it has been stuck past the OCR and classifier timeouts plus 2 minutes. On startup, anything left mid-processing is marked `OCR_FAILED` so it can be retried.
+- **Processing.** Uploads and retries queue a job (see [ARCHITECTURE.md](ARCHITECTURE.md#the-processing-queue)). A queued document can be deleted; one being read right now can't, and neither can be retried until it finishes.
 
 ## Adding an endpoint
 
