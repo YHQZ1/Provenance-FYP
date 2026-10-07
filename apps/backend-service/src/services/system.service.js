@@ -1,5 +1,7 @@
 import { env } from "../config/env.js";
 import { schema } from "../config/schema.js";
+import { redisStatus } from "../config/redis.js";
+import { queueCounts } from "../queues/document.queue.js";
 
 const CACHE_MS = 15000;
 let cached = null;
@@ -34,23 +36,44 @@ const fromStatus = (body) => {
   return { status, ...(problems.length && { detail: problems.join("; ") }) };
 };
 
+// Redis carries the processing queue; without it documents are processed in the API process.
+const queueService = async () => {
+  const redis = await redisStatus();
+  if (redis.status === "not_configured") {
+    return { name: "queue", status: "degraded", detail: "No Redis: documents process in the API and stop if it restarts" };
+  }
+  if (redis.status !== "up") return { name: "queue", ...redis };
+  try {
+    const counts = await queueCounts();
+    const waiting = counts.waiting + counts.delayed;
+    return {
+      name: "queue",
+      status: "up",
+      detail: `${counts.active} processing, ${waiting} waiting${counts.failed ? `, ${counts.failed} failed in the last week` : ""}`,
+    };
+  } catch (error) {
+    return { name: "queue", status: "down", detail: error.message };
+  }
+};
+
 // Lets the UI explain why processing or research is unavailable instead of failing silently.
 export const systemService = {
   async status() {
     if (cached && Date.now() - cached.at < CACHE_MS) return cached.value;
 
-    const [ocr, classifier, regulatory, capabilities] = await Promise.all([
+    const [ocr, classifier, regulatory, queue, capabilities] = await Promise.all([
       ping("ocr", env.OCR_SERVICE_URL, fromStatus),
       ping("classifier", env.RAG_SERVICE_URL, fromStatus),
       ping("regulatory", env.REGULATORY_RAG_URL, fromStatus),
+      queueService(),
       schema(),
     ]);
 
     const value = {
       mock_services: env.USE_MOCK_SERVICES,
       services: env.USE_MOCK_SERVICES
-        ? [ocr, classifier, regulatory].map((s) => ({ ...s, status: "mocked" }))
-        : [ocr, classifier, regulatory],
+        ? [ocr, classifier, regulatory].map((s) => ({ ...s, status: "mocked" })).concat(queue)
+        : [ocr, classifier, regulatory, queue],
       features: {
         finalization: capabilities.fyFilings,
         category_tracking: capabilities.classificationCategory,

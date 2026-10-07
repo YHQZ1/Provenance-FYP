@@ -44,4 +44,15 @@ export const env = {
 
   UPLOAD_TEMP_DIR: process.env.UPLOAD_TEMP_DIR || "./uploads",
   USE_MOCK_SERVICES: process.env.USE_MOCK_SERVICES === "true",
+
+  // Redis backs the processing queue and the cache. Without it, documents are processed in this
+  // process (lost on restart) and nothing is cached; the app still works.
+  REDIS_URL: process.env.REDIS_URL || "",
+  PROCESSING_CONCURRENCY: Math.max(parseInt(process.env.PROCESSING_CONCURRENCY, 10) || 2, 1),
+  PROCESSING_ATTEMPTS: Math.max(parseInt(process.env.PROCESSING_ATTEMPTS, 10) || 3, 1),
+  // false runs this process as an API only; start `npm run worker` separately to process documents.
+  RUN_WORKER: process.env.RUN_WORKER !== "false",
+  // Basic-auth credentials for the queue dashboard at /admin/queues; it's off when either is unset.
+  ADMIN_USER: process.env.ADMIN_USER || "",
+  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || "",
 };

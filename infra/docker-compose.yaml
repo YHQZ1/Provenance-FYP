@@ -3,6 +3,21 @@
 #   docker compose -f infra/docker-compose.yaml up --build
 
 services:
+  # Processing queue (BullMQ) and cache. Append-only persistence keeps queued jobs across restarts.
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   qdrant:
     image: qdrant/qdrant:latest
     ports:
@@ -106,11 +121,14 @@ services:
       REGULATORY_RAG_URL: http://rag-regulatory:8002
       REGULATORY_RAG_TIMEOUT_MS: 180000
       USE_MOCK_SERVICES: "false"
+      REDIS_URL: redis://redis:6379
     ports:
       - "3000:3000"
     volumes:
       - backend_uploads:/app/uploads
     depends_on:
+      redis:
+        condition: service_healthy
       ocr-service:
         condition: service_healthy
       rag-classify:
@@ -146,6 +164,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  redis_data:
   qdrant_data:
   ollama_data:
   model_cache:

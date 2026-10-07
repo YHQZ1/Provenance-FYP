@@ -3,8 +3,8 @@ import fs from "fs/promises";
 import { supabaseAdmin } from "../../config/database.js";
 import { env } from "../../config/env.js";
 import { storageService } from "../storage.service.js";
-import { ocrService } from "../external/ocr.service.js";
-import { ragService } from "../external/rag.service.js";
+import { documentQueue, dequeueDocument } from "../../queues/document.queue.js";
+import { processingService } from "./processing.service.js";
 import {
   documentTypeOf,
   financialYearOf,
@@ -132,41 +132,12 @@ export const documentService = {
       throw new Error(`Database insert failed: ${error.message}`);
     }
 
-    this.runProcessing(document.id, {
-      buffer: fileBuffer,
-      originalname,
-      mimetype,
-      meta: { document_type: documentType, file_hash: fileHash },
-    });
+    await processingService.schedule(document.id);
 
     return toListItem(
       { ...document, document_classifications: [] },
       await finalizedYears(userId),
     );
-  },
-
-  runProcessing(documentId, file) {
-    this.startOcrProcessing(documentId, file).catch((err) => {
-      console.error(`[Document] Processing failed for ${documentId}:`, err.message);
-    });
-  },
-
-  async startOcrProcessing(documentId, file) {
-    await supabaseAdmin
-      .from("documents")
-      .update({
-        status: "OCR_PROCESSING",
-        reasoning: "Reading the document.",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", documentId);
-
-    const ocrResult = await ocrService.submitForOcr(documentId, file, file.meta);
-    const items = ocrResult.line_items || [];
-
-    if (items.length > 0) {
-      await ragService.processDocument(documentId, items);
-    }
   },
 
   async retryDocument(documentId, userId) {
@@ -183,8 +154,6 @@ export const documentService = {
       throw conflict("This document is already being processed.");
     }
 
-    const buffer = await storageService.downloadFile(document.file_path);
-
     await supabaseAdmin
       .from("documents")
       .update({
@@ -196,15 +165,7 @@ export const documentService = {
       })
       .eq("id", documentId);
 
-    this.runProcessing(documentId, {
-      buffer,
-      originalname: document.filename,
-      mimetype: document.mime_type,
-      meta: {
-        document_type: documentTypeOf(document.extracted_data),
-        file_hash: document.extracted_data?.file_hash,
-      },
-    });
+    await processingService.schedule(documentId);
 
     return {
       id: documentId,
@@ -241,27 +202,6 @@ export const documentService = {
     return this.getDocument(documentId, userId);
   },
 
-  // Work running in-process is lost on restart; surface it so the user can retry.
-  async recoverInterruptedDocuments() {
-    const { data, error } = await supabaseAdmin
-      .from("documents")
-      .update({
-        status: "OCR_FAILED",
-        reasoning: "Processing was interrupted by a server restart. Retry the document.",
-        updated_at: new Date().toISOString(),
-      })
-      .in("status", PROCESSING_STATUSES)
-      .select("id");
-
-    if (error) {
-      console.error("[Document] Recovery check failed:", error.message);
-      return;
-    }
-    if (data?.length) {
-      console.log(`[Document] Marked ${data.length} interrupted document(s) for retry`);
-    }
-  },
-
   async deleteDocument(documentId, userId) {
     const { data: document } = await supabaseAdmin
       .from("documents")
@@ -271,9 +211,15 @@ export const documentService = {
       .maybeSingle();
 
     if (!document) throw notFound("Document not found");
-    // Deleting mid-run would leave the pipeline writing lines for a document that's gone.
-    if (PROCESSING_STATUSES.includes(document.status) && !isStale(document)) {
-      throw conflict("This document is still being processed. Delete it once it finishes.");
+    // A queued document is simply taken out of the queue. One a worker is reading right now
+    // can't be deleted mid-run, or the pipeline would write lines for a document that's gone.
+    if (PROCESSING_STATUSES.includes(document.status)) {
+      const removable = documentQueue()
+        ? await dequeueDocument(documentId).catch(() => isStale(document))
+        : isStale(document);
+      if (!removable) {
+        throw conflict("This document is being read right now. Delete it once it finishes.");
+      }
     }
     await assertDocumentRemovable(userId, document);
 

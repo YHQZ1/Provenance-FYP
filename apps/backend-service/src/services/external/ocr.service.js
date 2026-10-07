@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../config/database.js";
 import { env } from "../../config/env.js";
+import { cache } from "../../config/redis.js";
 import {
   isQuantifiedDocumentType,
   normalizeLineItems,
@@ -27,7 +28,7 @@ export const ocrService = {
     try {
       const result = env.USE_MOCK_SERVICES
         ? MOCK_OCR_RESULTS[0]
-        : await requestOcrService(file);
+        : await readDocument(file, meta.file_hash);
       const documentType = meta.document_type || "purchase_invoice";
       const quantified = isQuantifiedDocumentType(documentType);
       const items = quantified
@@ -114,21 +115,20 @@ export const ocrService = {
       console.log(`[OCR] Document ${documentId} processed successfully`);
       return { ...result, line_items: items };
     } catch (error) {
-      console.error(`[OCR] Failed for document ${documentId}:`, error);
-      await supabaseAdmin
-        .from("documents")
-        .update({
-          status: "OCR_FAILED",
-          reasoning: `Text extraction failed: ${error.message}`,
-          requires_human_review: true,
-          verified_by_user: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", documentId);
-      throw error;
+      // The caller decides between retrying and marking the document failed.
+      console.error(`[OCR] Failed for document ${documentId}:`, error.message);
+      throw new Error(`Text extraction failed: ${error.message}`, { cause: error });
     }
   },
 };
+
+// OCR is the slowest step, so its output is kept for a day by file hash: a retry after a later
+// failure reuses it instead of reading the document again.
+const OCR_CACHE_SECONDS = 24 * 3600;
+const readDocument = (file, fileHash) =>
+  fileHash
+    ? cache.wrap(cache.key("ocr", "v1", fileHash), OCR_CACHE_SECONDS, () => requestOcrService(file))
+    : requestOcrService(file);
 
 const requestOcrService = async (file) => {
   if (!env.OCR_SERVICE_URL) {
@@ -159,6 +159,9 @@ const requestOcrService = async (file) => {
     }
     return payload;
   } catch (error) {
+    if (error.cause?.code === "ECONNREFUSED" || error.cause?.code === "ENOTFOUND") {
+      throw new Error("can't reach the OCR service", { cause: error });
+    }
     if (error.name === "AbortError") {
       throw new Error(`OCR service timed out after ${env.OCR_TIMEOUT_MS}ms`);
     }

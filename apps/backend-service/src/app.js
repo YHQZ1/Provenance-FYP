@@ -11,6 +11,7 @@ import complianceRoutes from "./routes/compliance.routes.js";
 import regulatoryRoutes from "./routes/regulatory.routes.js";
 import systemRoutes from "./routes/system.routes.js";
 import workspaceRoutes from "./routes/workspace.routes.js";
+import { mountQueueDashboard } from "./routes/admin.routes.js";
 
 const app = express();
 const configuredOrigins = env.CORS_ORIGIN.split(",")
@@ -54,6 +55,7 @@ app.use("/api/compliance", complianceRoutes);
 app.use("/api/regulatory", regulatoryRoutes);
 app.use("/api/system", systemRoutes);
 app.use("/api", workspaceRoutes);
+mountQueueDashboard(app);
 
 app.use(notFound);
 app.use(errorHandler);

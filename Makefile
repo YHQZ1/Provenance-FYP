@@ -1,7 +1,7 @@
 # Everyday commands for Provenance. Run `make` to list them.
 #
 # Most stack commands take an optional service: `make logs s=backend`, `make rebuild s=ocr-service`.
-# Services: backend, ocr-service, rag-classify, rag-regulatory, qdrant, ollama, frontend
+# Services: backend, ocr-service, rag-classify, rag-regulatory, redis, qdrant, ollama, frontend
 
 COMPOSE := docker compose -f infra/docker-compose.yaml
 # Empty means every service, the frontend included.
@@ -63,6 +63,8 @@ ps: ## Show containers and their health
 	$(COMPOSE) ps
 
 status: ## Check each service's health endpoint
+	@if nc -z localhost 6379 2>/dev/null; then printf "  \033[32m●\033[0m %-15s up    :%s\n" redis 6379; \
+	else printf "  \033[31m●\033[0m %-15s down  :%s\n" redis 6379; fi
 	@for svc in "backend 3000" "ocr-service 8000" "rag-classify 8001" "rag-regulatory 8002" "qdrant 6333" "ollama 11434" "frontend 5173"; do \
 		set -- $$svc; \
 		case $$1 in qdrant) path=/healthz;; ollama|frontend) path=/;; *) path=/health;; esac; \

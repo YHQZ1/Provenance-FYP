@@ -115,17 +115,9 @@ export const ragService = {
 
       return classifications;
     } catch (error) {
-      console.error(`[RAG] Failed for document ${documentId}:`, error);
-      await supabaseAdmin
-        .from("documents")
-        .update({
-          status: "RAG_FAILED",
-          reasoning: error.message,
-          requires_human_review: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", documentId);
-      throw error;
+      // The caller decides between retrying and marking the document failed.
+      console.error(`[RAG] Failed for document ${documentId}:`, error.message);
+      throw new Error(`Classification failed: ${error.message}`, { cause: error });
     }
   },
 
@@ -261,6 +253,9 @@ const requestRagService = async (text) => {
 
     return payload;
   } catch (error) {
+    if (error.cause?.code === "ECONNREFUSED" || error.cause?.code === "ENOTFOUND") {
+      throw new Error("can't reach the classifier service", { cause: error });
+    }
     if (error.name === "AbortError") {
       throw new Error(`RAG service timed out after ${env.RAG_TIMEOUT_MS}ms`);
     }
