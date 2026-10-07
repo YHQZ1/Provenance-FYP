@@ -9,7 +9,7 @@ PY := $(VENV)/bin/python
 DB_URL := $$(grep -E '^DATABASE_URL=' apps/rag-classify/.env 2>/dev/null | cut -d= -f2- | tr -d '"')
 
 .DEFAULT_GOAL := help
-.PHONY: help env setup k8s-bootstrap k8s-secrets k8s-up k8s-status k8s-logs k8s-restart k8s-shell k8s-models k8s-ingest k8s-lint k8s-cache-clear k8s-down k8s-purge install venv up down stop start restart rebuild logs ps status shell \
+.PHONY: help env setup k8s-bootstrap k8s-secrets k8s-up k8s-status k8s-logs k8s-restart k8s-shell k8s-models k8s-ingest k8s-lint k8s-cache-clear k8s-stop k8s-start k8s-down k8s-purge install venv up down stop start restart rebuild logs ps status shell \
 	models ingest cache-clear db-shell db-migrate test test-web test-backend test-ocr test-classify \
 	test-regulatory lint format build check bench clean
 
@@ -113,6 +113,18 @@ k8s-lint: ## Lint the Helm chart and render it
 k8s-cache-clear: ## Empty the cache in the cluster (the processing queue is kept)
 	$(KUBECTL) exec redis-0 -- sh -c "redis-cli --scan --pattern 'prov:*' | xargs -r redis-cli del" > /dev/null
 	@echo "Cache cleared."
+
+k8s-stop: ## Pause everything to free memory (data and config stay in the cluster)
+	$(KUBECTL) scale deployment --all --replicas=0
+	$(KUBECTL) scale statefulset --all --replicas=0
+	@echo "Stopped. Start again with: make k8s-start"
+
+k8s-start: ## Resume after k8s-stop and wait until everything is ready
+	$(KUBECTL) scale statefulset --all --replicas=1
+	$(KUBECTL) scale deployment --all --replicas=1
+	$(KUBECTL) rollout status statefulset --timeout=300s
+	$(KUBECTL) wait --for=condition=available deployment --all --timeout=300s
+	@echo "Running at http://$(INGRESS_HOST)"
 
 k8s-down: ## Remove the app from the cluster (volumes, models and the ingest are kept)
 	helm --kube-context $(K8S_CONTEXT) uninstall $(K8S_RELEASE) -n $(K8S_NAMESPACE)

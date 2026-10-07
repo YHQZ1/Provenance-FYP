@@ -31,6 +31,20 @@ make k8s-up       # installs the ingress controller, creates the secrets, builds
 
 The first run takes 15 to 20 minutes, mostly downloading the 2 GB language model and indexing the regulatory sources. Later runs take under a minute. When it finishes, open `http://provenance.localhost` (browsers resolve `*.localhost` to your machine).
 
+## Starting and stopping
+
+Docker Desktop has to be running: the cluster is a node inside its virtual machine, so quitting Docker Desktop stops it. You don't need Docker Compose or `make up` any more.
+
+| You want to | Do this |
+| --- | --- |
+| Start your day | Open Docker Desktop and wait for Kubernetes to show as running. The app comes back by itself: Kubernetes recreates every pod and the volumes still hold the data. Then open the app, or check with `make k8s-status`. |
+| Pause the app and free memory, keeping Docker open | `make k8s-stop`, then `make k8s-start` (about 12 seconds) |
+| Deploy code changes | `make k8s-up` |
+| Remove the app, keeping its data | `make k8s-down`, then `make k8s-up` |
+| Finish for the day | Quit Docker Desktop, or just `make k8s-stop` first |
+
+The first Trace question, classification or search after a start is slow (20 to 30 seconds) while the models load into memory, then fast again. `make k8s-start` only restores one replica of each service, so if you raise replicas in `values.yaml`, use `make k8s-up` to resume.
+
 ## Everyday commands
 
 Run `make` for the full list.
@@ -40,6 +54,7 @@ Run `make` for the full list.
 | `make k8s-up` | Builds the images and deploys or updates everything. `s=backend` rebuilds just that one. Only pods whose image changed restart. |
 | `make k8s-status` | Pods, volumes, ingress and release status |
 | `make k8s-logs` | Follows every app pod, prefixed by name. `s=backend` for one. |
+| `make k8s-stop` | Pauses everything (pods go to zero, data stays). `make k8s-start` resumes it. |
 | `make k8s-restart s=worker` | Restarts a service without rebuilding |
 | `make k8s-shell s=backend` | A shell inside a pod |
 | `make k8s-models` | Pulls the Ollama model again |
