@@ -1,3 +1,5 @@
+name: infra
+
 services:
   redis:
     image: redis:7-alpine
@@ -31,9 +33,9 @@ services:
 
   rag-classify:
     build:
-      context: ../apps/rag-classify
+      context: ../../apps/rag-classify
     env_file:
-      - ../apps/rag-classify/.env
+      - ../../apps/rag-classify/.env
     environment:
       QDRANT_HOST: ${QDRANT_HOST}
       QDRANT_PORT: 6333
@@ -60,7 +62,7 @@ services:
 
   rag-regulatory:
     build:
-      context: ../apps/rag-regulatory
+      context: ../../apps/rag-regulatory
     environment:
       QDRANT_HOST: ${QDRANT_HOST}
       QDRANT_PORT: 6333
@@ -89,7 +91,7 @@ services:
 
   ocr-service:
     build:
-      context: ../apps/ocr-service
+      context: ../../apps/ocr-service
     ports:
       - "${OCR_PORT}:8000"
     healthcheck:
@@ -106,9 +108,9 @@ services:
 
   backend:
     build:
-      context: ../apps/backend-service
+      context: ../../apps/backend-service
     env_file:
-      - ../apps/backend-service/.env.development
+      - ../../apps/backend-service/.env.development
     environment:
       PORT: 3000
       CORS_ORIGIN: ${CORS_ORIGIN}
@@ -152,9 +154,9 @@ services:
 
   frontend:
     build:
-      context: ../apps/web-app
+      context: ../../apps/web-app
     env_file:
-      - ../apps/web-app/.env.development
+      - ../../apps/web-app/.env.development
     environment:
       VITE_API_URL: ${PUBLIC_API_URL}
       VITE_SITE_URL: ${FRONTEND_URL}

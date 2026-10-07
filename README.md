@@ -51,8 +51,8 @@ Provenance prepares the numbers and evidence. Filing on the CPCB portal is still
 | OCR | `apps/ocr-service` | 8000 | FastAPI, PyMuPDF, PaddleOCR |
 | Material classifier | `apps/rag-classify` | 8001 | FastAPI, sentence-transformers, Qdrant, Ollama |
 | Regulatory research | `apps/rag-regulatory` | 8002 | FastAPI, Qdrant, Ollama |
-| Queue and cache | `infra/docker-compose.yaml` | 6379 | Redis 7, BullMQ |
-| Vector store, LLM | `infra/docker-compose.yaml` | 6333, 11434 | Qdrant, Ollama |
+| Queue and cache | `infra/compose/docker-compose.yaml` | 6379 | Redis 7, BullMQ |
+| Vector store, LLM | `infra/compose/docker-compose.yaml` | 6333, 11434 | Qdrant, Ollama |
 | Database, files, auth | Supabase (hosted) | | Postgres with row-level security, Storage, Auth |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how a document moves through the system and how filings are locked.
@@ -94,7 +94,10 @@ apps/
   rag-classify/       Material and CPCB category suggestions
   rag-regulatory/     Question answering over official regulatory documents
 infra/
-  docker-compose.yaml The whole local stack
+  compose/            The Docker Compose stack
+  helm/provenance/    The Helm chart that runs the stack on Kubernetes
+  k8s/                Scripts behind the make k8s-* commands
+  .env.example        Ports, service addresses and cluster settings
 supabase/
   migrations/         Schema, numbered and applied in order
   seed.sql            Polymer list and trade-name synonyms

@@ -1,6 +1,6 @@
 -include infra/.env
 
-COMPOSE := docker compose --env-file infra/.env -f infra/docker-compose.yaml
+COMPOSE := docker compose --env-file infra/.env -f infra/compose/docker-compose.yaml
 KUBECTL = kubectl --context $(K8S_CONTEXT) -n $(K8S_NAMESPACE)
 s ?=
 

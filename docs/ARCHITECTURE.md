@@ -14,7 +14,7 @@
 | Redis | The processing queue (BullMQ) and the cache. Append-only persistence keeps queued jobs across restarts. | |
 | Supabase | Postgres (application data), Storage (the private `documents` bucket), Auth (email, Google, Microsoft). | |
 
-Everything except Supabase runs from `infra/docker-compose.yaml`.
+Everything except Supabase runs from `infra/compose/docker-compose.yaml`.
 
 ## A document's life
 

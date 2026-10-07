@@ -36,7 +36,7 @@ Old routes (`/upload`, `/validation`, `/mapping`, `/reports`, `/insights`) redir
 
 | Path | Role |
 | --- | --- |
-| `infra/docker-compose.yaml` | The compose file for the whole local stack |
+| `infra/compose/docker-compose.yaml` | The compose file for the whole local stack |
 | `infra/helm/provenance/` | The Helm chart that runs the same stack on Kubernetes |
 | `infra/k8s/` | Scripts behind the `k8s-*` make targets: ingress install, secrets, build and deploy |
 | `supabase/` | Migrations and seed data; see [DATABASE.md](DATABASE.md) |
@@ -48,7 +48,7 @@ Old routes (`/upload`, `/validation`, `/mapping`, `/reports`, `/insights`) redir
 
 - One README at the root; everything else in `docs/`.
 - One `.gitignore`, at the root.
-- One compose file, `infra/docker-compose.yaml`, and one Helm chart, `infra/helm/provenance`, both describing the same stack.
+- One compose file, `infra/compose/docker-compose.yaml`, and one Helm chart, `infra/helm/provenance`, both describing the same stack.
 - No generated data, uploads, model caches, virtualenvs or `node_modules` in git.
 - Test fixtures live next to the tests that use them (for example `apps/ocr-service/tests/fixtures/`).
 
@@ -57,7 +57,8 @@ Old routes (`/upload`, `/validation`, `/mapping`, `/reports`, `/insights`) redir
 | Item | Outcome |
 | --- | --- |
 | Vendored Windows Poppler (`poppler/`, `poppler.zip`) | Removed; Poppler is installed in the OCR image, or with `brew install poppler` |
-| Service-local compose files | Removed in favour of `infra/docker-compose.yaml` |
+| Service-local compose files | Removed in favour of `infra/compose/docker-compose.yaml` |
+| `infra/nginx/` (old gateway config) | Removed; nothing used it |
 | Service-local READMEs and `.gitignore` files | Folded into the root README, `docs/` and the root `.gitignore` |
 | Sample invoices | Moved to `apps/ocr-service/tests/fixtures/invoices/` |
 | Regulatory scrapers and ad-hoc scripts | Removed; sources are listed in `sources.yaml` and indexed by `scripts/ingest.py` |
