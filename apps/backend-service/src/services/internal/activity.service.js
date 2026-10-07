@@ -1,7 +1,6 @@
 import { supabaseAdmin } from "../../config/database.js";
 import { schema } from "../../config/schema.js";
 
-// Every action the app records, grouped the way the Activity page filters them.
 export const ACTIVITY_GROUPS = {
   documents: ["document.uploaded", "document.deleted", "document.retried", "document.redated"],
   review: ["line.approved", "line.corrected", "line.excluded", "lines.approved_in_bulk"],
@@ -12,8 +11,6 @@ export const ACTIVITY_GROUPS = {
 export const actorName = (actor) => actor?.name || actor?.email || null;
 
 export const activityService = {
-  // Recording is best-effort: a missing table or a failed insert must never fail the action
-  // being recorded, so errors are logged and swallowed.
   async record(actor, { action, summary, documentId = null, financialYear = null, details = {} }) {
     try {
       if (!actor?.id || !(await schema()).activityLog) return;
@@ -43,7 +40,6 @@ export const activityService = {
       .order("created_at", { ascending: false })
       .limit(limit + 1);
 
-    // Company-wide events (profile, trade names) have no year and show under every year.
     if (fy != null) query = query.or(`financial_year.eq.${fy},financial_year.is.null`);
     if (group && ACTIVITY_GROUPS[group]) query = query.in("action", ACTIVITY_GROUPS[group]);
     if (before) query = query.lt("created_at", before);

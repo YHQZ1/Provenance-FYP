@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { EPR_PORTAL_URL } from "../lib/config";
 import {
   ArrowRight,
   BookOpen,
@@ -19,7 +20,6 @@ import {
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 
-// Reveals a section once it scrolls into view; content stays visible if the observer is unavailable.
 function Reveal({ children, className, delay = 0 }) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
@@ -57,7 +57,12 @@ function Reveal({ children, className, delay = 0 }) {
 
 function Eyebrow({ children, dark }) {
   return (
-    <p className={cx("mono text-[11px] font-medium uppercase tracking-[0.14em]", dark ? "text-emerald-600" : "text-emerald-700")}>
+    <p
+      className={cx(
+        "mono text-[11px] font-medium uppercase tracking-[0.14em]",
+        dark ? "text-emerald-600" : "text-emerald-700",
+      )}
+    >
       {children}
     </p>
   );
@@ -67,10 +72,24 @@ function SectionHeading({ eyebrow, title, body, dark, center }) {
   return (
     <div className={cx("max-w-2xl", center && "mx-auto text-center")}>
       <Eyebrow dark={dark}>{eyebrow}</Eyebrow>
-      <h2 className={cx("mt-4 text-3xl font-semibold leading-tight tracking-tight sm:text-4xl", dark ? "text-white" : "text-neutral-950")}>
+      <h2
+        className={cx(
+          "mt-4 text-3xl font-semibold leading-tight tracking-tight sm:text-4xl",
+          dark ? "text-white" : "text-neutral-950",
+        )}
+      >
         {title}
       </h2>
-      {body && <p className={cx("mt-4 text-base leading-relaxed sm:text-lg", dark ? "text-neutral-400" : "text-neutral-600")}>{body}</p>}
+      {body && (
+        <p
+          className={cx(
+            "mt-4 text-base leading-relaxed sm:text-lg",
+            dark ? "text-neutral-400" : "text-neutral-600",
+          )}
+        >
+          {body}
+        </p>
+      )}
     </div>
   );
 }
@@ -80,7 +99,10 @@ const buttonBase =
 
 function PrimaryLink({ to, children, className }) {
   return (
-    <Link to={to} className={cx(buttonBase, "bg-neutral-950 text-white hover:bg-neutral-800", className)}>
+    <Link
+      to={to}
+      className={cx(buttonBase, "bg-neutral-950 text-white hover:bg-neutral-800", className)}
+    >
       {children}
     </Link>
   );
@@ -103,18 +125,20 @@ function OutlineLink({ href, children, dark }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Product preview: the review step, with output the classifier really produces. */
-
 function ReviewPreview() {
   return (
     <div className="relative">
-      <div className="absolute -bottom-3 -left-3 right-3 top-3 rounded-2xl border border-neutral-200 bg-neutral-100" aria-hidden />
+      <div
+        className="absolute -bottom-3 -left-3 right-3 top-3 rounded-2xl border border-neutral-200 bg-neutral-100"
+        aria-hidden
+      />
       <div className="relative overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-[0_8px_32px_rgba(0,0,0,0.06)]">
         <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-3.5">
           <div className="flex items-center gap-2.5">
             <span className="size-2 rounded-full bg-emerald-600" />
-            <span className="mono text-[11px] font-medium uppercase tracking-widest text-neutral-500">Review · line 3 of 12</span>
+            <span className="mono text-[11px] font-medium uppercase tracking-widest text-neutral-500">
+              Review · line 3 of 12
+            </span>
           </div>
           <span className="mono text-[11px] text-neutral-400">FY 2026-27</span>
         </div>
@@ -123,7 +147,9 @@ function ReviewPreview() {
           <div className="space-y-5 p-5">
             <div>
               <p className="text-xs text-neutral-500">Invoice line</p>
-              <p className="mt-1 text-[15px] font-semibold leading-snug">Reliance Polypet 3020 bottle grade</p>
+              <p className="mt-1 text-[15px] font-semibold leading-snug">
+                Reliance Polypet 3020 bottle grade
+              </p>
               <p className="mt-1 text-xs text-neutral-500">INV-2026-0418.pdf · Purchase invoice</p>
             </div>
 
@@ -148,8 +174,12 @@ function ReviewPreview() {
               <span className="inline-flex items-center gap-1.5 rounded-md bg-neutral-950 px-3 py-2 text-xs font-medium text-white">
                 <Check className="size-3.5" /> Approve
               </span>
-              <span className="inline-flex items-center rounded-md border border-neutral-200 px-3 py-2 text-xs font-medium">Edit</span>
-              <span className="inline-flex items-center rounded-md px-3 py-2 text-xs font-medium text-neutral-500">Exclude</span>
+              <span className="inline-flex items-center rounded-md border border-neutral-200 px-3 py-2 text-xs font-medium">
+                Edit
+              </span>
+              <span className="inline-flex items-center rounded-md px-3 py-2 text-xs font-medium text-neutral-500">
+                Exclude
+              </span>
             </div>
           </div>
 
@@ -162,7 +192,9 @@ function ReviewPreview() {
               <div className="border-t border-dashed border-neutral-200 pt-2">
                 <p>1 HDPE caps 38mm 3923 120 kg</p>
                 <p>2 LDPE liner film 3920 80 kg</p>
-                <p className="-mx-1.5 rounded bg-neutral-950 px-1.5 py-0.5 text-white">3 Reliance Polypet 3020 3907 500 kg</p>
+                <p className="-mx-1.5 rounded bg-neutral-950 px-1.5 py-0.5 text-white">
+                  3 Reliance Polypet 3020 3907 500 kg
+                </p>
                 <p>4 Freight charges 9965</p>
               </div>
             </div>
@@ -173,8 +205,6 @@ function ReviewPreview() {
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 const PROBLEMS = [
   {
     title: "The data is everywhere except one place",
@@ -182,7 +212,7 @@ const PROBLEMS = [
   },
   {
     title: "Categorising is done line by line, by hand",
-    body: "EPR targets are set per CPCB category. Somebody has to decide whether \"BOPP laminate roll\" is rigid, flexible or multilayer, across thousands of invoice lines.",
+    body: 'EPR targets are set per CPCB category. Somebody has to decide whether "BOPP laminate roll" is rigid, flexible or multilayer, across thousands of invoice lines.',
   },
   {
     title: "Auditors ask where a number came from",
@@ -251,10 +281,22 @@ const FEATURES = [
 ];
 
 const COMPARISON = [
-  ["Categorising invoice lines", "Done by hand, line by line", "Suggested for every line; you confirm"],
-  ["Where a total came from", "Rebuilt from memory and email", "Each kg links to its document, line and review decision"],
+  [
+    "Categorising invoice lines",
+    "Done by hand, line by line",
+    "Suggested for every line; you confirm",
+  ],
+  [
+    "Where a total came from",
+    "Rebuilt from memory and email",
+    "Each kg links to its document, line and review decision",
+  ],
   ["Same invoice uploaded twice", "Easy to miss", "Blocked at upload"],
-  ["Which financial year it belongs to", "Depends on who filed it", "Set by the invoice date, editable"],
+  [
+    "Which financial year it belongs to",
+    "Depends on who filed it",
+    "Set by the invoice date, editable",
+  ],
   ["Changes after sign-off", "Silent edits to the sheet", "Locked until the year is reopened"],
 ];
 
@@ -281,8 +323,6 @@ const FAQ = [
   },
 ];
 
-/* ------------------------------------------------------------------ */
-
 function Nav() {
   const [open, setOpen] = useState(false);
   const links = [
@@ -302,14 +342,21 @@ function Nav() {
 
         <nav className="hidden items-center gap-8 md:flex" aria-label="Primary">
           {links.map(([label, href]) => (
-            <a key={href} href={href} className="text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-950">
+            <a
+              key={href}
+              href={href}
+              className="text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-950"
+            >
               {label}
             </a>
           ))}
         </nav>
 
         <div className="hidden items-center gap-5 md:flex">
-          <Link to="/auth?mode=login" className="text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-950">
+          <Link
+            to="/auth?mode=login"
+            className="text-sm font-medium text-neutral-500 transition-colors hover:text-neutral-950"
+          >
             Sign in
           </Link>
           <PrimaryLink to="/auth?mode=signup" className="px-4 py-2.5">
@@ -332,7 +379,12 @@ function Nav() {
         <div className="border-t border-neutral-200 bg-white px-5 py-4 md:hidden">
           <nav className="flex flex-col gap-1" aria-label="Mobile">
             {links.map(([label, href]) => (
-              <a key={href} href={href} onClick={() => setOpen(false)} className="rounded-md px-2 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
+              <a
+                key={href}
+                href={href}
+                onClick={() => setOpen(false)}
+                className="rounded-md px-2 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
                 {label}
               </a>
             ))}
@@ -358,8 +410,9 @@ function Hero() {
             <span className="text-emerald-600">already have.</span>
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-neutral-600">
-            Provenance reads your purchase invoices and recycling certificates, suggests the material and CPCB category for every line,
-            and lets your team verify each one. Every kilogram in your annual position traces back to the document it came from.
+            Provenance reads your purchase invoices and recycling certificates, suggests the
+            material and CPCB category for every line, and lets your team verify each one. Every
+            kilogram in your annual position traces back to the document it came from.
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <PrimaryLink to="/auth?mode=signup">
@@ -368,7 +421,8 @@ function Hero() {
             <OutlineLink href="#how-it-works">See how it works</OutlineLink>
           </div>
           <p className="mt-8 max-w-lg text-sm text-neutral-500">
-            Built around CPCB's EPR guidelines under the Plastic Waste Management Rules. Producers, importers and brand owners.
+            Built around CPCB's EPR guidelines under the Plastic Waste Management Rules. Producers,
+            importers and brand owners.
           </p>
         </Reveal>
 
@@ -407,20 +461,26 @@ function Problem() {
         <Reveal className="mt-6">
           <div className="grid gap-6 rounded-xl border border-neutral-200 bg-white p-7 md:grid-cols-[1fr_auto_auto] md:items-center md:gap-12">
             <p className="text-sm leading-relaxed text-neutral-600">
-              <span className="font-semibold text-neutral-950">Getting it wrong is expensive.</span> Annual returns are due by 30 June for the
-              previous financial year, and shortfalls in EPR targets attract environmental compensation.
+              <span className="font-semibold text-neutral-950">Getting it wrong is expensive.</span>{" "}
+              Annual returns are due by 30 June for the previous financial year, and shortfalls in
+              EPR targets attract environmental compensation.
             </p>
             <div>
-              <p className="text-3xl font-semibold tracking-tight">₹5,000<span className="text-base font-medium text-neutral-500"> /ton</span></p>
+              <p className="text-3xl font-semibold tracking-tight">
+                ₹5,000<span className="text-base font-medium text-neutral-500"> /ton</span>
+              </p>
               <p className="mt-1 text-xs text-neutral-500">First shortfall in EPR targets</p>
             </div>
             <div>
-              <p className="text-3xl font-semibold tracking-tight">₹20,000<span className="text-base font-medium text-neutral-500"> /ton</span></p>
+              <p className="text-3xl font-semibold tracking-tight">
+                ₹20,000<span className="text-base font-medium text-neutral-500"> /ton</span>
+              </p>
               <p className="mt-1 text-xs text-neutral-500">By the third time</p>
             </div>
           </div>
           <p className="mt-3 text-xs text-neutral-400">
-            Source: CPCB, Guidelines for Assessment of Environmental Compensation for violation of the Plastic Waste Management Rules (April 2024).
+            Source: CPCB, Guidelines for Assessment of Environmental Compensation for violation of
+            the Plastic Waste Management Rules (April 2024).
           </p>
         </Reveal>
       </div>
@@ -472,8 +532,13 @@ function HowItWorks() {
 function TraceRow({ label, title, meta, last }) {
   return (
     <div className="relative pl-8">
-      {!last && <span className="absolute left-[7px] top-6 h-full w-px bg-neutral-700" aria-hidden />}
-      <span className="absolute left-0 top-1.5 size-[15px] rounded-full border-2 border-emerald-600 bg-neutral-950" aria-hidden />
+      {!last && (
+        <span className="absolute left-[7px] top-6 h-full w-px bg-neutral-700" aria-hidden />
+      )}
+      <span
+        className="absolute left-0 top-1.5 size-[15px] rounded-full border-2 border-emerald-600 bg-neutral-950"
+        aria-hidden
+      />
       <p className="mono text-[10px] uppercase tracking-widest text-neutral-500">{label}</p>
       <p className="mt-1 text-sm font-medium text-white">{title}</p>
       <p className="mt-0.5 text-xs text-neutral-400">{meta}</p>
@@ -509,16 +574,35 @@ function EvidenceTrail() {
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-7">
             <div className="flex items-baseline justify-between border-b border-neutral-800 pb-5">
               <div>
-                <p className="mono text-[10px] uppercase tracking-widest text-neutral-500">FY 2026-27 · Category I</p>
+                <p className="mono text-[10px] uppercase tracking-widest text-neutral-500">
+                  FY 2026-27 · Category I
+                </p>
                 <p className="mt-1 text-sm text-neutral-300">PET introduced</p>
               </div>
               <p className="text-3xl font-semibold tracking-tight">1,500 kg</p>
             </div>
             <div className="mt-6 space-y-6">
-              <TraceRow label="Document" title="INV-2026-0418.pdf" meta="Purchase invoice · dated 12 Jun 2026 · one of 3 documents" />
-              <TraceRow label="Invoice line" title="Reliance Polypet 3020 bottle grade · 500 kg" meta="Line 3 of 4 · read from the original PDF" />
-              <TraceRow label="Classification" title="PET · Category I rigid" meta="Suggested at 95% confidence · trade name and &quot;bottle grade&quot;" />
-              <TraceRow label="Review" title="Approved as suggested" meta="Reviewed 14 Jun 2026 · no corrections" last />
+              <TraceRow
+                label="Document"
+                title="INV-2026-0418.pdf"
+                meta="Purchase invoice · dated 12 Jun 2026 · one of 3 documents"
+              />
+              <TraceRow
+                label="Invoice line"
+                title="Reliance Polypet 3020 bottle grade · 500 kg"
+                meta="Line 3 of 4 · read from the original PDF"
+              />
+              <TraceRow
+                label="Classification"
+                title="PET · Category I rigid"
+                meta='Suggested at 95% confidence · trade name and "bottle grade"'
+              />
+              <TraceRow
+                label="Review"
+                title="Approved as suggested"
+                meta="Reviewed 14 Jun 2026 · no corrections"
+                last
+              />
             </div>
           </div>
         </Reveal>
@@ -558,18 +642,25 @@ function Why() {
                 <thead>
                   <tr className="border-b border-neutral-200 bg-neutral-50">
                     <th scope="col" className="px-6 py-4 font-medium text-neutral-500" />
-                    <th scope="col" className="px-6 py-4 font-medium text-neutral-500">Spreadsheets and email</th>
-                    <th scope="col" className="px-6 py-4 font-semibold text-neutral-950">With Provenance</th>
+                    <th scope="col" className="px-6 py-4 font-medium text-neutral-500">
+                      Spreadsheets and email
+                    </th>
+                    <th scope="col" className="px-6 py-4 font-semibold text-neutral-950">
+                      With Provenance
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
                   {COMPARISON.map(([topic, before, after]) => (
                     <tr key={topic}>
-                      <th scope="row" className="px-6 py-4 font-medium text-neutral-950">{topic}</th>
+                      <th scope="row" className="px-6 py-4 font-medium text-neutral-950">
+                        {topic}
+                      </th>
                       <td className="px-6 py-4 text-neutral-500">{before}</td>
                       <td className="px-6 py-4 text-neutral-950">
                         <span className="flex gap-2.5">
-                          <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden /> {after}
+                          <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />{" "}
+                          {after}
                         </span>
                       </td>
                     </tr>
@@ -586,7 +677,10 @@ function Why() {
 
 function Research() {
   return (
-    <section id="research" className="border-y border-neutral-200 bg-neutral-50 px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+    <section
+      id="research"
+      className="border-y border-neutral-200 bg-neutral-50 px-4 py-20 sm:px-6 lg:px-8 lg:py-28"
+    >
       <div className="mx-auto grid max-w-[1920px] items-center gap-14 lg:grid-cols-[1fr_1.1fr] lg:gap-20">
         <Reveal>
           <SectionHeading
@@ -595,7 +689,8 @@ function Research() {
             body="Answers come only from official CPCB and SEBI documents in the source library, with the document and page cited, so you can check the wording yourself."
           />
           <p className="mt-6 text-sm text-neutral-500">
-            Covers the CPCB EPR portal guidance, environmental compensation guidelines, EPR trading guidelines and SEBI's BRSR Core framework.
+            Covers the CPCB EPR portal guidance, environmental compensation guidelines, EPR trading
+            guidelines and SEBI's BRSR Core framework.
           </p>
         </Reveal>
 
@@ -603,17 +698,23 @@ function Research() {
           <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
             <div className="flex items-center gap-3 border-b border-neutral-100 px-5 py-4">
               <BookOpen className="size-4 text-neutral-400" aria-hidden />
-              <p className="text-sm text-neutral-800">How is environmental compensation calculated for a shortfall in EPR targets?</p>
+              <p className="text-sm text-neutral-800">
+                How is environmental compensation calculated for a shortfall in EPR targets?
+              </p>
             </div>
             <div className="space-y-4 p-5">
               <p className="text-sm leading-relaxed text-neutral-700">
-                Environmental compensation is levied on producers, importers and brand owners for a shortfall in EPR targets at
-                Rs. 5,000 per ton, rising to Rs. 10,000 per ton the second time and Rs. 20,000 per ton the third time. Compensation is
-                partly returned if the shortfall is made good: 75% within one year, 60% within two and 40% within three.
+                Environmental compensation is levied on producers, importers and brand owners for a
+                shortfall in EPR targets at Rs. 5,000 per ton, rising to Rs. 10,000 per ton the
+                second time and Rs. 20,000 per ton the third time. Compensation is partly returned
+                if the shortfall is made good: 75% within one year, 60% within two and 40% within
+                three.
               </p>
               <div className="flex items-center justify-between gap-4 rounded-lg border border-neutral-200 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">CPCB Environmental Compensation Regime for Plastic Waste</p>
+                  <p className="truncate text-sm font-medium">
+                    CPCB Environmental Compensation Regime for Plastic Waste
+                  </p>
                   <p className="mono mt-0.5 text-[11px] text-neutral-500">p. 27</p>
                 </div>
                 <FileText className="size-4 shrink-0 text-neutral-400" aria-hidden />
@@ -633,7 +734,8 @@ function Faq() {
         <Reveal>
           <SectionHeading eyebrow="FAQ" title="What teams ask before they start." />
           <p className="mt-6 text-sm leading-relaxed text-neutral-500">
-            Provenance prepares and evidences your EPR position. It doesn't replace your auditor or file on the portal for you.
+            Provenance prepares and evidences your EPR position. It doesn't replace your auditor or
+            file on the portal for you.
           </p>
         </Reveal>
 
@@ -643,7 +745,10 @@ function Faq() {
               <details key={item.q} className="group py-5">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-left text-base font-medium text-neutral-950 [&::-webkit-details-marker]:hidden">
                   {item.q}
-                  <ChevronDown className="size-4 shrink-0 text-neutral-400 transition-transform group-open:rotate-180" aria-hidden />
+                  <ChevronDown
+                    className="size-4 shrink-0 text-neutral-400 transition-transform group-open:rotate-180"
+                    aria-hidden
+                  />
                 </summary>
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-neutral-600">{item.a}</p>
               </details>
@@ -674,11 +779,14 @@ function FinalCta() {
               Start this year's filing with the invoices on your desk.
             </h2>
             <p className="mt-4 max-w-lg text-neutral-400">
-              Set up your company, upload a few purchase invoices, and see the suggestions for every line in minutes.
+              Set up your company, upload a few purchase invoices, and see the suggestions for every
+              line in minutes.
             </p>
           </div>
           <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row">
-            <label htmlFor="cta-email" className="sr-only">Work email</label>
+            <label htmlFor="cta-email" className="sr-only">
+              Work email
+            </label>
             <input
               id="cta-email"
               type="email"
@@ -689,7 +797,10 @@ function FinalCta() {
             />
             <button
               type="submit"
-              className={cx(buttonBase, "h-12 bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-offset-neutral-950")}
+              className={cx(
+                buttonBase,
+                "h-12 bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-offset-neutral-950",
+              )}
             >
               Create account <ArrowRight className="size-4" />
             </button>
@@ -707,13 +818,30 @@ function Footer() {
         <div className="flex items-center gap-2.5">
           <img src="/provenance.png" alt="" className="size-6" />
           <span className="font-semibold tracking-tight">Provenance</span>
-          <span className="text-sm text-neutral-400">· Plastic EPR compliance with an evidence trail</span>
+          <span className="text-sm text-neutral-400">
+            · Plastic EPR compliance with an evidence trail
+          </span>
         </div>
         <nav className="flex flex-wrap gap-6 text-sm text-neutral-500" aria-label="Footer">
-          <a href="#how-it-works" className="hover:text-neutral-950">How it works</a>
-          <a href="#faq" className="hover:text-neutral-950">FAQ</a>
-          <Link to="/auth?mode=login" className="hover:text-neutral-950">Sign in</Link>
-          <a href="https://eprplastic.cpcb.gov.in/" target="_blank" rel="noreferrer" className="hover:text-neutral-950">CPCB EPR portal</a>
+          <a href="#how-it-works" className="hover:text-neutral-950">
+            How it works
+          </a>
+          <a href="#faq" className="hover:text-neutral-950">
+            FAQ
+          </a>
+          <Link to="/auth?mode=login" className="hover:text-neutral-950">
+            Sign in
+          </Link>
+          {EPR_PORTAL_URL && (
+            <a
+              href={EPR_PORTAL_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-neutral-950"
+            >
+              CPCB EPR portal
+            </a>
+          )}
         </nav>
       </div>
     </footer>

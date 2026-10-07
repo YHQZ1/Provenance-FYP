@@ -7,28 +7,28 @@ import { closeDocumentQueue } from "./queues/document.queue.js";
 import { processingService } from "./services/internal/processing.service.js";
 import { startDocumentWorker } from "./workers/document.worker.js";
 
-const PORT = env.PORT || 3000;
+const PORT = env.PORT;
 const worker = env.RUN_WORKER ? startDocumentWorker() : null;
 
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Environment: ${env.NODE_ENV}`);
-  console.log(`🔗 http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${env.NODE_ENV}`);
   if (!env.REDIS_URL) {
-    console.warn("[Processing] REDIS_URL not set: documents are processed in this process and nothing is cached.");
+    console.warn(
+      "[Processing] REDIS_URL not set: documents are processed in this process and nothing is cached.",
+    );
   }
   schema();
   processingService.recoverInterrupted();
 });
 
-// Let in-flight requests and jobs finish; an unfinished job is picked up again on the next start.
 const gracefulShutdown = async (signal) => {
-  console.log(`\n🛑 ${signal} received. Shutting down gracefully...`);
+  console.log(`${signal} received. Shutting down gracefully...`);
   server.close();
   await worker?.close().catch(() => {});
   await closeDocumentQueue().catch(() => {});
   await closeRedis();
-  console.log("✅ Server closed. Process exiting.");
+  console.log("Server closed. Process exiting.");
   process.exit(0);
 };
 
@@ -37,9 +37,9 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 server.on("error", (err) => {
   if (err.code === "EADDRINUSE") {
-    console.error(`❌ Port ${PORT} is already in use.`);
+    console.error(`Port ${PORT} is already in use.`);
     process.exit(1);
   }
-  console.error("❌ Server error:", err.message);
+  console.error("Server error:", err.message);
   process.exit(1);
 });

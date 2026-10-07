@@ -1,13 +1,31 @@
 export const filingFixture = (overrides = {}) => ({
-  financial_year: { start_year: 2026, label: "FY 2026-27", start_date: "2026-04-01", end_date: "2027-03-31" },
+  financial_year: {
+    start_year: 2026,
+    label: "FY 2026-27",
+    start_date: "2026-04-01",
+    end_date: "2027-03-31",
+  },
   available_years: [2026],
-  entity: { company_name: "Acme Packaging", gst_number: "27ABCDE1234F1Z5", pibo_category: ["BRAND_OWNER"] },
+  entity: {
+    company_name: "Acme Packaging",
+    gst_number: "27ABCDE1234F1Z5",
+    pibo_category: ["BRAND_OWNER"],
+  },
   totals: {
     introduced: { by_material: { PET: 1200, HDPE: 300 }, total_kg: 1500 },
     recycled: { by_material: { PET: 400 }, total_kg: 400 },
     collected: { by_material: {}, total_kg: 0 },
   },
-  counts: { documents: 2, processing: 0, failed: 0, review: 1, verified: 1, evidence: 0, pending_items: 3, excluded_items: 0 },
+  counts: {
+    documents: 2,
+    processing: 0,
+    failed: 0,
+    review: 1,
+    verified: 1,
+    evidence: 0,
+    pending_items: 3,
+    excluded_items: 0,
+  },
   documents: [
     {
       id: "d1",
@@ -23,7 +41,9 @@ export const filingFixture = (overrides = {}) => ({
       verified_kg: 1500,
     },
   ],
-  blockers: [{ key: "review", message: "3 line item(s) are waiting for review.", action: "review" }],
+  blockers: [
+    { key: "review", message: "3 line item(s) are waiting for review.", action: "review" },
+  ],
   ready: false,
   status: "OPEN",
   snapshot: null,
@@ -76,7 +96,13 @@ export const obligationFixture = () => ({
     }),
     obligationRow("CATEGORY_II"),
     obligationRow("CATEGORY_III"),
-    obligationRow("CATEGORY_IV", { epr_target_pct: null, epr_target_source: "none", recycling_min_pct: null, recycling_min_source: "none", obligation_kg: null }),
+    obligationRow("CATEGORY_IV", {
+      epr_target_pct: null,
+      epr_target_source: "none",
+      recycling_min_pct: null,
+      recycling_min_source: "none",
+      obligation_kg: null,
+    }),
   ],
   totals: {
     introduced_kg: 200,

@@ -1,8 +1,6 @@
 import { Link } from "react-router-dom";
 import { Check } from "lucide-react";
 
-// Logo and name double as the way back to the website.
-// The logo's charcoal mark would vanish on the dark panel, so it sits on a white tile there.
 function Brand({ onDark }) {
   return (
     <Link
@@ -43,26 +41,20 @@ function BrandPanel() {
             "Finalize the financial year and export your position",
           ].map((item) => (
             <li key={item} className="flex gap-3">
-              <Check
-                className="mt-0.5 size-4 shrink-0 text-emerald-600"
-                aria-hidden
-              />{" "}
-              {item}
+              <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden /> {item}
             </li>
           ))}
         </ul>
       </div>
 
       <p className="max-w-md text-xs leading-relaxed text-neutral-500">
-        Built around CPCB's EPR guidelines under the Plastic Waste Management
-        Rules, for producers, importers and brand owners.
+        Built around CPCB's EPR guidelines under the Plastic Waste Management Rules, for producers,
+        importers and brand owners.
       </p>
     </aside>
   );
 }
 
-// Shared shell for sign-in, sign-up and password reset: brand panel left, form right.
-// On desktop the brand panel stays put and only the form column scrolls.
 export default function AuthLayout({ children }) {
   return (
     <div className="grid min-h-screen bg-white lg:h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:overflow-hidden">
@@ -73,11 +65,7 @@ export default function AuthLayout({ children }) {
           <Brand />
         </div>
 
-        {/* Anchored from the top rather than centred, so the heading and switch stay still
-            when the form below grows or shrinks. */}
-        <div className="mx-auto w-full max-w-md pb-10 pt-10 lg:pb-8 lg:pt-12">
-          {children}
-        </div>
+        <div className="mx-auto w-full max-w-md pb-10 pt-10 lg:pb-8 lg:pt-12">{children}</div>
       </main>
     </div>
   );

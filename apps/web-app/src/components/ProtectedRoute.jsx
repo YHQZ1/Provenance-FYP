@@ -18,19 +18,16 @@ export default function ProtectedRoute({ children }) {
         if (mounted) setStatus("unauth");
         return;
       }
-      // Ensures the company record exists before pages start loading data.
       await authAPI.sync(session.access_token).catch(() => {});
       if (mounted) setStatus("ready");
     };
 
     init();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!session && mounted) setStatus("unauth");
-        if (event === "SIGNED_IN" && session && mounted) setStatus("ready");
-      },
-    );
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session && mounted) setStatus("unauth");
+      if (event === "SIGNED_IN" && session && mounted) setStatus("ready");
+    });
 
     return () => {
       mounted = false;
@@ -40,13 +37,7 @@ export default function ProtectedRoute({ children }) {
 
   if (status === "loading") return <BrandedLoader />;
   if (status === "unauth") {
-    return (
-      <Navigate
-        to="/auth?mode=login"
-        replace
-        state={{ from: location.pathname }}
-      />
-    );
+    return <Navigate to="/auth?mode=login" replace state={{ from: location.pathname }} />;
   }
   return children;
 }

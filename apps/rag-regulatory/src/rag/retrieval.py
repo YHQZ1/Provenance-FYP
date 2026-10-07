@@ -4,7 +4,6 @@ from qdrant_client.http.models import Distance, VectorParams
 from src.config import QDRANT_COLLECTION, QDRANT_HOST, QDRANT_PORT, MIN_SCORE, TOP_K
 from src.rag.embeddings import embed
 
-
 client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, check_compatibility=False)
 
 
@@ -32,12 +31,14 @@ def retrieve(query, top_k=TOP_K):
         payload = point.payload or {}
         text = payload.get("text")
         if text:
-            results.append({
-                "text": text,
-                "source": payload.get("source", "Unknown source"),
-                "category": payload.get("category"),
-                "source_url": payload.get("source_url"),
-                "page": payload.get("page"),
-                "score": point.score,
-            })
+            results.append(
+                {
+                    "text": text,
+                    "source": payload.get("source", "Unknown source"),
+                    "category": payload.get("category"),
+                    "source_url": payload.get("source_url"),
+                    "page": payload.get("page"),
+                    "score": point.score,
+                }
+            )
     return results

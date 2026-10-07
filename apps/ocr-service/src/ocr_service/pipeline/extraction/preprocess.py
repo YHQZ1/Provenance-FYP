@@ -17,8 +17,6 @@ def deskew_image(image: np.ndarray) -> np.ndarray:
 
     contour = max(contours, key=cv2.contourArea)
     height, width = image.shape[:2]
-    # Only trust the outline when it spans most of the page; a logo or table cell
-    # would otherwise rotate the whole document.
     if cv2.contourArea(contour) < MIN_CONTOUR_SHARE * height * width:
         return image
 
@@ -48,9 +46,7 @@ def enhance_contrast(image: np.ndarray) -> np.ndarray:
     lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
     lightness, a_channel, b_channel = cv2.split(lab)
     lightness = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(lightness)
-    enhanced = cv2.cvtColor(
-        cv2.merge([lightness, a_channel, b_channel]), cv2.COLOR_LAB2RGB
-    )
+    enhanced = cv2.cvtColor(cv2.merge([lightness, a_channel, b_channel]), cv2.COLOR_LAB2RGB)
     if not settings.denoise:
         return enhanced
     return cv2.fastNlMeansDenoisingColored(enhanced, None, 10, 10, 7, 21)

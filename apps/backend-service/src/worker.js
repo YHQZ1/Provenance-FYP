@@ -1,5 +1,3 @@
-// Runs document processing without the API, for deployments that scale the two separately.
-// Pair it with RUN_WORKER=false on the API processes.
 import "dotenv/config";
 import { schema } from "./config/schema.js";
 import { closeRedis, redisEnabled } from "./config/redis.js";

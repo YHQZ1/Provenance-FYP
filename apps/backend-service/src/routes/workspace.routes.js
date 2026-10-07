@@ -2,7 +2,6 @@ import { Router } from "express";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { workspaceController } from "../controllers/workspace.controller.js";
 
-// Mounted at /api, so authentication is per route: unknown /api paths must still 404.
 const router = Router();
 
 router.get("/activity", authenticate, workspaceController.activity);

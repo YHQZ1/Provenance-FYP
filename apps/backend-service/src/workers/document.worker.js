@@ -5,8 +5,6 @@ import { DOCUMENT_QUEUE } from "../queues/document.queue.js";
 import { processingService } from "../services/internal/processing.service.js";
 import { isFinalAttempt } from "../services/internal/processing.rules.js";
 
-// Processes queued documents, PROCESSING_CONCURRENCY at a time. OCR and the classifier are the
-// slow, shared resources, so this limit is what keeps a large batch from timing itself out.
 export const startDocumentWorker = () => {
   if (!redisEnabled) return null;
 
@@ -20,13 +18,14 @@ export const startDocumentWorker = () => {
     { connection: createQueueConnection(), concurrency: env.PROCESSING_CONCURRENCY },
   );
 
-  // Between attempts the document goes back to "queued" with the reason; after the last one it
-  // fails with that reason so the user can retry it by hand.
   worker.on("failed", async (job, error) => {
     if (!job) return;
     const attempts = job.opts.attempts ?? 1;
     const { documentId } = job.data;
-    console.error(`[Worker] ${documentId} attempt ${job.attemptsMade}/${attempts} failed:`, error.message);
+    console.error(
+      `[Worker] ${documentId} attempt ${job.attemptsMade}/${attempts} failed:`,
+      error.message,
+    );
     try {
       if (isFinalAttempt(job.attemptsMade, attempts)) {
         await processingService.markFailed(documentId, attempts, error);

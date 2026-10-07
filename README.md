@@ -67,6 +67,7 @@ git clone https://github.com/YHQZ1/Provenance-FYP.git && cd Provenance-FYP
 cp apps/backend-service/.env.example apps/backend-service/.env.development
 cp apps/web-app/.env.example apps/web-app/.env.development
 cp apps/rag-classify/.env.example apps/rag-classify/.env
+cp infra/.env.example infra/.env
 
 # 2. Database: apply supabase/migrations in order, then supabase/seed.sql
 make db-migrate f=supabase/migrations/000_baseline.sql   # repeat for 001 … 007, then the seed

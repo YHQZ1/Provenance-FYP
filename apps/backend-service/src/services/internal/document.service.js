@@ -27,16 +27,12 @@ export { PROCESSING_STATUSES, effectiveDate };
 const LIST_COLUMNS =
   "id, filename, status, reasoning, mime_type, file_size, created_at, updated_at, ocr_confidence, rag_confidence, requires_human_review, verified_by_user, extracted_data, document_classifications(id, material_code, quantity_kg, verified_by_user, requires_human_review)";
 
-// Past this, a document still marked as processing has lost its worker and can be removed.
 const STALE_PROCESSING_MS = env.OCR_TIMEOUT_MS + env.RAG_TIMEOUT_MS + 2 * 60 * 1000;
 
 const isStale = (document) =>
-  Date.now() - new Date(document.updated_at || document.created_at).getTime() >
-  STALE_PROCESSING_MS;
+  Date.now() - new Date(document.updated_at || document.created_at).getTime() > STALE_PROCESSING_MS;
 
 const duplicateError = (duplicate) => {
-  // Say where the existing copy lives: it may be dated in another financial year
-  // and so not visible in the list the user is looking at.
   const fy = financialYearOf(effectiveDate(duplicate));
   const range = financialYearRange(fy);
   return conflict(
@@ -63,8 +59,7 @@ const findByHash = async (userId, fileHash) => {
 
 const toListItem = (doc, years = new Map()) => {
   const items = doc.document_classifications || [];
-  const { extracted_data: extracted = {}, document_classifications, ...rest } =
-    doc;
+  const { extracted_data: extracted = {}, document_classifications, ...rest } = doc;
   return {
     ...rest,
     document_type: documentTypeOf(extracted),
@@ -100,11 +95,7 @@ export const documentService = {
 
     let storagePath;
     try {
-      ({ path: storagePath } = await storageService.uploadFile(
-        localPath,
-        userId,
-        originalname,
-      ));
+      ({ path: storagePath } = await storageService.uploadFile(localPath, userId, originalname));
     } finally {
       await fs.unlink(localPath).catch(() => {});
     }
@@ -125,7 +116,6 @@ export const documentService = {
 
     if (error) {
       await storageService.deleteFile(storagePath).catch(() => {});
-      // An identical upload that arrived at the same moment won the unique index.
       if (error.code === "23505") {
         const winner = await findByHash(userId, fileHash);
         if (winner) throw duplicateError(winner);
@@ -136,10 +126,7 @@ export const documentService = {
     await workspaceCache.invalidate(userId);
     await processingService.schedule(document.id);
 
-    return toListItem(
-      { ...document, document_classifications: [] },
-      await finalizedYears(userId),
-    );
+    return toListItem({ ...document, document_classifications: [] }, await finalizedYears(userId));
   },
 
   async retryDocument(documentId, userId) {
@@ -192,7 +179,6 @@ export const documentService = {
     const extracted = { ...(document.extracted_data || {}) };
     if (updates.document_date !== undefined) {
       extracted.document_date = updates.document_date || null;
-      // Moving a document into a finalized year would change signed-off evidence.
       await assertDocumentEditable(userId, { ...document, extracted_data: extracted });
     }
 
@@ -215,8 +201,6 @@ export const documentService = {
       .maybeSingle();
 
     if (!document) throw notFound("Document not found");
-    // A queued document is simply taken out of the queue. One a worker is reading right now
-    // can't be deleted mid-run, or the pipeline would write lines for a document that's gone.
     if (PROCESSING_STATUSES.includes(document.status)) {
       const removable = documentQueue()
         ? await dequeueDocument(documentId).catch(() => isStale(document))
@@ -227,14 +211,8 @@ export const documentService = {
     }
     await assertDocumentRemovable(userId, document);
 
-    await supabaseAdmin
-      .from("document_classifications")
-      .delete()
-      .eq("document_id", documentId);
-    const { error } = await supabaseAdmin
-      .from("documents")
-      .delete()
-      .eq("id", documentId);
+    await supabaseAdmin.from("document_classifications").delete().eq("document_id", documentId);
+    const { error } = await supabaseAdmin.from("documents").delete().eq("id", documentId);
     if (error) throw new Error(`Delete failed: ${error.message}`);
     await workspaceCache.invalidate(userId);
 
@@ -257,11 +235,9 @@ export const documentService = {
       throw notFound("Document not found");
     }
 
-    const fileUrl = await storageService
-      .getSignedUrl(document.file_path, 600)
-      .catch(() => null);
-    const classifications = [...(document.document_classifications || [])].sort(
-      (a, b) => String(a.created_at).localeCompare(String(b.created_at)),
+    const fileUrl = await storageService.getSignedUrl(document.file_path, 600).catch(() => null);
+    const classifications = [...(document.document_classifications || [])].sort((a, b) =>
+      String(a.created_at).localeCompare(String(b.created_at)),
     );
 
     return {

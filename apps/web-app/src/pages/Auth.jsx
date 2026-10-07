@@ -3,9 +3,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { Alert, Button, Field, Input } from "../components/ui";
 import AuthLayout from "../components/AuthLayout";
+import { API_URL } from "../lib/config";
 import BrandedLoader from "../components/BrandedLoader";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]$/;
 const MIN_PASSWORD = 8;
 
@@ -13,7 +13,6 @@ const cx = (...classes) => classes.filter(Boolean).join(" ");
 
 const readParams = () => new URLSearchParams(window.location.search);
 
-// Creates the company record for a new user; signing in still works if it fails.
 const syncWithBackend = async (token) => {
   try {
     await fetch(`${API_URL}/api/auth/sync`, {
@@ -63,23 +62,16 @@ function MicrosoftIcon() {
   );
 }
 
-// Supabase's raw messages ("Email address … is invalid") read like a bug; say what happened instead.
 const friendlyAuthError = (error) => {
   const code = error?.code || "";
   const text = error?.message || "Something went wrong. Please try again.";
-  if (
-    code === "email_address_invalid" ||
-    /email address .* is invalid/i.test(text)
-  ) {
+  if (code === "email_address_invalid" || /email address .* is invalid/i.test(text)) {
     return "We can't send email to this address. Check it's an inbox you can receive mail at, or ask your administrator to reset your password.";
   }
   if (code === "over_email_send_rate_limit" || /rate limit/i.test(text)) {
     return "Too many emails have been sent recently. Wait a few minutes, then try again.";
   }
-  if (
-    code === "invalid_credentials" ||
-    /invalid login credentials/i.test(text)
-  ) {
+  if (code === "invalid_credentials" || /invalid login credentials/i.test(text)) {
     return "That email and password don't match. Check them, or reset your password.";
   }
   if (code === "email_not_confirmed" || /email not confirmed/i.test(text)) {
@@ -100,15 +92,12 @@ export default function Auth() {
   const location = useLocation();
   const destination = location.state?.from || "/dashboard";
 
-  // "form" is sign in / create account; "forgot" asks for an email; "reset-sent" confirms it went out.
   const [view, setView] = useState(() =>
     readParams().get("mode") === "forgot" ? "forgot" : "form",
   );
   const [resetSentTo, setResetSentTo] = useState(null);
   const [resendIn, setResendIn] = useState(0);
-  const [isLogin, setIsLogin] = useState(
-    () => readParams().get("mode") !== "signup",
-  );
+  const [isLogin, setIsLogin] = useState(() => readParams().get("mode") !== "signup");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState(() => readParams().get("email") || "");
   const [password, setPassword] = useState("");
@@ -118,9 +107,7 @@ export default function Auth() {
   const [initializing, setInitializing] = useState(true);
   const [transition, setTransition] = useState(null);
   const [error, setError] = useState(() =>
-    readParams().get("expired")
-      ? "Your session expired. Please sign in again."
-      : null,
+    readParams().get("expired") ? "Your session expired. Please sign in again." : null,
   );
   const [message, setMessage] = useState(null);
   const [confirmationSentTo, setConfirmationSentTo] = useState(null);
@@ -136,7 +123,6 @@ export default function Auth() {
     didInit.current = true;
 
     const init = async () => {
-      // Returning from Google or Microsoft: the session arrives in the URL hash.
       const hash = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = hash.get("access_token");
       if (accessToken) {
@@ -144,15 +130,9 @@ export default function Auth() {
           access_token: accessToken,
           refresh_token: hash.get("refresh_token"),
         });
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname,
-        );
+        window.history.replaceState({}, document.title, window.location.pathname);
         if (sessionError || !data.session) {
-          setError(
-            "Signing in with that account didn't work. Please try again.",
-          );
+          setError("Signing in with that account didn't work. Please try again.");
           setInitializing(false);
           return;
         }
@@ -171,7 +151,6 @@ export default function Auth() {
     };
 
     init();
-    // Runs once on mount; navigation targets are read from the initial location.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -197,7 +176,6 @@ export default function Auth() {
     setModeInUrl("forgot");
   };
 
-  // Counts down the "Resend link" cooldown.
   useEffect(() => {
     if (resendIn <= 0) return undefined;
     const timer = setTimeout(() => setResendIn((value) => value - 1), 1000);
@@ -235,8 +213,10 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const { data, error: signInError } =
-          await supabase.auth.signInWithPassword({ email, password });
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
         if (signInError) throw signInError;
         await syncWithBackend(data.session.access_token);
         enterApp("Signing in…");
@@ -278,12 +258,9 @@ export default function Auth() {
     }
     setLoading(true);
     setError(null);
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      address,
-      {
-        redirectTo: `${window.location.origin}/reset-password`,
-      },
-    );
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(address, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
     setLoading(false);
     if (resetError) {
       setError(friendlyAuthError(resetError));
@@ -306,12 +283,9 @@ export default function Auth() {
             <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
               Account recovery
             </p>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight">
-              Reset your password
-            </h2>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight">Reset your password</h2>
             <p className="mt-2 text-neutral-600">
-              Enter the email you sign in with and we'll send you a link to set
-              a new password.
+              Enter the email you sign in with and we'll send you a link to set a new password.
             </p>
             <form onSubmit={sendReset} className="mt-8 space-y-4">
               {error && <Alert tone="error">{error}</Alert>}
@@ -327,12 +301,7 @@ export default function Auth() {
                   required
                 />
               </Field>
-              <Button
-                type="submit"
-                variant="primary"
-                className="h-11 w-full"
-                loading={loading}
-              >
+              <Button type="submit" variant="primary" className="h-11 w-full" loading={loading}>
                 Send reset link
               </Button>
             </form>
@@ -352,27 +321,19 @@ export default function Auth() {
             <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
               Check your inbox
             </p>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight">
-              Reset link sent
-            </h2>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight">Reset link sent</h2>
             <p className="mt-3 text-neutral-600">
               If an account exists for{" "}
-              <span className="font-medium text-neutral-950">
-                {resetSentTo}
-              </span>
-              , you'll get an email with a link to set a new password. It can
-              take a minute, so check your spam folder too.
+              <span className="font-medium text-neutral-950">{resetSentTo}</span>, you'll get an
+              email with a link to set a new password. It can take a minute, so check your spam
+              folder too.
             </p>
             {error && (
               <div className="mt-6">
                 <Alert tone="error">{error}</Alert>
               </div>
             )}
-            <Button
-              variant="primary"
-              className="mt-8 h-11 w-full"
-              onClick={() => switchMode(true)}
-            >
+            <Button variant="primary" className="mt-8 h-11 w-full" onClick={() => switchMode(true)}>
               Back to sign in
             </Button>
             <p className="mt-6 text-center text-sm text-neutral-500">
@@ -392,15 +353,11 @@ export default function Auth() {
             <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
               Check your inbox
             </p>
-            <h2 className="mt-4 text-3xl font-semibold tracking-tight">
-              Confirm your email
-            </h2>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight">Confirm your email</h2>
             <p className="mt-3 text-neutral-600">
               We sent a confirmation link to{" "}
-              <span className="font-medium text-neutral-950">
-                {confirmationSentTo}
-              </span>
-              . Open it to activate your account, then sign in.
+              <span className="font-medium text-neutral-950">{confirmationSentTo}</span>. Open it to
+              activate your account, then sign in.
             </p>
             <Button
               variant="primary"
@@ -433,7 +390,6 @@ export default function Auth() {
               role="tablist"
               aria-label="Account"
             >
-              {/* The highlight slides between the two tabs instead of jumping. */}
               <span
                 aria-hidden
                 className={cx(
@@ -453,9 +409,7 @@ export default function Auth() {
                   onClick={() => switchMode(login)}
                   className={cx(
                     "relative z-10 rounded-sm py-2 text-sm font-medium transition-colors duration-300",
-                    isLogin === login
-                      ? "text-white"
-                      : "text-neutral-500 hover:text-neutral-950",
+                    isLogin === login ? "text-white" : "text-neutral-500 hover:text-neutral-950",
                   )}
                 >
                   {label}
@@ -464,16 +418,10 @@ export default function Auth() {
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <Button
-                onClick={() => signInWith("google", "Google")}
-                disabled={loading}
-              >
+              <Button onClick={() => signInWith("google", "Google")} disabled={loading}>
                 <GoogleIcon /> Google
               </Button>
-              <Button
-                onClick={() => signInWith("azure", "Microsoft")}
-                disabled={loading}
-              >
+              <Button onClick={() => signInWith("azure", "Microsoft")} disabled={loading}>
                 <MicrosoftIcon /> Microsoft
               </Button>
             </div>
@@ -491,17 +439,11 @@ export default function Auth() {
               {message && <Alert tone="ok">{message}</Alert>}
             </div>
 
-            <form
-              onSubmit={submit}
-              className={cx((error || message) && "mt-4")}
-            >
-              {/* Sign-up fields expand and collapse in place instead of popping in. */}
+            <form onSubmit={submit} className={cx((error || message) && "mt-4")}>
               <div
                 className={cx(
                   "grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none",
-                  isLogin
-                    ? "grid-rows-[0fr] opacity-0"
-                    : "grid-rows-[1fr] opacity-100",
+                  isLogin ? "grid-rows-[0fr] opacity-0" : "grid-rows-[1fr] opacity-100",
                 )}
                 inert={isLogin}
               >
@@ -542,9 +484,7 @@ export default function Auth() {
                       <Input
                         id="gstin"
                         value={gstNumber}
-                        onChange={(e) =>
-                          setGstNumber(e.target.value.toUpperCase())
-                        }
+                        onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
                         maxLength={15}
                         placeholder="27ABCDE1234F1Z5"
                         className="mono uppercase"
@@ -569,10 +509,7 @@ export default function Auth() {
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label
-                      htmlFor="password"
-                      className="text-sm font-medium text-neutral-800"
-                    >
+                    <label htmlFor="password" className="text-sm font-medium text-neutral-800">
                       Password
                     </label>
                     {isLogin ? (
@@ -597,17 +534,10 @@ export default function Auth() {
                     autoComplete={isLogin ? "current-password" : "new-password"}
                     required
                   />
-                  {passwordError && (
-                    <p className="text-xs text-red-600">{passwordError}</p>
-                  )}
+                  {passwordError && <p className="text-xs text-red-600">{passwordError}</p>}
                 </div>
 
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="h-11 w-full"
-                  loading={loading}
-                >
+                <Button type="submit" variant="primary" className="h-11 w-full" loading={loading}>
                   {isLogin ? "Sign in" : "Create account"}
                 </Button>
               </div>

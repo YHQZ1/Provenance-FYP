@@ -9,7 +9,6 @@ const doc = (id, date) => ({
   extracted_data: { document_date: date },
 });
 
-// FY 2025-26 is finalized and its snapshot covers only "filed".
 const years = new Map([[2025, new Set(["filed"])]]);
 
 test("a document in the finalized snapshot is included, not late", () => {

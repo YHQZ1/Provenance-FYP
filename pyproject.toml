@@ -1,0 +1,7 @@
+[tool.black]
+line-length = 100
+extend-exclude = "/(\\.venv|node_modules)/"
+
+[tool.ruff]
+line-length = 100
+exclude = [".venv", "node_modules"]

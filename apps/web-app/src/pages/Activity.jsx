@@ -20,15 +20,7 @@ import {
 import { activityAPI } from "../lib/api";
 import { fyLabel, formatKgExact } from "../lib/domain";
 import { useWorkspace } from "../lib/workspace";
-import {
-  Alert,
-  Button,
-  Card,
-  EmptyState,
-  Select,
-  Skeleton,
-  useToast,
-} from "../components/ui";
+import { Alert, Button, Card, EmptyState, Select, Skeleton, useToast } from "../components/ui";
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 
@@ -82,7 +74,6 @@ const timeLabel = (value) =>
     minute: "2-digit",
   });
 
-// The second line under an event: the specifics a reviewer or auditor would ask about.
 const detailLine = (event) => {
   const d = event.details || {};
   switch (event.action) {
@@ -91,28 +82,21 @@ const detailLine = (event) => {
     case "line.corrected":
       return [
         d.line,
-        d.from &&
-          d.to &&
-          `${d.from.material_code || "none"} → ${d.to.material_code}`,
+        d.from && d.to && `${d.from.material_code || "none"} → ${d.to.material_code}`,
         d.to?.quantity_kg != null && formatKgExact(d.to.quantity_kg),
       ];
     case "line.excluded":
       return [d.line, d.reason && `Reason: ${d.reason}`];
     case "lines.approved_in_bulk":
-      return [
-        d.quantity_kg != null && `${formatKgExact(d.quantity_kg)} in total`,
-      ];
+      return [d.quantity_kg != null && `${formatKgExact(d.quantity_kg)} in total`];
     case "filing.finalized":
       return [
-        d.introduced_kg != null &&
-          `Introduced ${formatKgExact(d.introduced_kg)}`,
+        d.introduced_kg != null && `Introduced ${formatKgExact(d.introduced_kg)}`,
         d.recycled_kg != null && `recycled ${formatKgExact(d.recycled_kg)}`,
         d.notes && `“${d.notes}”`,
       ];
     case "trade_name.added":
-      return [
-        d.cpcb_category && d.cpcb_category.replace("CATEGORY_", "Category "),
-      ];
+      return [d.cpcb_category && d.cpcb_category.replace("CATEGORY_", "Category ")];
     default:
       return [];
   }
@@ -120,9 +104,7 @@ const detailLine = (event) => {
 
 const toCsv = (events) => {
   const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
-  const rows = [
-    ["When", "Who", "Action", "What", "Financial year", "Document"],
-  ];
+  const rows = [["When", "Who", "Action", "What", "Financial year", "Document"]];
   for (const event of events) {
     rows.push([
       new Date(event.created_at).toISOString(),
@@ -145,8 +127,7 @@ function EventRow({ event }) {
       <span
         className={cx(
           "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md border",
-          event.action === "document.deleted" ||
-            event.action === "line.excluded"
+          event.action === "document.deleted" || event.action === "line.excluded"
             ? "border-neutral-200 text-neutral-500"
             : event.action.startsWith("filing.")
               ? "border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -157,15 +138,11 @@ function EventRow({ event }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-sm text-neutral-700">
-          <span className="font-medium text-neutral-950">
-            {event.actor_name || "Someone"}
-          </span>{" "}
+          <span className="font-medium text-neutral-950">{event.actor_name || "Someone"}</span>{" "}
           {event.summary}
         </p>
         {details.length > 0 && (
-          <p className="mt-0.5 truncate text-xs text-neutral-500">
-            {details.join(" · ")}
-          </p>
+          <p className="mt-0.5 truncate text-xs text-neutral-500">{details.join(" · ")}</p>
         )}
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1 text-right">
@@ -189,7 +166,6 @@ export default function Activity() {
   const { fy, filing } = useWorkspace();
   const notify = useToast();
   const [group, setGroup] = useState("");
-  // Follows the sidebar's year switcher until the user picks a year (or all years) here.
   const [pickedYear, setPickedYear] = useState(null);
   const year = pickedYear ?? String(fy);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -205,7 +181,6 @@ export default function Activity() {
     [year, group],
   );
 
-  // Results are keyed by their filters, so changing a filter shows the loading state.
   const key = `${year}:${group}`;
   const [result, setResult] = useState({ key: null });
   const current = result.key === key ? result : null;
@@ -253,9 +228,7 @@ export default function Activity() {
     setExporting(true);
     try {
       const response = await activityAPI.list(params({ limit: 1000 }));
-      const url = URL.createObjectURL(
-        new Blob([toCsv(response.data || [])], { type: "text/csv" }),
-      );
+      const url = URL.createObjectURL(new Blob([toCsv(response.data || [])], { type: "text/csv" }));
       const link = document.createElement("a");
       link.href = url;
       link.download = `provenance-activity-${year === "all" ? "all-years" : fyLabel(Number(year)).replace(/\s+/g, "-").toLowerCase()}.csv`;
@@ -272,8 +245,7 @@ export default function Activity() {
   const days = [];
   for (const event of events || []) {
     const key = dayKey(event.created_at);
-    if (days.at(-1)?.key !== key)
-      days.push({ key, label: dayLabel(event.created_at), events: [] });
+    if (days.at(-1)?.key !== key) days.push({ key, label: dayLabel(event.created_at), events: [] });
     days.at(-1).events.push(event);
   }
 
@@ -284,28 +256,21 @@ export default function Activity() {
           <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
             Overview · Activity
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Activity
-          </h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">Activity</h1>
           <p className="mt-1 max-w-2xl text-sm text-neutral-500">
-            Every upload, review decision and filing change, with who made it
-            and when. This is your audit trail.
+            Every upload, review decision and filing change, with who made it and when. This is your
+            audit trail.
           </p>
         </div>
-        <Button
-          onClick={exportCsv}
-          loading={exporting}
-          disabled={!events?.length}
-        >
+        <Button onClick={exportCsv} loading={exporting} disabled={!events?.length}>
           {!exporting && <Download className="size-4" />} Export CSV
         </Button>
       </div>
 
       {!available && (
         <Alert tone="warn" title="Activity isn't set up yet">
-          Apply supabase/migrations/007_activity_obligations_trade_names.sql to
-          start recording activity. It also fills in history from your existing
-          uploads, reviews and filings.
+          Apply supabase/migrations/007_activity_obligations_trade_names.sql to start recording
+          activity. It also fills in history from your existing uploads, reviews and filings.
         </Alert>
       )}
 
@@ -337,11 +302,7 @@ export default function Activity() {
           <div className="mb-2.5 w-40">
             <Select
               value={year}
-              onChange={(e) =>
-                setPickedYear(
-                  e.target.value === String(fy) ? null : e.target.value,
-                )
-              }
+              onChange={(e) => setPickedYear(e.target.value === String(fy) ? null : e.target.value)}
               aria-label="Financial year"
             >
               {years.map((y) => (
@@ -392,11 +353,7 @@ export default function Activity() {
             ))}
             {nextBefore && (
               <div className="border-t border-neutral-100 px-5 py-3 text-center">
-                <Button
-                  variant="ghost"
-                  onClick={loadMore}
-                  loading={loadingMore}
-                >
+                <Button variant="ghost" onClick={loadMore} loading={loadingMore}>
                   Load older activity
                 </Button>
               </div>

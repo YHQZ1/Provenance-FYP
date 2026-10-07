@@ -47,20 +47,35 @@ export const CPCB_CATEGORIES = {
   UNCATEGORISED: { short: "Uncategorised", label: "No category recorded yet" },
 };
 
-// Annual returns are due by 30 June after the financial year ends (CPCB EPR guidelines, clause 10.6).
 export const annualReturnDue = (startYear) => new Date(startYear + 1, 5, 30);
 
-export const FY_MONTHS = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
+export const FY_MONTHS = [
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+];
 
 export const PIBO_CATEGORIES = [
   { id: "PRODUCER", label: "Producer", hint: "You manufacture plastic packaging." },
   { id: "IMPORTER", label: "Importer", hint: "You import plastic packaging or packaged goods." },
-  { id: "BRAND_OWNER", label: "Brand owner", hint: "You sell goods under your brand in plastic packaging." },
+  {
+    id: "BRAND_OWNER",
+    label: "Brand owner",
+    hint: "You sell goods under your brand in plastic packaging.",
+  },
 ];
 
 const PROCESSING = ["PENDING", "OCR_PROCESSING", "COMPLETED", "RAG_PROCESSING"];
 
-// Mirrors documentStage() in the backend compliance service.
 export const documentStage = (doc) => {
   if (PROCESSING.includes(doc.status)) return "processing";
   if (doc.status === "OCR_FAILED") return "failed";
@@ -70,18 +85,37 @@ export const documentStage = (doc) => {
 };
 
 export const STAGES = {
-  processing: { label: "Processing", tone: "info", help: "Reading the document and suggesting materials. This usually takes a minute or two." },
-  review: { label: "Needs review", tone: "warn", help: "Check the extracted lines and confirm or correct them." },
-  verified: { label: "Reviewed", tone: "ok", help: "Every line has been reviewed. Quantities count toward the filing." },
-  failed: { label: "Failed", tone: "error", help: "Processing failed. Retry the document or delete it." },
-  evidence: { label: "Stored", tone: "neutral", help: "Kept as supporting evidence. No quantities are taken from it." },
+  processing: {
+    label: "Processing",
+    tone: "info",
+    help: "Reading the document and suggesting materials. This usually takes a minute or two.",
+  },
+  review: {
+    label: "Needs review",
+    tone: "warn",
+    help: "Check the extracted lines and confirm or correct them.",
+  },
+  verified: {
+    label: "Reviewed",
+    tone: "ok",
+    help: "Every line has been reviewed. Quantities count toward the filing.",
+  },
+  failed: {
+    label: "Failed",
+    tone: "error",
+    help: "Processing failed. Retry the document or delete it.",
+  },
+  evidence: {
+    label: "Stored",
+    tone: "neutral",
+    help: "Kept as supporting evidence. No quantities are taken from it.",
+  },
 };
 
 export const currentFinancialYear = (date = new Date()) =>
   date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1;
 
-export const fyLabel = (startYear) =>
-  `FY ${startYear}-${String(startYear + 1).slice(-2)}`;
+export const fyLabel = (startYear) => `FY ${startYear}-${String(startYear + 1).slice(-2)}`;
 
 export const formatKg = (value) => {
   if (value == null || Number.isNaN(Number(value))) return "—";
@@ -92,7 +126,6 @@ export const formatKg = (value) => {
   return `${kg.toLocaleString("en-IN", { maximumFractionDigits: 2 })} kg`;
 };
 
-// Exact kilograms for places where a figure is checked against a document.
 export const formatKgExact = (value) => {
   if (value == null || Number.isNaN(Number(value))) return "—";
   return `${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 3 })} kg`;

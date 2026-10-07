@@ -13,19 +13,22 @@ const sameSecret = (a, b) => {
   return left.length === right.length && crypto.timingSafeEqual(left, right);
 };
 
-// Browsers prompt for these credentials; the dashboard can retry or remove jobs, so it stays
-// behind its own login rather than the app's.
 const basicAuth = (req, res, next) => {
   const [scheme, encoded] = (req.headers.authorization || "").split(" ");
-  const [user, ...rest] = Buffer.from(encoded || "", "base64").toString().split(":");
-  if (scheme === "Basic" && sameSecret(user, env.ADMIN_USER) && sameSecret(rest.join(":"), env.ADMIN_PASSWORD)) {
+  const [user, ...rest] = Buffer.from(encoded || "", "base64")
+    .toString()
+    .split(":");
+  if (
+    scheme === "Basic" &&
+    sameSecret(user, env.ADMIN_USER) &&
+    sameSecret(rest.join(":"), env.ADMIN_PASSWORD)
+  ) {
     return next();
   }
   res.set("WWW-Authenticate", 'Basic realm="Provenance queues"');
   return res.status(401).send("Authentication required");
 };
 
-// The queue dashboard, mounted only when Redis and admin credentials are both configured.
 export const mountQueueDashboard = (app) => {
   const queue = documentQueue();
   if (!queue || !env.ADMIN_USER || !env.ADMIN_PASSWORD) return false;

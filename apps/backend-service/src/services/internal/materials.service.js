@@ -6,13 +6,14 @@ import { CPCB_CATEGORIES, MATERIAL_CODES } from "./feedback.service.js";
 import { suggestTradeNames } from "./trade-names.js";
 import { cache } from "../../config/redis.js";
 
-// Polymers and built-in trade names change only when the seed is re-run.
 const CATALOGUE_CACHE_SECONDS = 3600;
 
 const readCatalogue = () =>
   cache.wrap(cache.key("catalogue", "v1"), CATALOGUE_CACHE_SECONDS, async () => {
     const [materials, builtIn] = await Promise.all([
-      supabaseAdmin.from("materials_master").select("material_code, material_name, category, description"),
+      supabaseAdmin
+        .from("materials_master")
+        .select("material_code, material_name, category, description"),
       supabaseAdmin
         .from("material_synonyms")
         .select("id, material_code, synonym, manufacturer, description")
@@ -37,11 +38,12 @@ export const listTradeNames = async (userId) => {
   return data || [];
 };
 
-// Corrections this company made in review, as raw material for trade-name suggestions.
 const readCorrections = async (userId) => {
   const { data, error } = await supabaseAdmin
     .from("classification_feedback")
-    .select("corrected_material_code, created_at, document_classifications(matched_synonym, corrected_cpcb_category)")
+    .select(
+      "corrected_material_code, created_at, document_classifications(matched_synonym, corrected_cpcb_category)",
+    )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(500);

@@ -17,19 +17,11 @@ const app = express();
 const configuredOrigins = env.CORS_ORIGIN.split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
-const localOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      const isConfigured = !origin || configuredOrigins.includes(origin);
-      const isLocalDevelopment =
-        configuredOrigins.some((configuredOrigin) =>
-          configuredOrigin.startsWith("http://localhost:"),
-        ) &&
-        origin &&
-        localOriginPattern.test(origin);
-      callback(null, isConfigured || isLocalDevelopment);
+      callback(null, !origin || configuredOrigins.includes(origin));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -43,9 +35,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 app.get("/", (_, res) => res.json({ message: "Provenance API is running" }));
-app.get("/health", (_, res) =>
-  res.json({ status: "OK", timestamp: new Date().toISOString() }),
-);
+app.get("/health", (_, res) => res.json({ status: "OK", timestamp: new Date().toISOString() }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/company", companyRoutes);

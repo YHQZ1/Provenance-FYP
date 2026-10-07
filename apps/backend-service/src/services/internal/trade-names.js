@@ -1,12 +1,9 @@
-// Matching a company's own trade names against invoice line text. Pure, so it can be tested.
-
 export const normalizeTradeName = (text) =>
   String(text || "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
-// The longest trade name found as whole words in the line wins, so "Polypet 3020" beats "Polypet".
 export const matchTradeName = (description, tradeNames = []) => {
   const line = ` ${normalizeTradeName(description)} `;
   if (line.trim() === "") return null;
@@ -19,11 +16,8 @@ export const matchTradeName = (description, tradeNames = []) => {
   return best;
 };
 
-// Trade names are short. Longer corrected lines are usually OCR noise such as a table header.
 const MAX_SUGGESTION_WORDS = 8;
 
-// Lines a reviewer corrected become candidate trade names, most frequent first. Lines already
-// covered by an existing trade name, and lines too long to be one, are left out.
 export const suggestTradeNames = (corrections, tradeNames = [], limit = 20) => {
   const groups = new Map();
   for (const correction of corrections) {
@@ -46,6 +40,9 @@ export const suggestTradeNames = (corrections, tradeNames = [], limit = 20) => {
     groups.set(key, group);
   }
   return [...groups.values()]
-    .sort((a, b) => b.times - a.times || String(b.last_corrected_at).localeCompare(String(a.last_corrected_at)))
+    .sort(
+      (a, b) =>
+        b.times - a.times || String(b.last_corrected_at).localeCompare(String(a.last_corrected_at)),
+    )
     .slice(0, limit);
 };

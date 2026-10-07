@@ -11,14 +11,11 @@ from ocr_service.schemas import BoundingBox, ExtractedField, InvoiceLineItem, OC
 
 class OCRPipeline:
     def _extract_pdf(self, path: Path) -> tuple[list[dict], int, list[str]]:
-        """Use the text layer where it exists and OCR only the pages that are scanned."""
         warnings: list[str] = []
         tokens, pages = extract_pdf_tokens(path)
         limit = min(pages, settings.max_pages)
         if pages > settings.max_pages:
-            warnings.append(
-                f"Only the first {settings.max_pages} of {pages} pages were processed."
-            )
+            warnings.append(f"Only the first {settings.max_pages} of {pages} pages were processed.")
             tokens = [token for token in tokens if token["page"] < limit]
 
         pages_with_text = {token["page"] for token in tokens}

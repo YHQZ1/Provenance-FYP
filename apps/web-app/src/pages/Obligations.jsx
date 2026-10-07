@@ -20,12 +20,9 @@ import {
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 
-const formatPct = (value) =>
-  value == null ? "—" : `${Number(value).toLocaleString("en-IN")}%`;
+const formatPct = (value) => (value == null ? "—" : `${Number(value).toLocaleString("en-IN")}%`);
 const formatInr = (value) =>
-  value == null
-    ? "—"
-    : `₹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+  value == null ? "—" : `₹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 function Kpi({ label, value, detail, tone }) {
   return (
@@ -49,8 +46,7 @@ function Kpi({ label, value, detail, tone }) {
 function SourceTag({ source }) {
   if (source === "default")
     return <span className="ml-1 text-[11px] text-neutral-400">default</span>;
-  if (source === "company")
-    return <span className="ml-1 text-[11px] text-emerald-700">yours</span>;
+  if (source === "company") return <span className="ml-1 text-[11px] text-emerald-700">yours</span>;
   return null;
 }
 
@@ -92,10 +88,8 @@ function EditModal({ row, fy, onClose, onSaved }) {
     setValues({
       pre_consumer_kg: row.pre_consumer_kg || "",
       supplied_kg: row.supplied_kg || "",
-      epr_target_pct:
-        row.epr_target_source === "company" ? row.epr_target_pct : "",
-      recycling_min_pct:
-        row.recycling_min_source === "company" ? row.recycling_min_pct : "",
+      epr_target_pct: row.epr_target_source === "company" ? row.epr_target_pct : "",
+      recycling_min_pct: row.recycling_min_source === "company" ? row.recycling_min_pct : "",
       ec_rate_per_kg: row.ec_rate_per_kg ?? "",
     });
   }, [row]);
@@ -112,10 +106,7 @@ function EditModal({ row, fy, onClose, onSaved }) {
     setSaving(true);
     try {
       const payload = Object.fromEntries(
-        Object.entries(values).map(([key, value]) => [
-          key,
-          value === "" ? null : Number(value),
-        ]),
+        Object.entries(values).map(([key, value]) => [key, value === "" ? null : Number(value)]),
       );
       const response = await obligationAPI.update(fy, row.category, payload);
       notify(`${CPCB_CATEGORIES[row.category].short} updated`);
@@ -145,12 +136,7 @@ function EditModal({ row, fy, onClose, onSaved }) {
     >
       <div className="grid gap-4 sm:grid-cols-2">
         {FIELDS.map((field) => (
-          <Field
-            key={field.key}
-            label={field.label}
-            hint={field.hint}
-            htmlFor={field.key}
-          >
+          <Field key={field.key} label={field.label} hint={field.hint} htmlFor={field.key}>
             <Input
               id={field.key}
               type="number"
@@ -159,9 +145,7 @@ function EditModal({ row, fy, onClose, onSaved }) {
               className="mono"
               value={values[field.key] ?? ""}
               placeholder={placeholder(field.key)}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, [field.key]: e.target.value }))
-              }
+              onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
             />
           </Field>
         ))}
@@ -174,7 +158,6 @@ export default function Obligations() {
   const { fy } = useWorkspace();
   const [basis, setBasis] = useState("current");
   const [editing, setEditing] = useState(null);
-  // Results are keyed by year and basis, so switching either shows the loading state.
   const key = `${fy}:${basis}`;
   const [result, setResult] = useState({ key: null, data: null, error: null });
   const data = result.key === key ? result.data : null;
@@ -184,12 +167,8 @@ export default function Obligations() {
     () =>
       obligationAPI
         .get(fy, basis)
-        .then((response) =>
-          setResult({ key, data: response.data, error: null }),
-        )
-        .catch((err) =>
-          setResult((current) => ({ ...current, key, error: err.message })),
-        ),
+        .then((response) => setResult({ key, data: response.data, error: null }))
+        .catch((err) => setResult((current) => ({ ...current, key, error: err.message }))),
     [fy, basis, key],
   );
 
@@ -230,9 +209,7 @@ export default function Obligations() {
   const { totals } = data;
   const rows = data.rows;
   const anyDefaults = rows.some(
-    (row) =>
-      row.epr_target_source === "default" ||
-      row.recycling_min_source === "default",
+    (row) => row.epr_target_source === "default" || row.recycling_min_source === "default",
   );
   const hasRates = rows.some((row) => row.ec_rate_per_kg != null);
   const editable = data.available && !data.locked;
@@ -246,9 +223,7 @@ export default function Obligations() {
             Overview · Obligations
           </p>
           <div className="mt-2 flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {label} EPR obligations
-            </h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{label} EPR obligations</h1>
             {data.locked && (
               <Badge tone="ok">
                 <Lock className="size-3" /> Finalized
@@ -256,8 +231,8 @@ export default function Obligations() {
             )}
           </div>
           <p className="mt-1 max-w-2xl text-sm text-neutral-500">
-            What you owe per CPCB category, worked out from your reviewed
-            documents. Q = A + B − C, then your targets apply.
+            What you owe per CPCB category, worked out from your reviewed documents. Q = A + B − C,
+            then your targets apply.
           </p>
         </div>
         <div className="w-72">
@@ -267,9 +242,7 @@ export default function Obligations() {
             aria-label="Basis for plastic introduced"
           >
             <option value="current">A from {label} purchases</option>
-            <option value="previous_two_years">
-              A as the average of the two years before
-            </option>
+            <option value="previous_two_years">A as the average of the two years before</option>
           </Select>
         </div>
       </div>
@@ -277,15 +250,14 @@ export default function Obligations() {
       {!data.available && (
         <Alert tone="warn" title="Inputs can't be saved yet">
           The figures below use default targets. Apply
-          supabase/migrations/007_activity_obligations_trade_names.sql to enter
-          pre-consumer waste, supplied quantities, your own targets and
-          compensation rates.
+          supabase/migrations/007_activity_obligations_trade_names.sql to enter pre-consumer waste,
+          supplied quantities, your own targets and compensation rates.
         </Alert>
       )}
       {data.locked && (
         <Alert tone="info">
-          {label} is finalized, so these use its signed-off numbers and the
-          inputs are locked. Reopen the year on the Filing page to change them.
+          {label} is finalized, so these use its signed-off numbers and the inputs are locked.
+          Reopen the year on the Filing page to change them.
         </Alert>
       )}
       {data.uncategorised_introduced_kg > 0 && (
@@ -298,8 +270,8 @@ export default function Obligations() {
             </Button>
           }
         >
-          Those lines aren't in any category below, so the obligation is
-          understated. Categories are set when lines are reviewed.
+          Those lines aren't in any category below, so the obligation is understated. Categories are
+          set when lines are reviewed.
         </Alert>
       )}
 
@@ -317,9 +289,7 @@ export default function Obligations() {
         <Kpi
           label="Shortfall"
           value={formatKg(totals.shortfall_kg)}
-          tone={
-            totals.obligation_kg > 0 && !totals.shortfall_kg ? "ok" : undefined
-          }
+          tone={totals.obligation_kg > 0 && !totals.shortfall_kg ? "ok" : undefined}
           detail={
             totals.obligation_kg > 0 && !totals.shortfall_kg
               ? "Obligation met by recycling"
@@ -329,11 +299,7 @@ export default function Obligations() {
         <Kpi
           label="Compensation estimate"
           value={hasRates ? formatInr(totals.compensation_estimate) : "—"}
-          detail={
-            hasRates
-              ? "Shortfall × your rates"
-              : "Set a rate per kg to estimate"
-          }
+          detail={hasRates ? "Shortfall × your rates" : "Set a rate per kg to estimate"}
         />
       </div>
 
@@ -355,16 +321,10 @@ export default function Obligations() {
               <thead>
                 <tr className="border-b border-neutral-200 bg-neutral-50 text-left text-xs text-neutral-500">
                   <th className="px-5 py-2.5 font-medium">Category</th>
-                  <th
-                    className="px-3 py-2.5 text-right font-medium"
-                    title="Plastic introduced"
-                  >
+                  <th className="px-3 py-2.5 text-right font-medium" title="Plastic introduced">
                     A
                   </th>
-                  <th
-                    className="px-3 py-2.5 text-right font-medium"
-                    title="Pre-consumer waste"
-                  >
+                  <th className="px-3 py-2.5 text-right font-medium" title="Pre-consumer waste">
                     B
                   </th>
                   <th
@@ -375,15 +335,9 @@ export default function Obligations() {
                   </th>
                   <th className="px-3 py-2.5 text-right font-medium">Q</th>
                   <th className="px-3 py-2.5 text-right font-medium">Target</th>
-                  <th className="px-3 py-2.5 text-right font-medium">
-                    Obligation
-                  </th>
-                  <th className="px-3 py-2.5 text-right font-medium">
-                    Recycled
-                  </th>
-                  <th className="px-3 py-2.5 text-right font-medium">
-                    Shortfall
-                  </th>
+                  <th className="px-3 py-2.5 text-right font-medium">Obligation</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Recycled</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Shortfall</th>
                   <th className="px-5 py-2.5">
                     <span className="sr-only">Edit</span>
                   </th>
@@ -413,9 +367,7 @@ export default function Obligations() {
                       {formatKgExact(row.epr_quantity_kg)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-3 text-right">
-                      <span className="mono text-neutral-700">
-                        {formatPct(row.epr_target_pct)}
-                      </span>
+                      <span className="mono text-neutral-700">{formatPct(row.epr_target_pct)}</span>
                       <SourceTag source={row.epr_target_source} />
                       {row.recycling_min_pct != null && (
                         <p className="text-xs text-neutral-500">
@@ -449,8 +401,7 @@ export default function Obligations() {
                       </span>
                       {row.recycling_gap_kg > 0 && (
                         <p className="text-xs text-neutral-500">
-                          {formatKgExact(row.recycling_gap_kg)} below recycling
-                          minimum
+                          {formatKgExact(row.recycling_gap_kg)} below recycling minimum
                         </p>
                       )}
                       {row.compensation_estimate != null && (
@@ -506,21 +457,20 @@ export default function Obligations() {
           <p className="font-medium text-neutral-950">How this is worked out</p>
           <ul className="mt-2 space-y-1.5">
             <li>
-              <span className="mono text-neutral-950">A</span> plastic
-              introduced:{" "}
+              <span className="mono text-neutral-950">A</span> plastic introduced:{" "}
               {data.basis === "current"
                 ? `reviewed purchase invoices in ${label}.`
                 : `the average of ${data.basis_years.join(" and ")}, as the guidelines define it.`}
             </li>
             <li>
-              <span className="mono text-neutral-950">B</span> pre-consumer
-              waste and <span className="mono text-neutral-950">C</span>{" "}
-              quantities supplied to registered entities: entered by you.
+              <span className="mono text-neutral-950">B</span> pre-consumer waste and{" "}
+              <span className="mono text-neutral-950">C</span> quantities supplied to registered
+              entities: entered by you.
             </li>
             <li>
-              <span className="mono text-neutral-950">Q = A + B − C</span>, the
-              obligation is Q × the EPR target, and recycled counts reviewed
-              recycling certificates in the same category.
+              <span className="mono text-neutral-950">Q = A + B − C</span>, the obligation is Q ×
+              the EPR target, and recycled counts reviewed recycling certificates in the same
+              category.
             </li>
           </ul>
         </Card>

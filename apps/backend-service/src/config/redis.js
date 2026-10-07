@@ -4,12 +4,8 @@ import { createCache } from "../lib/cache.js";
 
 export const redisEnabled = Boolean(env.REDIS_URL);
 
-// BullMQ needs connections that retry forever (maxRetriesPerRequest: null); give it its own.
-export const createQueueConnection = () =>
-  new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
+export const createQueueConnection = () => new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
 
-// The cache connection fails fast instead: a cache miss is always better than a slow request.
-// It opens when the process starts, so the first requests don't miss while it connects.
 let cacheClient = null;
 const connectCache = () => {
   cacheClient = new Redis(env.REDIS_URL, {

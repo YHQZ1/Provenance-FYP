@@ -1,22 +1,16 @@
-# Everyday commands for Provenance. Run `make` to list them.
-#
-# Most stack commands take an optional service: `make logs s=backend`, `make rebuild s=ocr-service`.
-# Services: backend, ocr-service, rag-classify, rag-regulatory, redis, qdrant, ollama, frontend
+-include infra/.env
 
-COMPOSE := docker compose -f infra/docker-compose.yaml
-# Empty means every service, the frontend included.
+COMPOSE := docker compose --env-file infra/.env -f infra/docker-compose.yaml
 s ?=
 
-OLLAMA_MODEL ?= llama3.2:3b
 VENV := .venv
 PY := $(VENV)/bin/python
-# Shell snippet that reads the URL when a db-* recipe runs, so it never appears in printed commands.
 DB_URL := $$(grep -E '^DATABASE_URL=' apps/rag-classify/.env 2>/dev/null | cut -d= -f2- | tr -d '"')
 
 .DEFAULT_GOAL := help
-.PHONY: help setup install venv up down stop start restart rebuild logs ps status shell \
+.PHONY: help env setup install venv up down stop start restart rebuild logs ps status shell \
 	models ingest cache-clear db-shell db-migrate test test-web test-backend test-ocr test-classify \
-	test-regulatory lint build check bench clean
+	test-regulatory lint format build check bench clean
 
 help:
 	@awk 'BEGIN {FS = ":.*## "} /^## / {printf "\n\033[1m%s\033[0m\n", substr($$0, 4)} /^[a-z-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -24,7 +18,10 @@ help:
 
 ## Setup
 
-setup: install venv ## Install everything needed to run and test locally
+env: ## Create infra/.env from the example if it doesn't exist
+	@test -f infra/.env || { cp infra/.env.example infra/.env; echo "Created infra/.env"; }
+
+setup: env install venv ## Install everything needed to run and test locally
 
 install: ## Install npm dependencies for the web app and backend
 	cd apps/web-app && npm ci
@@ -34,11 +31,11 @@ venv: ## Create .venv with what the Python service tests need
 	python3 -m venv $(VENV)
 	$(PY) -m pip install -q --upgrade pip
 	$(PY) -m pip install -q pytest httpx fastapi pydantic pydantic-settings tenacity \
-		python-multipart pymupdf pdf2image pillow numpy opencv-python-headless
+		python-multipart pymupdf pdf2image pillow numpy opencv-python-headless black ruff
 
 ## Stack (Docker)
 
-up: ## Build and start everything; the app is on http://localhost:5173 (s=service for one)
+up: ## Build and start everything (s=service for one)
 	$(COMPOSE) up -d --build $(s)
 
 down: ## Stop and remove the containers (data volumes are kept)
@@ -63,14 +60,12 @@ ps: ## Show containers and their health
 	$(COMPOSE) ps
 
 status: ## Check each service's health endpoint
-	@if nc -z localhost 6379 2>/dev/null; then printf "  \033[32m●\033[0m %-15s up    :%s\n" redis 6379; \
-	else printf "  \033[31m●\033[0m %-15s down  :%s\n" redis 6379; fi
-	@for svc in "backend 3000" "ocr-service 8000" "rag-classify 8001" "rag-regulatory 8002" "qdrant 6333" "ollama 11434" "frontend 5173"; do \
-		set -- $$svc; \
-		case $$1 in qdrant) path=/healthz;; ollama|frontend) path=/;; *) path=/health;; esac; \
-		code=$$(curl -s -o /dev/null -m 3 -w '%{http_code}' http://localhost:$$2$$path); \
-		if [ "$$code" = "200" ]; then printf "  \033[32m●\033[0m %-15s up    :%s\n" $$1 $$2; \
-		else printf "  \033[31m●\033[0m %-15s down  :%s\n" $$1 $$2; fi; \
+	@for svc in "backend:$(BACKEND_PORT):/health" "ocr-service:$(OCR_PORT):/health" "rag-classify:$(CLASSIFIER_PORT):/health" "rag-regulatory:$(REGULATORY_PORT):/health" "qdrant:$(QDRANT_PORT):/healthz" "ollama:$(OLLAMA_PORT):/" "frontend:$(FRONTEND_PORT):/" "redis:$(REDIS_PORT):"; do \
+		name=$${svc%%:*}; rest=$${svc#*:}; port=$${rest%%:*}; path=$${rest#*:}; \
+		if [ -z "$$path" ]; then nc -z $(PUBLIC_HOST) $$port 2>/dev/null && code=200 || code=0; \
+		else code=$$(curl -s -o /dev/null -m 3 -w '%{http_code}' http://$(PUBLIC_HOST):$$port$$path); fi; \
+		if [ "$$code" = "200" ]; then printf "  \033[32m●\033[0m %-15s up    :%s\n" $$name $$port; \
+		else printf "  \033[31m●\033[0m %-15s down  :%s\n" $$name $$port; fi; \
 	done
 
 shell: ## Open a shell in a container (s=service, required)
@@ -120,8 +115,13 @@ test-classify: ## Classifier tests (needs `make venv`)
 test-regulatory: ## Regulatory RAG tests (needs `make venv`)
 	cd apps/rag-regulatory && ../../$(PY) -m pytest tests -q
 
-lint: ## Lint the web app
+lint: ## Lint the web app and the Python services
 	cd apps/web-app && npm run lint
+	$(PY) -m ruff check --select F401,F811 apps
+
+format: ## Format JS, CSS and JSON with Prettier and Python with Black
+	npx --yes prettier@3 --write "apps/**/*.{js,jsx,mjs,css,json,html}"
+	$(PY) -m black -q apps
 
 build: ## Production build of the web app
 	cd apps/web-app && npm run build

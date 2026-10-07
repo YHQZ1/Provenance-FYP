@@ -5,15 +5,9 @@ import {
   financialYearRange,
 } from "../external/normalization.js";
 
-export const PROCESSING_STATUSES = [
-  "PENDING",
-  "OCR_PROCESSING",
-  "COMPLETED",
-  "RAG_PROCESSING",
-];
+export const PROCESSING_STATUSES = ["PENDING", "OCR_PROCESSING", "COMPLETED", "RAG_PROCESSING"];
 const FAILED_STATUSES = ["OCR_FAILED"];
 
-// Which side of the EPR ledger a document type contributes to.
 const LEDGER = {
   purchase_invoice: "introduced",
   recycling_certificate: "recycled",
@@ -32,8 +26,6 @@ export const documentStage = (document) => {
   return "review";
 };
 
-// Where a document stands against finalized years: `included` is part of signed-off numbers,
-// `late` is dated in a finalized year but arrived after it was signed off.
 export const filingPosition = (document, years) => {
   const fy = financialYearOf(effectiveDate(document));
   const covered = years.get(fy);
@@ -42,7 +34,6 @@ export const filingPosition = (document, years) => {
   return { financial_year: fy, finalized: true, included, late: !included };
 };
 
-// The values a reviewer signed off: corrections win over the original suggestion.
 export const effectiveLine = (line) => ({
   material_code: line.corrected_material_code || line.material_code || null,
   cpcb_category: line.corrected_cpcb_category || line.cpcb_category || null,
@@ -55,13 +46,21 @@ const emptyBucket = () => ({ by_material: {}, by_category: {}, total_kg: 0 });
 
 const addLine = (bucket, line) => {
   const kg = Number(line.quantity_kg);
-  bucket.by_material[line.material_code] = round((bucket.by_material[line.material_code] || 0) + kg);
+  bucket.by_material[line.material_code] = round(
+    (bucket.by_material[line.material_code] || 0) + kg,
+  );
   const category = line.cpcb_category || "UNCATEGORISED";
   bucket.by_category[category] = round((bucket.by_category[category] || 0) + kg);
   bucket.total_kg = round(bucket.total_kg + kg);
 };
 
-export const summarizeFiling = ({ documents, company, fyStart, currentFy, categoriesTracked = false }) => {
+export const summarizeFiling = ({
+  documents,
+  company,
+  fyStart,
+  currentFy,
+  categoriesTracked = false,
+}) => {
   const ledger = { introduced: emptyBucket(), recycled: emptyBucket(), collected: emptyBucket() };
   const stages = { processing: 0, failed: 0, review: 0, verified: 0, evidence: 0 };
   let pendingItems = 0;
@@ -119,22 +118,41 @@ export const summarizeFiling = ({ documents, company, fyStart, currentFy, catego
     blockers.push({ key: "gst", message: "Add your company GSTIN.", action: "settings" });
   }
   if (!company?.Pibo_category?.length) {
-    blockers.push({ key: "pibo", message: "Select your PIBO category (producer, importer, or brand owner).", action: "settings" });
+    blockers.push({
+      key: "pibo",
+      message: "Select your PIBO category (producer, importer, or brand owner).",
+      action: "settings",
+    });
   }
   if (stages.processing > 0) {
-    blockers.push({ key: "processing", message: `${stages.processing} document(s) are still being processed.`, action: "documents" });
+    blockers.push({
+      key: "processing",
+      message: `${stages.processing} document(s) are still being processed.`,
+      action: "documents",
+    });
   }
   if (stages.failed > 0) {
-    blockers.push({ key: "failed", message: `${stages.failed} document(s) failed to process. Retry or delete them.`, action: "documents" });
+    blockers.push({
+      key: "failed",
+      message: `${stages.failed} document(s) failed to process. Retry or delete them.`,
+      action: "documents",
+    });
   }
   if (pendingItems > 0) {
-    blockers.push({ key: "review", message: `${pendingItems} line item(s) are waiting for review.`, action: "review" });
+    blockers.push({
+      key: "review",
+      message: `${pendingItems} line item(s) are waiting for review.`,
+      action: "review",
+    });
   }
   if (ledger.introduced.total_kg === 0) {
-    blockers.push({ key: "introduced", message: "No reviewed plastic quantities from purchase invoices yet.", action: "documents" });
+    blockers.push({
+      key: "introduced",
+      message: "No reviewed plastic quantities from purchase invoices yet.",
+      action: "documents",
+    });
   }
 
-  // Category data is advisory until every introduced line carries one; it doesn't block finalizing.
   const warnings = [];
   if (categoriesTracked && uncategorisedItems > 0) {
     warnings.push({

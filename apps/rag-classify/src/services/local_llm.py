@@ -1,17 +1,3 @@
-# | Function              | What It Does        | Why We Need It                                |
-# | --------------------- | ------------------- | --------------------------------------------- |
-# | `__init__`            | Connects to Ollama  | HTTP client to Ollama container               |
-# | `classify_material()` | Main classification | Sends prompt to LLM, gets structured response |
-# | `_build_prompt()`     | Prompt engineering  | Crafts context-rich prompt with synonyms      |
-# | `_parse_response()`   | Output parsing      | Extracts JSON from LLM text                   |
-# | `test_connection()`   | Health check        | Verifies Ollama is running and model exists   |
-
-# src/services/local_llm.py
-"""
-Ollama LLM client for material classification.
-Handles 26 CPCB material codes with rigid/flexible detection.
-"""
-
 import json
 import logging
 import re
@@ -29,9 +15,8 @@ from src.services.taxonomy import CANONICAL_NAMES, CPCB_MATERIALS, DETAILED, res
 
 
 def _first_json_object(text: str) -> Optional[Dict[str, Any]]:
-    """Return the first JSON object in the text that has a material_code, wherever it appears."""
     decoder = json.JSONDecoder()
-    cleaned = re.sub(r',\s*([}\]])', r'\1', text)
+    cleaned = re.sub(r",\s*([}\]])", r"\1", text)
     for match in re.finditer(r"\{", cleaned):
         try:
             value, _ = decoder.raw_decode(cleaned, match.start())
@@ -43,36 +28,33 @@ def _first_json_object(text: str) -> Optional[Dict[str, Any]]:
 
 
 class LocalLLMService:
-    """Client for Ollama local LLM inference."""
-    
+
     def __init__(self):
         self.base_url = settings.ollama_host.rstrip("/")
         self.model = settings.ollama_model
         self.timeout = settings.ollama_timeout
         self.client = httpx.Client(timeout=self.timeout)
         logger.info(f"LLM Service initialized: {self.model}")
-    
+
     def test_connection(self) -> Dict[str, Any]:
-        """Health check for Ollama."""
         try:
             response = self.client.get(f"{self.base_url}/api/tags")
             response.raise_for_status()
             data = response.json()
             models = [m["name"] for m in data.get("models", [])]
             model_available = any(self.model in m for m in models)
-            
+
             return {
                 "status": "healthy" if model_available else "model_missing",
                 "available_models": models,
                 "required_model": self.model,
-                "model_available": model_available
+                "model_available": model_available,
             }
         except httpx.ConnectError:
             return {"status": "unreachable", "error": f"Cannot connect to {self.base_url}"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
-    
-    # Retry only transport failures; a slow or confused model won't improve on a retry.
+
     @retry(
         retry=retry_if_exception_type((httpx.TransportError, httpx.HTTPStatusError)),
         stop=stop_after_attempt(2),
@@ -83,68 +65,60 @@ class LocalLLMService:
         self,
         text: str,
         candidate_materials: List[Dict[str, Any]],
-        extracted_quantity: Optional[str] = None
+        extracted_quantity: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """
-        Classify plastic material using local LLM with rigidity detection.
-        """
         prompt = self._build_prompt(text, candidate_materials, extracted_quantity)
-        
+
         try:
             logger.debug(f"Sending classification request")
-            
+
             response = self.client.post(
                 f"{self.base_url}/api/generate",
                 json={
                     "model": self.model,
                     "prompt": prompt,
                     "stream": False,
-                    "options": {
-                        "temperature": 0.1,
-                        "top_p": 0.9,
-                        # No stop sequences: the model sometimes mirrors the few-shot
-                        # "Input/Analysis/Output" layout, and a blank-line stop cut it off
-                        # before the JSON. num_predict bounds the length instead.
-                        "num_predict": 400
-                    }
-                }
+                    "options": {"temperature": 0.1, "top_p": 0.9, "num_predict": 400},
+                },
             )
             response.raise_for_status()
-            
+
             result = response.json()
             raw_output = result.get("response", "")
             classification = self._parse_response(raw_output, text)
 
-            logger.info(f"Classified: {classification['material_code']} ({classification.get('cpcb_category')})")
+            logger.info(
+                f"Classified: {classification['material_code']} ({classification.get('cpcb_category')})"
+            )
             return classification
-            
+
         except Exception as e:
             logger.error(f"Classification failed: {e}")
             raise
-    
+
     def _build_prompt(
-        self,
-        text: str,
-        candidates: List[Dict[str, Any]],
-        quantity: Optional[str] = None
+        self, text: str, candidates: List[Dict[str, Any]], quantity: Optional[str] = None
     ) -> str:
-        """Build comprehensive prompt with rigidity detection."""
-        
-        # Build material list
+
         materials_text = ""
         for category, mats in CPCB_MATERIALS.items():
             materials_text += f"\n{category}:\n"
             for code, name, examples in mats:
                 materials_text += f"  - {code}: {name} (e.g., {examples})\n"
-        
-        # Build candidates context
-        candidates_text = "\n".join([
-            f"- {c['synonym']} → {c['material_code']} (similarity: {c['similarity_score']})"
-            for c in candidates[:3]
-        ]) if candidates else "No similar materials found."
-        
+
+        candidates_text = (
+            "\n".join(
+                [
+                    f"- {c['synonym']} → {c['material_code']} (similarity: {c['similarity_score']})"
+                    for c in candidates[:3]
+                ]
+            )
+            if candidates
+            else "No similar materials found."
+        )
+
         quantity_context = f"\nExtracted Quantity: {quantity}" if quantity else ""
-        
+
         prompt = f"""You are an expert in Indian EPR (Extended Producer Responsibility) plastic classification.
 Your task is to classify plastic materials according to CPCB (Central Pollution Control Board) categories.
 
@@ -192,9 +166,8 @@ Respond with ONLY this JSON format:
 {{"material_code": "EXACT_CODE", "confidence": 0.0-1.0, "cpcb_category": "CATEGORY_X_NAME", "reasoning": "brief explanation", "needs_human_review": true/false}}
 """
         return prompt
-    
+
     def _parse_response(self, raw_output: str, text: str = "") -> Dict[str, Any]:
-        """Extract JSON from the LLM output and resolve it against the CPCB taxonomy."""
         result = _first_json_object(raw_output)
         if result is None:
             logger.error(f"JSON parse failed: {raw_output[:200]}...")
@@ -226,10 +199,10 @@ Respond with ONLY this JSON format:
 
         return {
             "material_code": material or "UNKNOWN",
-            "material_name": DETAILED.get(detailed, {}).get("name") or CANONICAL_NAMES.get(material or ""),
+            "material_name": DETAILED.get(detailed, {}).get("name")
+            or CANONICAL_NAMES.get(material or ""),
             "detailed_code": detailed,
             "cpcb_category": category,
-            # An unidentified material can't carry a confidence about that material.
             "confidence": confidence if material else 0.0,
             "reasoning": reasoning,
             "needs_human_review": needs_review,
@@ -248,13 +221,10 @@ Respond with ONLY this JSON format:
         }
 
     def pull_model(self) -> bool:
-        """Download model from Ollama."""
         try:
             logger.info(f"Pulling {self.model}...")
             response = self.client.post(
-                f"{self.base_url}/api/pull",
-                json={"name": self.model},
-                timeout=300
+                f"{self.base_url}/api/pull", json={"name": self.model}, timeout=300
             )
             response.raise_for_status()
             return True
@@ -263,8 +233,8 @@ Respond with ONLY this JSON format:
             return False
 
 
-# Singleton
 _llm_service: Optional[LocalLLMService] = None
+
 
 def get_llm_service() -> LocalLLMService:
     global _llm_service

@@ -1,14 +1,10 @@
-"""Pure text helpers for ingestion and answers, kept free of model imports so they're cheap to test."""
-
 from collections import Counter
 from typing import Iterable, List, Optional, Tuple
 
 
-def strip_repeated_lines(pages: List[Tuple[Optional[int], str]], share: float = 0.1) -> List[Tuple[Optional[int], str]]:
-    """Drop running headers and footers: lines that repeat on a large share of pages.
-
-    Left in, they make every chunk of a document look alike to the embedding model.
-    """
+def strip_repeated_lines(
+    pages: List[Tuple[Optional[int], str]], share: float = 0.1
+) -> List[Tuple[Optional[int], str]]:
     if len(pages) < 3:
         return pages
 
@@ -27,17 +23,16 @@ def strip_repeated_lines(pages: List[Tuple[Optional[int], str]], share: float = 
 
 
 def _split_long(line: str, size: int) -> List[str]:
-    return [line[i:i + size] for i in range(0, len(line), size)] or [line]
+    return [line[i : i + size] for i in range(0, len(line), size)] or [line]
 
 
 def chunk_text(text: str, size: int = 900, overlap: int = 120, minimum: int = 80) -> List[str]:
-    """Pack whole lines into chunks of about `size` characters.
-
-    Table rows are single lines, so a row (one obligation, one rate) is never cut in half,
-    which kept the model from pairing one row's subject with the next row's figures.
-    The last line of a chunk (up to `overlap` chars) is repeated at the start of the next.
-    """
-    lines = [piece for line in text.splitlines() if line.strip() for piece in _split_long(line.strip(), size)]
+    lines = [
+        piece
+        for line in text.splitlines()
+        if line.strip()
+        for piece in _split_long(line.strip(), size)
+    ]
     chunks: List[str] = []
     current: List[str] = []
     length = 0
@@ -53,13 +48,13 @@ def chunk_text(text: str, size: int = 900, overlap: int = 120, minimum: int = 80
     return [chunk for chunk in chunks if len(chunk) >= minimum]
 
 
-def chunk_pages(pages: Iterable[Tuple[Optional[int], str]], **kwargs) -> List[Tuple[Optional[int], str]]:
-    """Chunk each page separately so every chunk can cite the page it came from."""
+def chunk_pages(
+    pages: Iterable[Tuple[Optional[int], str]], **kwargs
+) -> List[Tuple[Optional[int], str]]:
     return [(page, chunk) for page, text in pages for chunk in chunk_text(text, **kwargs)]
 
 
 def group_sources(contexts: List[dict]) -> List[dict]:
-    """One entry per document, best score first, with the pages that were used."""
     grouped: dict = {}
     for item in contexts:
         key = item.get("source_url") or item["source"]

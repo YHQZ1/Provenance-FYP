@@ -1,7 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
-/* Slightly sharper corners across the app: each step is ~2px tighter than Tailwind's default. */
 @theme {
   --radius-sm: 0.125rem;
   --radius: 0.1875rem;
@@ -33,8 +32,6 @@
   --dark: #0a0a0a;
 }
 
-/* Base styles live in the base layer: unlayered rules would override every
-   Tailwind utility (for example, a global padding reset wiped out all p-* classes). */
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -71,7 +68,6 @@
     color: white;
   }
 
-  /* Tailwind v4 resets buttons to the default cursor; anything clickable should show a pointer. */
   a[href],
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),

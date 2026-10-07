@@ -53,10 +53,22 @@ test("Q never goes negative and over-fulfilment leaves no shortfall", () => {
 });
 
 test("default targets follow the guideline schedule and stop at the final value", () => {
-  assert.deepEqual(defaultTargets("CATEGORY_I", 2022), { epr_target_pct: 70, recycling_min_pct: null });
-  assert.deepEqual(defaultTargets("CATEGORY_II", 2024), { epr_target_pct: 100, recycling_min_pct: 30 });
-  assert.deepEqual(defaultTargets("CATEGORY_I", 2030), { epr_target_pct: 100, recycling_min_pct: 80 });
-  assert.deepEqual(defaultTargets("CATEGORY_IV", 2026), { epr_target_pct: null, recycling_min_pct: null });
+  assert.deepEqual(defaultTargets("CATEGORY_I", 2022), {
+    epr_target_pct: 70,
+    recycling_min_pct: null,
+  });
+  assert.deepEqual(defaultTargets("CATEGORY_II", 2024), {
+    epr_target_pct: 100,
+    recycling_min_pct: 30,
+  });
+  assert.deepEqual(defaultTargets("CATEGORY_I", 2030), {
+    epr_target_pct: 100,
+    recycling_min_pct: 80,
+  });
+  assert.deepEqual(defaultTargets("CATEGORY_IV", 2026), {
+    epr_target_pct: null,
+    recycling_min_pct: null,
+  });
 });
 
 test("without a target there is no obligation, and totals skip it", () => {

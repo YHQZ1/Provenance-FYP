@@ -11,7 +11,13 @@ import pdfplumber
 import requests
 import yaml
 from bs4 import BeautifulSoup
-from qdrant_client.http.models import FieldCondition, Filter, FilterSelector, MatchValue, PointStruct
+from qdrant_client.http.models import (
+    FieldCondition,
+    Filter,
+    FilterSelector,
+    MatchValue,
+    PointStruct,
+)
 
 from src.config import QDRANT_COLLECTION
 from src.rag.embeddings import embed
@@ -20,11 +26,6 @@ from src.rag.text import chunk_pages, strip_repeated_lines
 
 
 def page_text(page):
-    """Prose outside tables, then each table row as `cell | cell | ...` on one line.
-
-    Plain extract_text() interleaves table columns line by line, which scrambles the
-    figures regulators publish in tables (rates, thresholds, deadlines).
-    """
     tables = page.find_tables()
     prose_area = page
     for table in tables:
@@ -88,11 +89,12 @@ def ingest(source):
         for index, ((page, text), vector) in enumerate(zip(chunks, vectors))
     ]
 
-    # Replace the source's previous chunks so a shorter re-download leaves nothing stale.
     client.delete(
         collection_name=QDRANT_COLLECTION,
         points_selector=FilterSelector(
-            filter=Filter(must=[FieldCondition(key="source_url", match=MatchValue(value=source["url"]))])
+            filter=Filter(
+                must=[FieldCondition(key="source_url", match=MatchValue(value=source["url"]))]
+            )
         ),
     )
     client.upsert(collection_name=QDRANT_COLLECTION, points=points)
@@ -113,7 +115,7 @@ def main():
         try:
             count = ingest(source)
             print(f'Ingested {count} chunks: {source["title"]}')
-        except Exception as error:  # one unreachable source should not stop the rest
+        except Exception as error:
             failures += 1
             print(f'Failed to ingest {source["title"]}: {error}')
     if failures:

@@ -63,9 +63,7 @@ function Section({ id, title, description, children, footer }) {
     <Card id={id} className="min-w-0 scroll-mt-6 overflow-hidden">
       <div className="border-b border-neutral-100 px-5 py-4">
         <h2 className="text-sm font-semibold text-neutral-950">{title}</h2>
-        {description && (
-          <p className="mt-0.5 text-sm text-neutral-500">{description}</p>
-        )}
+        {description && <p className="mt-0.5 text-sm text-neutral-500">{description}</p>}
       </div>
       <div className="px-5 py-5">{children}</div>
       {footer && (
@@ -76,8 +74,6 @@ function Section({ id, title, description, children, footer }) {
     </Card>
   );
 }
-
-/* ------------------------------------------------------------------ */
 
 function CompanySection() {
   const { company, refreshAccount, refreshFiling } = useWorkspace();
@@ -106,16 +102,12 @@ function CompanySection() {
   const gst = form.gst_number.trim().toUpperCase();
   const epr = form.epr_registration_number.trim().toUpperCase();
   const errors = {
-    name:
-      form.company_name.trim().length < 2 ? "Company name is required." : null,
+    name: form.company_name.trim().length < 2 ? "Company name is required." : null,
     gst:
       gst && !GSTIN_PATTERN.test(gst)
         ? "Enter a valid 15-character GSTIN, e.g. 27ABCDE1234F1Z5."
         : null,
-    epr:
-      epr && !EPR_PATTERN.test(epr)
-        ? "Use letters, numbers, /, - and . only."
-        : null,
+    epr: epr && !EPR_PATTERN.test(epr) ? "Use letters, numbers, /, - and . only." : null,
   };
   const invalid = Object.values(errors).some(Boolean);
   const dirty =
@@ -171,8 +163,7 @@ function CompanySection() {
                 setForm({
                   company_name: company.company_name || "",
                   gst_number: company.gst_number || "",
-                  epr_registration_number:
-                    company.epr_registration_number || "",
+                  epr_registration_number: company.epr_registration_number || "",
                   Pibo_category: company.Pibo_category || [],
                 })
               }
@@ -180,12 +171,7 @@ function CompanySection() {
               Discard changes
             </Button>
           )}
-          <Button
-            variant="primary"
-            onClick={save}
-            loading={saving}
-            disabled={!dirty || invalid}
-          >
+          <Button variant="primary" onClick={save} loading={saving} disabled={!dirty || invalid}>
             Save profile
           </Button>
         </>
@@ -215,9 +201,7 @@ function CompanySection() {
               id="gstin"
               value={form.gst_number}
               maxLength={15}
-              onChange={(e) =>
-                setForm({ ...form, gst_number: e.target.value.toUpperCase() })
-              }
+              onChange={(e) => setForm({ ...form, gst_number: e.target.value.toUpperCase() })}
               placeholder="27ABCDE1234F1Z5"
               className="mono uppercase"
             />
@@ -248,12 +232,9 @@ function CompanySection() {
           </Field>
         </div>
         <fieldset>
-          <legend className="text-sm font-medium text-neutral-800">
-            PIBO category
-          </legend>
+          <legend className="text-sm font-medium text-neutral-800">PIBO category</legend>
           <p className="mb-3 mt-0.5 text-xs text-neutral-500">
-            Select every role that applies under the Plastic Waste Management
-            Rules.
+            Select every role that applies under the Plastic Waste Management Rules.
           </p>
           <div className="grid gap-2 sm:grid-cols-3">
             {PIBO_CATEGORIES.map((category) => {
@@ -263,9 +244,7 @@ function CompanySection() {
                   key={category.id}
                   className={cx(
                     "flex cursor-pointer items-start gap-3 rounded-md border p-3.5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-emerald-600",
-                    checked
-                      ? "border-neutral-950"
-                      : "border-neutral-200 hover:border-neutral-400",
+                    checked ? "border-neutral-950" : "border-neutral-200 hover:border-neutral-400",
                   )}
                 >
                   <input
@@ -289,9 +268,7 @@ function CompanySection() {
                     <span className="block text-sm font-medium text-neutral-950">
                       {category.label}
                     </span>
-                    <span className="block text-xs text-neutral-500">
-                      {category.hint}
-                    </span>
+                    <span className="block text-xs text-neutral-500">{category.hint}</span>
                   </span>
                 </label>
               );
@@ -302,8 +279,6 @@ function CompanySection() {
     </Section>
   );
 }
-
-/* ------------------------------------------------------------------ */
 
 function AccountSection() {
   const [authUser, setAuthUser] = useState(null);
@@ -337,8 +312,7 @@ function AccountSection() {
 
   const provider = authUser.app_metadata?.provider || "email";
   const usesPassword = provider === "email";
-  const providerName =
-    { google: "Google", azure: "Microsoft" }[provider] || provider;
+  const providerName = { google: "Google", azure: "Microsoft" }[provider] || provider;
 
   const saveName = async () => {
     setSavingName(true);
@@ -357,7 +331,6 @@ function AccountSection() {
     if (mismatch || tooShort) return;
     setSavingPassword(true);
     setPasswordError(null);
-    // Confirm the current password first, so an unlocked laptop can't be used to take over the account.
     const { error: verifyError } = await supabase.auth.signInWithPassword({
       email: authUser.email,
       password: passwords.current,
@@ -400,9 +373,7 @@ function AccountSection() {
               <Button
                 onClick={saveName}
                 loading={savingName}
-                disabled={
-                  name.trim() === (authUser.user_metadata?.full_name || "")
-                }
+                disabled={name.trim() === (authUser.user_metadata?.full_name || "")}
               >
                 Save
               </Button>
@@ -411,11 +382,7 @@ function AccountSection() {
           <Field
             label="Email"
             htmlFor="email"
-            hint={
-              usesPassword
-                ? "Used to sign in."
-                : `You sign in with ${providerName}.`
-            }
+            hint={usesPassword ? "Used to sign in." : `You sign in with ${providerName}.`}
           >
             <Input id="email" value={authUser.email || ""} disabled />
           </Field>
@@ -432,9 +399,7 @@ function AccountSection() {
                     id="current-password"
                     type="password"
                     value={passwords.current}
-                    onChange={(e) =>
-                      setPasswords({ ...passwords, current: e.target.value })
-                    }
+                    onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
                     autoComplete="current-password"
                     required
                   />
@@ -442,17 +407,13 @@ function AccountSection() {
                 <Field
                   label="New password"
                   htmlFor="new-password"
-                  error={
-                    tooShort ? `At least ${MIN_PASSWORD} characters.` : null
-                  }
+                  error={tooShort ? `At least ${MIN_PASSWORD} characters.` : null}
                 >
                   <Input
                     id="new-password"
                     type="password"
                     value={passwords.next}
-                    onChange={(e) =>
-                      setPasswords({ ...passwords, next: e.target.value })
-                    }
+                    onChange={(e) => setPasswords({ ...passwords, next: e.target.value })}
                     autoComplete="new-password"
                     required
                   />
@@ -466,9 +427,7 @@ function AccountSection() {
                     id="confirm-password"
                     type="password"
                     value={passwords.confirm}
-                    onChange={(e) =>
-                      setPasswords({ ...passwords, confirm: e.target.value })
-                    }
+                    onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
                     autoComplete="new-password"
                     required
                   />
@@ -479,10 +438,7 @@ function AccountSection() {
                   type="submit"
                   loading={savingPassword}
                   disabled={
-                    !passwords.current ||
-                    !passwords.next ||
-                    Boolean(mismatch) ||
-                    Boolean(tooShort)
+                    !passwords.current || !passwords.next || Boolean(mismatch) || Boolean(tooShort)
                   }
                 >
                   Change password
@@ -491,20 +447,16 @@ function AccountSection() {
             </form>
           ) : (
             <p className="mt-1 text-sm text-neutral-500">
-              You sign in with {providerName}, so there's no Provenance password
-              to change.
+              You sign in with {providerName}, so there's no Provenance password to change.
             </p>
           )}
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-neutral-100 pt-6">
           <div>
-            <p className="text-sm font-medium text-neutral-950">
-              Sign out of all devices
-            </p>
+            <p className="text-sm font-medium text-neutral-950">Sign out of all devices</p>
             <p className="mt-0.5 text-sm text-neutral-500">
-              Ends every session, including this one. Use it if you signed in on
-              a shared computer.
+              Ends every session, including this one. Use it if you signed in on a shared computer.
             </p>
           </div>
           <Button variant="danger" onClick={() => setSignOutOpen(true)}>
@@ -520,26 +472,19 @@ function AccountSection() {
         footer={
           <>
             <Button onClick={() => setSignOutOpen(false)}>Cancel</Button>
-            <Button
-              variant="danger"
-              onClick={signOutEverywhere}
-              loading={signingOut}
-            >
+            <Button variant="danger" onClick={signOutEverywhere} loading={signingOut}>
               Sign out everywhere
             </Button>
           </>
         }
       >
         <p className="text-sm text-neutral-600">
-          You'll be signed out here and on every other device, and need to sign
-          in again.
+          You'll be signed out here and on every other device, and need to sign in again.
         </p>
       </Modal>
     </Section>
   );
 }
-
-/* ------------------------------------------------------------------ */
 
 function SystemSection() {
   const [status, setStatus] = useState(null);
@@ -577,8 +522,9 @@ function SystemSection() {
         },
         {
           name: "Activity log, obligation inputs and trade names",
-          // Older backends don't report these; treat missing as unknown rather than off.
-          on: status.features.activity_log !== false && status.features.obligations !== false &&
+          on:
+            status.features.activity_log !== false &&
+            status.features.obligations !== false &&
             status.features.trade_names !== false,
           fix: "Run supabase/migrations/007_activity_obligations_trade_names.sql on the database.",
         },
@@ -593,8 +539,7 @@ function SystemSection() {
     >
       {error ? (
         <Alert tone="error" title="Couldn't reach the Provenance server">
-          The backend isn't responding, so nothing can be checked. Make sure
-          it's running.
+          The backend isn't responding, so nothing can be checked. Make sure it's running.
         </Alert>
       ) : !status ? (
         <Spinner label="Checking services…" />
@@ -602,8 +547,7 @@ function SystemSection() {
         <div className="space-y-6">
           {status.mock_services && (
             <Alert tone="info" title="Demo mode">
-              Document reading and classification return sample results, not
-              real ones.
+              Document reading and classification return sample results, not real ones.
             </Alert>
           )}
           <ul className="divide-y divide-neutral-100 rounded-md border border-neutral-200">
@@ -613,24 +557,13 @@ function SystemSection() {
                 purpose: "",
               };
               const ok = service.status === "up" || service.status === "mocked";
-              const down =
-                service.status === "down" ||
-                service.status === "not_configured";
+              const down = service.status === "down" || service.status === "not_configured";
               return (
-                <li
-                  key={service.name}
-                  className="flex items-start gap-3 px-4 py-3"
-                >
+                <li key={service.name} className="flex items-start gap-3 px-4 py-3">
                   {ok ? (
-                    <CheckCircle2
-                      className="mt-0.5 size-4 shrink-0 text-emerald-600"
-                      aria-hidden
-                    />
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
                   ) : down ? (
-                    <XCircle
-                      className="mt-0.5 size-4 shrink-0 text-red-600"
-                      aria-hidden
-                    />
+                    <XCircle className="mt-0.5 size-4 shrink-0 text-red-600" aria-hidden />
                   ) : (
                     <AlertTriangle
                       className="mt-0.5 size-4 shrink-0 text-neutral-500"
@@ -638,12 +571,8 @@ function SystemSection() {
                     />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-neutral-950">
-                      {meta.name}
-                    </p>
-                    <p className="text-xs text-neutral-500">
-                      {service.detail || meta.purpose}
-                    </p>
+                    <p className="text-sm font-medium text-neutral-950">{meta.name}</p>
+                    <p className="text-xs text-neutral-500">{service.detail || meta.purpose}</p>
                   </div>
                   <Badge tone={ok ? "ok" : down ? "error" : "neutral"}>
                     {
@@ -667,15 +596,9 @@ function SystemSection() {
             </p>
             <ul className="divide-y divide-neutral-100 rounded-md border border-neutral-200">
               {features.map((feature) => (
-                <li
-                  key={feature.name}
-                  className="flex items-start gap-3 px-4 py-3"
-                >
+                <li key={feature.name} className="flex items-start gap-3 px-4 py-3">
                   {feature.on ? (
-                    <CheckCircle2
-                      className="mt-0.5 size-4 shrink-0 text-emerald-600"
-                      aria-hidden
-                    />
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
                   ) : (
                     <AlertTriangle
                       className="mt-0.5 size-4 shrink-0 text-neutral-500"
@@ -683,16 +606,10 @@ function SystemSection() {
                     />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-neutral-950">
-                      {feature.name}
-                    </p>
-                    {!feature.on && (
-                      <p className="text-xs text-neutral-500">{feature.fix}</p>
-                    )}
+                    <p className="text-sm font-medium text-neutral-950">{feature.name}</p>
+                    {!feature.on && <p className="text-xs text-neutral-500">{feature.fix}</p>}
                   </div>
-                  <Badge tone={feature.on ? "ok" : "neutral"}>
-                    {feature.on ? "On" : "Off"}
-                  </Badge>
+                  <Badge tone={feature.on ? "ok" : "neutral"}>{feature.on ? "On" : "Off"}</Badge>
                 </li>
               ))}
             </ul>
@@ -716,8 +633,6 @@ function SystemSection() {
     </Section>
   );
 }
-
-/* ------------------------------------------------------------------ */
 
 const csvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
@@ -815,13 +730,11 @@ function DataSection() {
       <ul className="divide-y divide-neutral-100 rounded-md border border-neutral-200">
         <li className="flex flex-wrap items-center justify-between gap-4 px-4 py-3.5">
           <div>
-            <p className="text-sm font-medium text-neutral-950">
-              Everything, as JSON
-            </p>
+            <p className="text-sm font-medium text-neutral-950">Everything, as JSON</p>
             <p className="text-xs text-neutral-500">
               Company details, the position for {years.length} financial year
-              {years.length === 1 ? "" : "s"} (signed-off numbers where
-              finalized) and every document.
+              {years.length === 1 ? "" : "s"} (signed-off numbers where finalized) and every
+              document.
             </p>
           </div>
           <Button
@@ -834,12 +747,9 @@ function DataSection() {
         </li>
         <li className="flex flex-wrap items-center justify-between gap-4 px-4 py-3.5">
           <div>
-            <p className="text-sm font-medium text-neutral-950">
-              Document list, as CSV
-            </p>
+            <p className="text-sm font-medium text-neutral-950">Document list, as CSV</p>
             <p className="text-xs text-neutral-500">
-              One row per document: type, date, year, status and review
-              progress.
+              One row per document: type, date, year, status and review progress.
             </p>
           </div>
           <Button
@@ -847,20 +757,16 @@ function DataSection() {
             loading={exporting === "documents"}
             disabled={Boolean(exporting)}
           >
-            {exporting !== "documents" && <Download className="size-4" />}{" "}
-            Download
+            {exporting !== "documents" && <Download className="size-4" />} Download
           </Button>
         </li>
       </ul>
       <p className="mt-3 text-xs text-neutral-500">
-        Original files stay in your document storage; open any document to view
-        or download it.
+        Original files stay in your document storage; open any document to view or download it.
       </p>
     </Section>
   );
 }
-
-/* ------------------------------------------------------------------ */
 
 export default function Settings() {
   return (
@@ -871,8 +777,7 @@ export default function Settings() {
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Your company, your account, and the health of the services behind
-          Provenance.
+          Your company, your account, and the health of the services behind Provenance.
         </p>
       </div>
 

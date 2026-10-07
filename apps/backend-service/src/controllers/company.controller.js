@@ -20,14 +20,18 @@ const validateProfile = (body) => {
     updates.company_name = name;
   }
   if (body.gst_number !== undefined) {
-    const gst = String(body.gst_number || "").trim().toUpperCase();
+    const gst = String(body.gst_number || "")
+      .trim()
+      .toUpperCase();
     if (gst && !GSTIN_PATTERN.test(gst)) {
       throw badRequest("GSTIN should be 15 characters, e.g. 27ABCDE1234F1Z5");
     }
     updates.gst_number = gst || null;
   }
   if (body.epr_registration_number !== undefined) {
-    const registration = String(body.epr_registration_number || "").trim().toUpperCase();
+    const registration = String(body.epr_registration_number || "")
+      .trim()
+      .toUpperCase();
     if (registration.length > 60 || /[^A-Z0-9/\-. ]/.test(registration)) {
       throw badRequest("EPR registration number can contain letters, numbers, /, - and . only");
     }

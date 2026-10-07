@@ -8,7 +8,10 @@ def test_chunks_skip_fragments_and_split_very_long_lines():
 
 
 def test_table_rows_are_never_split():
-    rows = [f"10.{i} | Obligation {i} applies to producers | file by 30th June | Rs. {i}000 per ton" for i in range(20)]
+    rows = [
+        f"10.{i} | Obligation {i} applies to producers | file by 30th June | Rs. {i}000 per ton"
+        for i in range(20)
+    ]
     chunks = chunk_text("\n".join(rows), size=300, overlap=120)
     for chunk in chunks:
         assert all(line in rows for line in chunk.splitlines())
@@ -22,9 +25,30 @@ def test_chunks_keep_their_page():
 
 def test_sources_are_grouped_per_document():
     contexts = [
-        {"source": "EPR Guidelines", "source_url": "u1", "category": "plastic_epr", "score": 0.6, "page": 4, "text": ""},
-        {"source": "EPR Guidelines", "source_url": "u1", "category": "plastic_epr", "score": 0.7, "page": 2, "text": ""},
-        {"source": "BRSR Core", "source_url": "u2", "category": "brsr", "score": 0.5, "page": None, "text": ""},
+        {
+            "source": "EPR Guidelines",
+            "source_url": "u1",
+            "category": "plastic_epr",
+            "score": 0.6,
+            "page": 4,
+            "text": "",
+        },
+        {
+            "source": "EPR Guidelines",
+            "source_url": "u1",
+            "category": "plastic_epr",
+            "score": 0.7,
+            "page": 2,
+            "text": "",
+        },
+        {
+            "source": "BRSR Core",
+            "source_url": "u2",
+            "category": "brsr",
+            "score": 0.5,
+            "page": None,
+            "text": "",
+        },
     ]
     grouped = group_sources(contexts)
     assert [entry["name"] for entry in grouped] == ["EPR Guidelines", "BRSR Core"]
@@ -33,14 +57,18 @@ def test_sources_are_grouped_per_document():
 
 
 def test_prompt_cites_pages():
-    prompt = build_prompt("What is EPR?", [{"source": "EPR Guidelines", "page": 3, "text": "EPR means..."}])
+    prompt = build_prompt(
+        "What is EPR?", [{"source": "EPR Guidelines", "page": 3, "text": "EPR means..."}]
+    )
     assert "[Source: EPR Guidelines, p. 3]" in prompt
     assert "Question: What is EPR?" in prompt
 
 
 def test_running_headers_are_removed():
     header = "Guidelines for Assessment of Environment Compensation"
-    pages = [(i, f"{header}\nPage {i} content about EPR targets") for i in range(1, 6)] + [(i, f"Unrelated page {i}") for i in range(6, 40)]
+    pages = [(i, f"{header}\nPage {i} content about EPR targets") for i in range(1, 6)] + [
+        (i, f"Unrelated page {i}") for i in range(6, 40)
+    ]
     cleaned = strip_repeated_lines(pages)
     assert all(header not in text for _, text in cleaned)
     assert cleaned[0][1] == "Page 1 content about EPR targets"

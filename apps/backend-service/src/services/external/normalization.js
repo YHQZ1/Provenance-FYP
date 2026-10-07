@@ -46,24 +46,21 @@ export const normalizeQuantity = (item) => {
 };
 
 export const normalizeMaterialCode = (materialCode) => {
-  const code = String(materialCode || "UNKNOWN").trim().toUpperCase();
+  const code = String(materialCode || "UNKNOWN")
+    .trim()
+    .toUpperCase();
   return code === "UNKNOWN" ? null : code;
 };
 
 export const buildClassificationText = (item) => {
   const description = item?.description || item?.raw_text || "Unknown material";
-  const quantity = item?.quantity
-    ? ` ${item.quantity} ${item.unit || "kg"}`
-    : "";
+  const quantity = item?.quantity ? ` ${item.quantity} ${item.unit || "kg"}` : "";
   const text = `${description}${quantity}`.trim();
 
-  return text.length >= 10
-    ? text
-    : `${text} ${item?.raw_text || "material invoice item"}`.trim();
+  return text.length >= 10 ? text : `${text} ${item?.raw_text || "material invoice item"}`.trim();
 };
 
-const firstNonEmpty = (items) =>
-  Array.isArray(items) && items.length > 0 ? items : null;
+const firstNonEmpty = (items) => (Array.isArray(items) && items.length > 0 ? items : null);
 
 export const normalizeLineItems = (result) =>
   (
@@ -89,16 +86,25 @@ export const DOCUMENT_TYPES = {
 export const normalizeDocumentType = (value) =>
   Object.hasOwn(DOCUMENT_TYPES, value) ? value : "purchase_invoice";
 
-// Older documents stored the OCR's detected type ("invoice") in this field.
 export const documentTypeOf = (extractedData) =>
   normalizeDocumentType(extractedData?.document_type);
 
-// Document types whose line items carry plastic quantities that need classification.
 export const isQuantifiedDocumentType = (type) => type !== "epr_record";
 
 const MONTHS = {
-  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
-  jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  sept: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
 };
 
 const isoDate = (year, month, day) => {
@@ -109,7 +115,6 @@ const isoDate = (year, month, day) => {
   return date.toISOString().slice(0, 10);
 };
 
-// Indian documents use day-first dates: 27/07/2020, 12-07-22, 12 Jul 2022, 12-Jul-22.
 export const parseDocumentDate = (value) => {
   if (!value) return null;
   const text = String(value).trim();
@@ -119,7 +124,8 @@ export const parseDocumentDate = (value) => {
 
   const named = text.match(/^(\d{1,2})(?:st|nd|rd|th)?[\s/.-]+([A-Za-z]{3,9})[\s/.,-]+(\d{2,4})$/);
   if (named) {
-    const month = MONTHS[named[2].slice(0, named[2].toLowerCase().startsWith("sept") ? 4 : 3).toLowerCase()];
+    const month =
+      MONTHS[named[2].slice(0, named[2].toLowerCase().startsWith("sept") ? 4 : 3).toLowerCase()];
     return month ? isoDate(Number(named[3]), month, Number(named[1])) : null;
   }
 
@@ -129,7 +135,6 @@ export const parseDocumentDate = (value) => {
   return null;
 };
 
-// Indian financial year starts on 1 April; FY 2026-27 has start year 2026.
 export const financialYearOf = (dateLike) => {
   const date = new Date(dateLike);
   const month = date.getUTCMonth();

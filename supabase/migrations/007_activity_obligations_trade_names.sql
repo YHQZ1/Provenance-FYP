@@ -1,15 +1,3 @@
--- Three workspace features, all written only by the backend (service role) and readable by
--- each company for its own rows, in line with 006.
---
--- 1. activity_events: the audit trail. Who uploaded, reviewed, deleted, finalized or changed
---    what, and when. Rows are never updated or deleted by the app, and they outlive the
---    documents they mention, so document_id is deliberately not a foreign key.
--- 2. epr_obligation_inputs: the figures an obligation needs that documents don't provide
---    (pre-consumer waste, quantities supplied to other registered entities) and any target
---    or compensation rate the company sets instead of the defaults.
--- 3. company_trade_names: a company's own trade names for materials, matched against invoice
---    lines before the classifier runs.
-
 create table if not exists public.activity_events (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
@@ -71,9 +59,6 @@ drop policy if exists "Users can view own trade names" on public.company_trade_n
 create policy "Users can view own trade names" on public.company_trade_names
   for select to authenticated using (company_id = auth.uid());
 
--- Backfill the trail from what's already recorded, once. Uploads have no recorded uploader, so
--- the account's email stands in; review decisions use the reviewer stamp from 004 where it exists.
--- A document's financial year follows the app's rule: invoice date, else upload date, April to March.
 insert into public.activity_events
   (company_id, actor_id, actor_name, action, summary, document_id, financial_year, details, created_at)
 select *

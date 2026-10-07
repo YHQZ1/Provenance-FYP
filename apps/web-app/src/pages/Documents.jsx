@@ -55,7 +55,6 @@ const TYPE_ICONS = {
   epr_record: BadgeCheck,
 };
 
-// What the system is doing right now, in words, for documents still being processed.
 const PROCESSING_PHASE = {
   PENDING: "Queued",
   OCR_PROCESSING: "Reading document",
@@ -65,10 +64,8 @@ const PROCESSING_PHASE = {
 
 const validate = (file) => {
   const ext = file.name.split(".").pop()?.toLowerCase();
-  if (!ACCEPTED_EXTENSIONS.includes(ext))
-    return "Only PDF, JPG, PNG and TIFF files are supported.";
-  if (file.size > MAX_UPLOAD_MB * 1024 * 1024)
-    return `Larger than ${MAX_UPLOAD_MB} MB.`;
+  if (!ACCEPTED_EXTENSIONS.includes(ext)) return "Only PDF, JPG, PNG and TIFF files are supported.";
+  if (file.size > MAX_UPLOAD_MB * 1024 * 1024) return `Larger than ${MAX_UPLOAD_MB} MB.`;
   return null;
 };
 
@@ -82,8 +79,6 @@ function StepLabel({ index, children }) {
     </p>
   );
 }
-
-/* ------------------------------------------------------------------ */
 
 function UploadPanel({ onUploaded, onOpenDocument }) {
   const [documentType, setDocumentType] = useState("purchase_invoice");
@@ -108,14 +103,10 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
   };
 
   const update = (id, patch) =>
-    setQueue((current) =>
-      current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    );
+    setQueue((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
 
   const uploadAll = async () => {
-    const pending = queue.filter(
-      (item) => item.state === "ready" || item.state === "error",
-    );
+    const pending = queue.filter((item) => item.state === "ready" || item.state === "error");
     if (!pending.length) return;
     setUploading(true);
     let succeeded = 0;
@@ -140,15 +131,10 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
 
     setUploading(false);
     if (succeeded > 0) {
-      notify(
-        `${succeeded} document${succeeded > 1 ? "s" : ""} uploaded. Processing has started.`,
-      );
+      notify(`${succeeded} document${succeeded > 1 ? "s" : ""} uploaded. Processing has started.`);
       onUploaded();
       setTimeout(
-        () =>
-          setQueue((current) =>
-            current.filter((item) => item.state !== "done"),
-          ),
+        () => setQueue((current) => current.filter((item) => item.state !== "done")),
         4000,
       );
     }
@@ -162,12 +148,9 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
   return (
     <Card className="min-w-0">
       <div className="border-b border-neutral-100 px-5 py-4">
-        <h2 className="text-sm font-semibold text-neutral-950">
-          Upload documents
-        </h2>
+        <h2 className="text-sm font-semibold text-neutral-950">Upload documents</h2>
         <p className="mt-0.5 text-sm text-neutral-500">
-          Each file is read automatically, then its lines wait for you in
-          Review.
+          Each file is read automatically, then its lines wait for you in Review.
         </p>
       </div>
 
@@ -200,10 +183,7 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
                   />
                   <span className="flex items-center justify-between">
                     <Icon
-                      className={cx(
-                        "size-4",
-                        active ? "text-emerald-600" : "text-neutral-400",
-                      )}
+                      className={cx("size-4", active ? "text-emerald-600" : "text-neutral-400")}
                       aria-hidden
                     />
                     <span
@@ -218,12 +198,8 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
                       {active && <Check className="size-3" strokeWidth={3} />}
                     </span>
                   </span>
-                  <span className="text-sm font-medium text-neutral-950">
-                    {type.label}
-                  </span>
-                  <span className="text-xs leading-relaxed text-neutral-500">
-                    {type.hint}
-                  </span>
+                  <span className="text-sm font-medium text-neutral-950">{type.label}</span>
+                  <span className="text-xs leading-relaxed text-neutral-500">{type.hint}</span>
                 </label>
               );
             })}
@@ -283,8 +259,6 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
         </div>
       </div>
 
-      {/* Queued files sit below both columns at full width, so a long queue never unbalances the
-          tiles and drop zone. The upload action lives with them; with nothing queued, no idle button. */}
       {queue.length > 0 && (
         <div className="px-5 pb-5">
           <div className="overflow-hidden rounded-md border border-neutral-200">
@@ -298,11 +272,7 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
               </p>
               <div className="flex items-center gap-1.5">
                 {!uploading && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setQueue([])}
-                  >
+                  <Button size="sm" variant="ghost" onClick={() => setQueue([])}>
                     Clear
                   </Button>
                 )}
@@ -319,14 +289,9 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
             </div>
             <ul className="max-h-72 divide-y divide-neutral-100 overflow-y-auto">
               {queue.map((item) => {
-                const failed = ["invalid", "error", "duplicate"].includes(
-                  item.state,
-                );
+                const failed = ["invalid", "error", "duplicate"].includes(item.state);
                 return (
-                  <li
-                    key={item.id}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm"
-                  >
+                  <li key={item.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                     {item.state === "uploading" ? (
                       <Loader2 className="size-4 shrink-0 animate-spin text-neutral-400" />
                     ) : item.state === "done" ? (
@@ -369,9 +334,7 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
                     {item.existing && (
                       <button
                         type="button"
-                        onClick={() =>
-                          onOpenDocument(item.existing.document_id)
-                        }
+                        onClick={() => onOpenDocument(item.existing.document_id)}
                         className="shrink-0 text-xs font-medium text-neutral-950 underline underline-offset-2 hover:text-emerald-700"
                       >
                         Open
@@ -382,9 +345,7 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
                         <button
                           type="button"
                           onClick={() =>
-                            setQueue((current) =>
-                              current.filter((q) => q.id !== item.id),
-                            )
+                            setQueue((current) => current.filter((q) => q.id !== item.id))
                           }
                           className="rounded-sm p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
                           aria-label={`Remove ${item.file.name}`}
@@ -404,15 +365,11 @@ function UploadPanel({ onUploaded, onOpenDocument }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 function DetailRow({ label, children }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2.5 text-sm">
       <dt className="text-neutral-500">{label}</dt>
-      <dd className="min-w-0 truncate text-right font-medium text-neutral-950">
-        {children}
-      </dd>
+      <dd className="min-w-0 truncate text-right font-medium text-neutral-950">{children}</dd>
     </div>
   );
 }
@@ -444,9 +401,7 @@ function DocumentDrawer({ documentId, onClose, onChanged, onRetry, onDelete }) {
         document_date: date || null,
       });
       setDoc(response.data);
-      notify(
-        "Document date saved. It now counts toward the matching financial year.",
-      );
+      notify("Document date saved. It now counts toward the matching financial year.");
       onChanged();
     } catch (err) {
       notify(err.message, "error");
@@ -465,17 +420,12 @@ function DocumentDrawer({ documentId, onClose, onChanged, onRetry, onDelete }) {
       onClose={onClose}
       title={doc?.filename || "Document"}
       description={
-        doc &&
-        `${documentTypeLabel(doc.document_type)} · uploaded ${formatDate(doc.created_at)}`
+        doc && `${documentTypeLabel(doc.document_type)} · uploaded ${formatDate(doc.created_at)}`
       }
       footer={
         doc && (
           <>
-            <Button
-              variant="ghost"
-              onClick={() => onDelete(doc)}
-              disabled={stage === "processing"}
-            >
+            <Button variant="ghost" onClick={() => onDelete(doc)} disabled={stage === "processing"}>
               <Trash2 className="size-4" /> Delete
             </Button>
             <div className="flex gap-2">
@@ -503,17 +453,13 @@ function DocumentDrawer({ documentId, onClose, onChanged, onRetry, onDelete }) {
           <div
             className={cx(
               "rounded-md border px-4 py-3",
-              stage === "failed"
-                ? "border-red-200 bg-red-50"
-                : "border-neutral-200 bg-neutral-50",
+              stage === "failed" ? "border-red-200 bg-red-50" : "border-neutral-200 bg-neutral-50",
             )}
           >
             <div className="flex items-center gap-2">
               <StageBadge stage={stage} />
               {stage === "processing" && (
-                <span className="text-sm text-neutral-600">
-                  {PROCESSING_PHASE[doc.status]}
-                </span>
+                <span className="text-sm text-neutral-600">{PROCESSING_PHASE[doc.status]}</span>
               )}
             </div>
             <p
@@ -542,26 +488,21 @@ function DocumentDrawer({ documentId, onClose, onChanged, onRetry, onDelete }) {
                 </Button>
               }
             >
-              This document is dated in a year you already signed off, so its
-              quantities aren't counted. Reopen the year to review and include
-              it, or delete it if it doesn't belong.
+              This document is dated in a year you already signed off, so its quantities aren't
+              counted. Reopen the year to review and include it, or delete it if it doesn't belong.
             </Alert>
           )}
           {doc.filing?.included && (
             <Alert tone="info">
-              Part of the finalized {doc.filing.financial_year_label} filing.
-              Reopen that year on the Filing page to change or delete it.
+              Part of the finalized {doc.filing.financial_year_label} filing. Reopen that year on
+              the Filing page to change or delete it.
             </Alert>
           )}
 
           <div className="grid gap-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
             <div className="h-[440px] overflow-hidden rounded-md border border-neutral-200 bg-neutral-50">
               {doc.file_url && doc.mime_type === "application/pdf" ? (
-                <iframe
-                  title="Document preview"
-                  src={doc.file_url}
-                  className="size-full"
-                />
+                <iframe title="Document preview" src={doc.file_url} className="size-full" />
               ) : doc.file_url && doc.mime_type?.startsWith("image/") ? (
                 <img
                   src={doc.file_url}
@@ -583,16 +524,10 @@ function DocumentDrawer({ documentId, onClose, onChanged, onRetry, onDelete }) {
                     {doc.fields?.invoice_number?.value || "—"}
                   </DetailRow>
                   <DetailRow label="GSTIN">
-                    <span className="mono">
-                      {doc.fields?.gstin?.value || "—"}
-                    </span>
+                    <span className="mono">{doc.fields?.gstin?.value || "—"}</span>
                   </DetailRow>
-                  <DetailRow label="Counts toward">
-                    {fyLabel(doc.financial_year)}
-                  </DetailRow>
-                  <DetailRow label="File size">
-                    {formatSize(doc.file_size) || "—"}
-                  </DetailRow>
+                  <DetailRow label="Counts toward">{fyLabel(doc.financial_year)}</DetailRow>
+                  <DetailRow label="File size">{formatSize(doc.file_size) || "—"}</DetailRow>
                 </dl>
               </div>
 
@@ -652,30 +587,22 @@ function DocumentDrawer({ documentId, onClose, onChanged, onRetry, onDelete }) {
                       <tr className="border-b border-neutral-200 bg-neutral-50 text-left text-xs text-neutral-500">
                         <th className="px-3 py-2 font-medium">Line</th>
                         <th className="px-3 py-2 font-medium">Material</th>
-                        <th className="px-3 py-2 text-right font-medium">
-                          Weight
-                        </th>
-                        <th className="px-3 py-2 text-right font-medium">
-                          Status
-                        </th>
+                        <th className="px-3 py-2 text-right font-medium">Weight</th>
+                        <th className="px-3 py-2 text-right font-medium">Status</th>
                         <th className="px-3 py-2 font-medium">Reviewed by</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-100">
                       {lines.map((line) => {
-                        const code =
-                          line.corrected_material_code || line.material_code;
-                        const kg =
-                          line.corrected_quantity_kg ?? line.quantity_kg;
+                        const code = line.corrected_material_code || line.material_code;
+                        const kg = line.corrected_quantity_kg ?? line.quantity_kg;
                         const excluded = line.verified_by_user && !code;
                         return (
                           <tr key={line.id}>
                             <td className="max-w-[16rem] truncate px-3 py-2.5 text-neutral-950">
                               {line.matched_synonym || "Line item"}
                             </td>
-                            <td className="mono px-3 py-2.5 text-neutral-700">
-                              {code || "—"}
-                            </td>
+                            <td className="mono px-3 py-2.5 text-neutral-700">{code || "—"}</td>
                             <td className="mono whitespace-nowrap px-3 py-2.5 text-right text-neutral-700">
                               {formatKgExact(kg)}
                             </td>
@@ -689,8 +616,7 @@ function DocumentDrawer({ documentId, onClose, onChanged, onRetry, onDelete }) {
                               )}
                             </td>
                             <td className="whitespace-nowrap px-3 py-2.5 text-xs text-neutral-500">
-                              {line.verified_by_user &&
-                              line.reviewed_by_name ? (
+                              {line.verified_by_user && line.reviewed_by_name ? (
                                 <>
                                   <span className="block text-neutral-700">
                                     {line.reviewed_by_name}
@@ -716,8 +642,6 @@ function DocumentDrawer({ documentId, onClose, onChanged, onRetry, onDelete }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 const FILTERS = [
   { id: "all", label: "All" },
   { id: "processing", label: "Processing" },
@@ -728,10 +652,7 @@ const FILTERS = [
 ];
 
 function LinesMeter({ doc }) {
-  if (
-    ["evidence", "processing", "failed"].includes(doc.stage) ||
-    doc.items_count === 0
-  ) {
+  if (["evidence", "processing", "failed"].includes(doc.stage) || doc.items_count === 0) {
     return <span className="text-neutral-400">—</span>;
   }
   const share = doc.items_verified / doc.items_count;
@@ -767,9 +688,7 @@ export default function Documents() {
   const load = useCallback(async () => {
     try {
       const response = await documentAPI.list({ limit: 200 });
-      setDocuments(
-        response.data.map((doc) => ({ ...doc, stage: documentStage(doc) })),
-      );
+      setDocuments(response.data.map((doc) => ({ ...doc, stage: documentStage(doc) })));
       setLoadError(null);
     } catch (error) {
       setLoadError(error.message);
@@ -790,28 +709,18 @@ export default function Documents() {
     return () => clearInterval(timer);
   }, [anyProcessing, load, refreshFiling]);
 
-  // Reviewed kg per document comes from the filing summary for the selected year.
   const reviewedKg = useMemo(
-    () =>
-      Object.fromEntries(
-        (filing?.documents || []).map((doc) => [doc.id, doc.verified_kg]),
-      ),
+    () => Object.fromEntries((filing?.documents || []).map((doc) => [doc.id, doc.verified_kg])),
     [filing],
   );
 
   const inScope = useMemo(
-    () =>
-      (documents || []).filter(
-        (doc) => showAllYears || doc.financial_year === fy,
-      ),
+    () => (documents || []).filter((doc) => showAllYears || doc.financial_year === fy),
     [documents, showAllYears, fy],
   );
-  // Documents outside the selected year are hidden from the list; say so instead of letting them vanish.
   const otherYears = useMemo(() => {
     const others = (documents || []).filter((doc) => doc.financial_year !== fy);
-    const years = [...new Set(others.map((doc) => doc.financial_year))].sort(
-      (a, b) => a - b,
-    );
+    const years = [...new Set(others.map((doc) => doc.financial_year))].sort((a, b) => a - b);
     return { count: others.length, labels: years.map(fyLabel) };
   }, [documents, fy]);
   const needle = query.trim().toLowerCase();
@@ -822,11 +731,8 @@ export default function Documents() {
       (!needle || doc.filename.toLowerCase().includes(needle)),
   );
   const countFor = (id) =>
-    id === "all"
-      ? inScope.length
-      : inScope.filter((doc) => doc.stage === id).length;
-  const filtersActive =
-    Boolean(needle) || typeFilter !== "all" || filter !== "all";
+    id === "all" ? inScope.length : inScope.filter((doc) => doc.stage === id).length;
+  const filtersActive = Boolean(needle) || typeFilter !== "all" || filter !== "all";
   const toReview = countFor("review");
 
   const refreshAll = () => {
@@ -870,18 +776,15 @@ export default function Documents() {
           <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
             Step 1 · Documents
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Documents
-          </h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">Documents</h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Your EPR evidence for {fyLabel(fy)}. Each document counts toward the
-            year of its invoice date.
+            Your EPR evidence for {fyLabel(fy)}. Each document counts toward the year of its invoice
+            date.
           </p>
         </div>
         {toReview > 0 && (
           <Button to="/review" variant="primary">
-            Review {toReview} document{toReview === 1 ? "" : "s"}{" "}
-            <ArrowRight className="size-4" />
+            Review {toReview} document{toReview === 1 ? "" : "s"} <ArrowRight className="size-4" />
           </Button>
         )}
       </div>
@@ -889,7 +792,6 @@ export default function Documents() {
       <UploadPanel
         onUploaded={refreshAll}
         onOpenDocument={(id) => {
-          // The existing copy may be dated in another year, so show every year.
           setShowAllYears(true);
           setSearchParams({ open: id });
         }}
@@ -904,10 +806,10 @@ export default function Documents() {
             </Button>
           }
         >
-          {otherYears.count} document{otherYears.count === 1 ? " is" : "s are"}{" "}
-          dated in other financial years ({otherYears.labels.join(", ")}) and{" "}
-          {otherYears.count === 1 ? "isn't" : "aren't"} shown below. Each
-          document counts toward the year of its invoice date.
+          {otherYears.count} document{otherYears.count === 1 ? " is" : "s are"} dated in other
+          financial years ({otherYears.labels.join(", ")}) and{" "}
+          {otherYears.count === 1 ? "isn't" : "aren't"} shown below. Each document counts toward the
+          year of its invoice date.
         </Alert>
       )}
 
@@ -920,8 +822,7 @@ export default function Documents() {
           >
             {FILTERS.map((item) => {
               const count = countFor(item.id);
-              if (item.id !== "all" && count === 0 && filter !== item.id)
-                return null;
+              if (item.id !== "all" && count === 0 && filter !== item.id) return null;
               return (
                 <button
                   key={item.id}
@@ -940,9 +841,7 @@ export default function Documents() {
                   <span
                     className={cx(
                       "mono text-[11px] tabular-nums",
-                      item.id === "failed" && count > 0
-                        ? "text-red-600"
-                        : "text-neutral-400",
+                      item.id === "failed" && count > 0 ? "text-red-600" : "text-neutral-400",
                     )}
                   >
                     {count}
@@ -1012,9 +911,7 @@ export default function Documents() {
           <EmptyState
             icon={FileText}
             title={
-              inScope.length === 0
-                ? `No documents for ${fyLabel(fy)} yet`
-                : "No documents match"
+              inScope.length === 0 ? `No documents for ${fyLabel(fy)} yet` : "No documents match"
             }
             description={
               inScope.length === 0
@@ -1041,13 +938,9 @@ export default function Documents() {
               <thead>
                 <tr className="border-b border-neutral-100 text-left text-xs text-neutral-500">
                   <th className="px-5 py-2.5 font-medium">Document</th>
-                  <th className="hidden px-3 py-2.5 font-medium md:table-cell">
-                    Dated
-                  </th>
+                  <th className="hidden px-3 py-2.5 font-medium md:table-cell">Dated</th>
                   <th className="px-3 py-2.5 font-medium">Status</th>
-                  <th className="hidden px-3 py-2.5 font-medium md:table-cell">
-                    Lines reviewed
-                  </th>
+                  <th className="hidden px-3 py-2.5 font-medium md:table-cell">Lines reviewed</th>
                   <th className="hidden px-3 py-2.5 text-right font-medium md:table-cell">
                     Reviewed
                   </th>
@@ -1131,11 +1024,7 @@ export default function Documents() {
                       >
                         <div className="flex justify-end gap-1.5">
                           {doc.stage === "review" && (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              to={`/review?document=${doc.id}`}
-                            >
+                            <Button size="sm" variant="primary" to={`/review?document=${doc.id}`}>
                               Review
                             </Button>
                           )}
@@ -1196,22 +1085,16 @@ export default function Documents() {
         footer={
           <>
             <Button onClick={() => setConfirmDelete(null)}>Cancel</Button>
-            <Button
-              variant="danger"
-              onClick={remove}
-              loading={busyId === confirmDelete?.id}
-            >
+            <Button variant="danger" onClick={remove} loading={busyId === confirmDelete?.id}>
               Delete document
             </Button>
           </>
         }
       >
         <p className="text-sm text-neutral-600">
-          <span className="font-medium text-neutral-950">
-            {confirmDelete?.filename}
-          </span>{" "}
-          and its reviewed lines will be removed, and its quantities will no
-          longer count toward the filing. This can't be undone.
+          <span className="font-medium text-neutral-950">{confirmDelete?.filename}</span> and its
+          reviewed lines will be removed, and its quantities will no longer count toward the filing.
+          This can't be undone.
         </p>
       </Modal>
     </div>

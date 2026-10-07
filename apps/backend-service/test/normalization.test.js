@@ -31,15 +31,11 @@ test("prefers nested OCR line items when the top-level array is empty", () => {
   const items = normalizeLineItems({
     line_items: [],
     extracted_data: {
-      line_items: [
-        { description: "PET resin", quantity: 500, unit: "kg" },
-      ],
+      line_items: [{ description: "PET resin", quantity: 500, unit: "kg" }],
     },
   });
 
-  assert.deepEqual(items, [
-    { description: "PET resin", quantity: 500, unit: "kg" },
-  ]);
+  assert.deepEqual(items, [{ description: "PET resin", quantity: 500, unit: "kg" }]);
 });
 
 test("builds a valid classifier request from short item text", () => {

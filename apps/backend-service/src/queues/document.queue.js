@@ -13,8 +13,6 @@ export const documentQueue = () => {
   return queue;
 };
 
-// One job per document, keyed by its id, so a document is never queued twice. A finished or
-// failed job with the same id is cleared first, which is what a retry needs.
 export const enqueueDocument = async (documentId) => {
   const jobs = documentQueue();
   const existing = await jobs.getJob(documentId);
@@ -23,19 +21,21 @@ export const enqueueDocument = async (documentId) => {
     if (state === "active" || PENDING_STATES.includes(state)) return existing;
     await existing.remove();
   }
-  return jobs.add("process-document", { documentId }, {
-    ...jobOptions(env.PROCESSING_ATTEMPTS),
-    jobId: documentId,
-  });
+  return jobs.add(
+    "process-document",
+    { documentId },
+    {
+      ...jobOptions(env.PROCESSING_ATTEMPTS),
+      jobId: documentId,
+    },
+  );
 };
 
-// "active", "waiting", "delayed", "completed", "failed" or "none".
 export const documentJobState = async (documentId) => {
   const job = await documentQueue()?.getJob(documentId);
   return job ? job.getState() : "none";
 };
 
-// Takes a document out of the queue unless a worker is already on it.
 export const dequeueDocument = async (documentId) => {
   const job = await documentQueue()?.getJob(documentId);
   if (!job) return true;

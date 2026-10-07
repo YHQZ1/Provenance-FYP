@@ -4,13 +4,15 @@ import { obligationService } from "../services/internal/obligation.service.js";
 import { materialsService } from "../services/internal/materials.service.js";
 import { badRequest } from "../utils/errors.js";
 
-const handle = (fn, status = 200) => async (req, res, next) => {
-  try {
-    res.status(status).json({ success: true, data: await fn(req) });
-  } catch (error) {
-    next(error);
-  }
-};
+const handle =
+  (fn, status = 200) =>
+  async (req, res, next) => {
+    try {
+      res.status(status).json({ success: true, data: await fn(req) });
+    } catch (error) {
+      next(error);
+    }
+  };
 
 const readYear = (raw, fallback) => {
   if (raw === undefined || raw === "") return fallback;
@@ -21,7 +23,6 @@ const readYear = (raw, fallback) => {
   return year;
 };
 
-// Activity, obligations and the materials library: the workspace tools around the filing.
 export const workspaceController = {
   activity: async (req, res, next) => {
     try {
@@ -29,7 +30,8 @@ export const workspaceController = {
       if (group && !ACTIVITY_GROUPS[group]) {
         throw badRequest(`group must be one of ${Object.keys(ACTIVITY_GROUPS).join(", ")}`);
       }
-      if (before && Number.isNaN(Date.parse(before))) throw badRequest("before must be a timestamp");
+      if (before && Number.isNaN(Date.parse(before)))
+        throw badRequest("before must be a timestamp");
       const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 1000);
       const result = await activityService.list(req.user.id, {
         fy: req.query.fy === "all" ? null : readYear(req.query.fy, null),

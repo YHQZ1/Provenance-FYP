@@ -21,8 +21,7 @@ export default function NotFound() {
           This page doesn't exist
         </h1>
         <p className="mt-3 text-neutral-600">
-          The link may be old or mistyped. Nothing in your workspace has
-          changed.
+          The link may be old or mistyped. Nothing in your workspace has changed.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-2">
           <Button to="/dashboard" variant="primary">

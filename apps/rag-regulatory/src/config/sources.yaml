@@ -1,5 +1,3 @@
-# Official sources ingested by scripts/ingest.py. Titles are shown to users as citations,
-# so keep them matched to the document behind each URL.
 sources:
   - title: "CPCB Guidance Manual for the Centralized EPR Portal for Plastic Packaging"
     category: "plastic_epr"

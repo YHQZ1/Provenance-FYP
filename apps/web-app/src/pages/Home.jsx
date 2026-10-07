@@ -17,7 +17,6 @@ import { useWorkspace } from "../lib/workspace";
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 const DAY_MS = 86400000;
 
-// One clear next step, derived from the same filing data the Filing page uses.
 const nextAction = (filing, profileComplete) => {
   const counts = filing.counts;
   if (!profileComplete) {
@@ -83,16 +82,12 @@ const nextAction = (filing, profileComplete) => {
   };
 };
 
-/* ------------------------------------------------------------------ */
-/* Derived insights. Everything here comes from the filing summary; nothing is estimated. */
-
 const useInsights = (filing) =>
   useMemo(() => {
     if (!filing) return null;
     const start = filing.financial_year.start_year;
     const today = new Date();
 
-    // Purchase-invoice intake per month of the financial year, by invoice date.
     const months = FY_MONTHS.map((label, index) => {
       const year = index < 9 ? start : start + 1;
       const month = ((index + 3) % 12) + 1;
@@ -103,7 +98,6 @@ const useInsights = (filing) =>
           month: "long",
           year: "numeric",
         }),
-        // A month can only be "missing" once it has started.
         started: new Date(year, month - 1, 1) <= today,
         kg: 0,
         documents: 0,
@@ -123,9 +117,7 @@ const useInsights = (filing) =>
     const recycled = filing.totals.recycled.total_kg;
     const due = annualReturnDue(start);
     const daysLeft = Math.ceil((due - today) / DAY_MS);
-    const uploadDated = filing.documents.filter(
-      (doc) => doc.date_source === "upload",
-    ).length;
+    const uploadDated = filing.documents.filter((doc) => doc.date_source === "upload").length;
 
     const blocked = new Set(filing.blockers.map((b) => b.key));
     const checks = [
@@ -174,18 +166,13 @@ const useInsights = (filing) =>
     };
   }, [filing]);
 
-/* ------------------------------------------------------------------ */
-
 function Panel({ title, description, action, children, className }) {
   return (
-    // min-w-0 lets grid columns shrink below their longest unwrapped label on small screens.
     <Card className={cx("flex min-w-0 flex-col", className)}>
       <div className="flex items-start justify-between gap-4 px-5 pb-1 pt-5">
         <div>
           <h2 className="text-sm font-semibold text-neutral-950">{title}</h2>
-          {description && (
-            <p className="mt-0.5 text-sm text-neutral-500">{description}</p>
-          )}
+          {description && <p className="mt-0.5 text-sm text-neutral-500">{description}</p>}
         </div>
         {action}
       </div>
@@ -228,13 +215,9 @@ function NextStep({ filing, profileComplete, checks }) {
     <Card className="overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-6 bg-neutral-950 px-6 py-6 text-white">
         <div className="max-w-2xl">
-          <p className="mono text-[10px] uppercase tracking-[0.14em] text-emerald-500">
-            Next step
-          </p>
+          <p className="mono text-[10px] uppercase tracking-[0.14em] text-emerald-500">Next step</p>
           <p className="mt-2 text-lg font-semibold">{action.title}</p>
-          {action.body && (
-            <p className="mt-1 text-sm text-neutral-400">{action.body}</p>
-          )}
+          {action.body && <p className="mt-1 text-sm text-neutral-400">{action.body}</p>}
         </div>
         {action.busy ? (
           <span className="flex items-center gap-2 text-sm text-neutral-300">
@@ -267,7 +250,6 @@ function IntakeChart({ months, missing, startYear }) {
   return (
     <div>
       <div className="relative flex h-56 gap-2">
-        {/* y-axis */}
         <div className="flex w-14 shrink-0 flex-col justify-between pb-6 text-right">
           {ticks.map((tick) => (
             <span
@@ -280,7 +262,6 @@ function IntakeChart({ months, missing, startYear }) {
         </div>
 
         <div className="relative flex-1">
-          {/* gridlines */}
           <div
             className="absolute inset-x-0 bottom-6 top-0 flex flex-col justify-between"
             aria-hidden
@@ -315,18 +296,12 @@ function IntakeChart({ months, missing, startYear }) {
                       <span
                         className={cx(
                           "w-full max-w-6 rounded-t-[3px] transition-colors",
-                          hovered === index
-                            ? "bg-emerald-700"
-                            : "bg-emerald-600",
+                          hovered === index ? "bg-emerald-700" : "bg-emerald-600",
                           month.kg === 0 && "bg-neutral-200",
                         )}
                         style={{
                           height:
-                            month.kg > 0
-                              ? `max(${height}%, 3px)`
-                              : month.documents
-                                ? "3px"
-                                : 0,
+                            month.kg > 0 ? `max(${height}%, 3px)` : month.documents ? "3px" : 0,
                         }}
                         aria-hidden
                       />
@@ -343,9 +318,7 @@ function IntakeChart({ months, missing, startYear }) {
 
                   {hovered === index && (
                     <div className="pointer-events-none absolute bottom-full z-20 mb-1 w-max rounded-md border border-neutral-200 bg-white px-3 py-2 text-xs shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
-                      <p className="font-medium text-neutral-950">
-                        {month.name}
-                      </p>
+                      <p className="font-medium text-neutral-950">{month.name}</p>
                       <p className="mt-0.5 text-neutral-600">
                         {month.documents === 0
                           ? month.started
@@ -365,18 +338,16 @@ function IntakeChart({ months, missing, startYear }) {
       <div className="mt-4 border-t border-neutral-100 pt-4 text-sm">
         {missing.length === 0 ? (
           <p className="text-neutral-600">
-            Every month of {fyLabel(startYear)} so far has at least one purchase
-            invoice.
+            Every month of {fyLabel(startYear)} so far has at least one purchase invoice.
           </p>
         ) : (
           <p className="text-neutral-600">
             <span className="font-medium text-neutral-950">
-              No purchase invoices dated in{" "}
-              {listMonths(missing.map((m) => m.label))}.
+              No purchase invoices dated in {listMonths(missing.map((m) => m.label))}.
             </span>{" "}
             If you bought plastic packaging in{" "}
-            {missing.length === 1 ? "that month" : "those months"}, upload the
-            invoices so the year is complete.
+            {missing.length === 1 ? "that month" : "those months"}, upload the invoices so the year
+            is complete.
           </p>
         )}
       </div>
@@ -389,7 +360,6 @@ const listMonths = (labels) =>
     ? labels.join(" and ")
     : `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
 
-// Rounds an axis maximum up to 1, 2 or 5 × a power of ten.
 function niceCeiling(value) {
   const power = 10 ** Math.floor(Math.log10(value));
   const step = [1, 2, 5, 10].find((m) => m * power >= value);
@@ -397,8 +367,7 @@ function niceCeiling(value) {
 }
 
 function Breakdown({ rows, total, empty }) {
-  if (rows.length === 0)
-    return <p className="text-sm text-neutral-500">{empty}</p>;
+  if (rows.length === 0) return <p className="text-sm text-neutral-500">{empty}</p>;
   const max = Math.max(...rows.map((row) => row.kg));
   return (
     <ul className="space-y-4">
@@ -407,9 +376,7 @@ function Breakdown({ rows, total, empty }) {
           <div className="mb-1.5 flex items-baseline justify-between gap-4 text-sm">
             <span className="min-w-0 truncate">
               <span className="font-medium text-neutral-950">{row.title}</span>
-              {row.subtitle && (
-                <span className="text-neutral-500"> · {row.subtitle}</span>
-              )}
+              {row.subtitle && <span className="text-neutral-500"> · {row.subtitle}</span>}
             </span>
             <span className="shrink-0 tabular-nums text-neutral-600">
               {formatKg(row.kg)}
@@ -465,15 +432,10 @@ function Pipeline({ counts }) {
               >
                 {stage.label}
               </span>
-              <span className="block text-xs text-neutral-500">
-                {stage.hint}
-              </span>
+              <span className="block text-xs text-neutral-500">{stage.hint}</span>
             </span>
             <span className="flex-1">
-              <span
-                className="block h-1.5 rounded-sm bg-neutral-100"
-                aria-hidden
-              >
+              <span className="block h-1.5 rounded-sm bg-neutral-100" aria-hidden>
                 <span
                   className={cx(
                     "block h-1.5 rounded-sm",
@@ -514,9 +476,7 @@ function Checklist({ checks }) {
             <span
               className={cx(
                 "flex-1",
-                check.done
-                  ? "text-neutral-500"
-                  : "font-medium text-neutral-950",
+                check.done ? "text-neutral-500" : "font-medium text-neutral-950",
               )}
             >
               {check.label}
@@ -537,9 +497,7 @@ function Checklist({ checks }) {
 function RecentDocuments({ documents }) {
   if (documents.length === 0) {
     return (
-      <p className="text-sm text-neutral-500">
-        No documents dated in this financial year yet.
-      </p>
+      <p className="text-sm text-neutral-500">No documents dated in this financial year yet.</p>
     );
   }
   return (
@@ -564,16 +522,13 @@ function RecentDocuments({ documents }) {
                   {doc.filename}
                 </Link>
                 <span className="text-xs text-neutral-500">
-                  {doc.document_type_label ||
-                    documentTypeLabel(doc.document_type)}
+                  {doc.document_type_label || documentTypeLabel(doc.document_type)}
                 </span>
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 text-neutral-600">
                 {formatDate(doc.effective_date)}
                 {doc.date_source === "upload" && (
-                  <span className="block text-xs text-neutral-400">
-                    upload date
-                  </span>
+                  <span className="block text-xs text-neutral-400">upload date</span>
                 )}
               </td>
               <td className="px-3 py-2.5">
@@ -590,11 +545,8 @@ function RecentDocuments({ documents }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 export default function Home() {
-  const { filing, filingError, refreshFiling, profileComplete, company } =
-    useWorkspace();
+  const { filing, filingError, refreshFiling, profileComplete, company } = useWorkspace();
   const insights = useInsights(filing);
 
   if (filingError && !filing) {
@@ -638,9 +590,7 @@ export default function Home() {
       subtitle: MATERIALS.find((m) => m.code === code)?.name.split("— ")[1],
       kg,
     }));
-  const categoryRows = Object.entries(
-    filing.totals.introduced.by_category || {},
-  )
+  const categoryRows = Object.entries(filing.totals.introduced.by_category || {})
     .sort((a, b) => b[1] - a[1])
     .map(([key, kg]) => ({
       key,
@@ -678,11 +628,7 @@ export default function Home() {
         </div>
       </div>
 
-      <NextStep
-        filing={filing}
-        profileComplete={profileComplete}
-        checks={insights.checks}
-      />
+      <NextStep filing={filing} profileComplete={profileComplete} checks={insights.checks} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi
@@ -698,9 +644,7 @@ export default function Home() {
               ? "Shown against plastic introduced once invoices are reviewed"
               : `Certificates equal to ${Math.round(insights.coverage * 100)}% of plastic introduced`
           }
-          foot={
-            insights.coverage != null && <Meter value={insights.coverage} />
-          }
+          foot={insights.coverage != null && <Meter value={insights.coverage} />}
         />
         <Kpi
           label="Waiting for review"
@@ -754,10 +698,7 @@ export default function Home() {
           />
         </Panel>
 
-        <Panel
-          title="Readiness"
-          description="What stands between you and a finalized year."
-        >
+        <Panel title="Readiness" description="What stands between you and a finalized year.">
           <Checklist checks={insights.checks} />
           {(filing.warnings?.length > 0 || insights.uploadDated > 0) && (
             <div className="mt-4 space-y-2 border-t border-neutral-100 pt-4 text-sm text-neutral-600">
@@ -795,16 +736,9 @@ export default function Home() {
           />
         </Panel>
 
-        <Panel
-          title="By CPCB category"
-          description="EPR targets are set per category."
-        >
+        <Panel title="By CPCB category" description="EPR targets are set per category.">
           {showCategories ? (
-            <Breakdown
-              rows={categoryRows}
-              total={insights.introduced}
-              empty=""
-            />
+            <Breakdown rows={categoryRows} total={insights.introduced} empty="" />
           ) : (
             <p className="text-sm text-neutral-500">
               Category totals appear here as classified lines are reviewed.

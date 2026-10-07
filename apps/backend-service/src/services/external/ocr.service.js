@@ -74,10 +74,7 @@ export const ocrService = {
         throw new Error(`OCR result update failed: ${updateError.message}`);
       }
 
-      await supabaseAdmin
-        .from("document_classifications")
-        .delete()
-        .eq("document_id", documentId);
+      await supabaseAdmin.from("document_classifications").delete().eq("document_id", documentId);
 
       const classifications = items.map((item) => ({
         document_id: documentId,
@@ -96,7 +93,8 @@ export const ocrService = {
           material_code: null,
           quantity_kg: null,
           confidence_score: 0,
-          reasoning: "No line items were extracted. Enter the material and quantity from the document, or exclude it.",
+          reasoning:
+            "No line items were extracted. Enter the material and quantity from the document, or exclude it.",
           matched_synonym: "Whole document (no line items detected)",
           requires_human_review: true,
           verified_by_user: false,
@@ -115,15 +113,12 @@ export const ocrService = {
       console.log(`[OCR] Document ${documentId} processed successfully`);
       return { ...result, line_items: items };
     } catch (error) {
-      // The caller decides between retrying and marking the document failed.
       console.error(`[OCR] Failed for document ${documentId}:`, error.message);
       throw new Error(`Text extraction failed: ${error.message}`, { cause: error });
     }
   },
 };
 
-// OCR is the slowest step, so its output is kept for a day by file hash: a retry after a later
-// failure reuses it instead of reading the document again.
 const OCR_CACHE_SECONDS = 24 * 3600;
 const readDocument = (file, fileHash) =>
   fileHash
@@ -136,20 +131,17 @@ const requestOcrService = async (file) => {
   }
 
   const form = new FormData();
-  form.append(
-    "file",
-    new Blob([file.buffer], { type: file.mimetype }),
-    file.originalname,
-  );
+  form.append("file", new Blob([file.buffer], { type: file.mimetype }), file.originalname);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), env.OCR_TIMEOUT_MS);
 
   try {
-    const response = await fetch(
-      `${env.OCR_SERVICE_URL.replace(/\/$/, "")}/v1/ocr`,
-      { method: "POST", body: form, signal: controller.signal },
-    );
+    const response = await fetch(`${env.OCR_SERVICE_URL.replace(/\/$/, "")}/v1/ocr`, {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    });
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {

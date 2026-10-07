@@ -17,12 +17,7 @@ import {
   useToast,
 } from "../components/ui";
 
-const CATEGORY_OPTIONS = [
-  "CATEGORY_I",
-  "CATEGORY_II",
-  "CATEGORY_III",
-  "CATEGORY_IV",
-];
+const CATEGORY_OPTIONS = ["CATEGORY_I", "CATEGORY_II", "CATEGORY_III", "CATEGORY_IV"];
 const EMPTY_FORM = {
   trade_name: "",
   material_code: "",
@@ -47,8 +42,7 @@ function AddModal({ open, initial, onClose, onSaved }) {
     if (open) setForm({ ...EMPTY_FORM, ...initial });
   }, [open, initial]);
 
-  const set = (key) => (event) =>
-    setForm((current) => ({ ...current, [key]: event.target.value }));
+  const set = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
   const valid = form.trade_name.trim().length >= 2 && form.material_code;
 
   const save = async () => {
@@ -76,12 +70,7 @@ function AddModal({ open, initial, onClose, onSaved }) {
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
-          <Button
-            variant="primary"
-            onClick={save}
-            loading={saving}
-            disabled={!valid}
-          >
+          <Button variant="primary" onClick={save} loading={saving} disabled={!valid}>
             Add trade name
           </Button>
         </>
@@ -93,20 +82,11 @@ function AddModal({ open, initial, onClose, onSaved }) {
           htmlFor="trade-name"
           hint="As it appears on invoices, for example POLYPET 3020. Matching ignores case and punctuation."
         >
-          <Input
-            id="trade-name"
-            value={form.trade_name}
-            onChange={set("trade_name")}
-            autoFocus
-          />
+          <Input id="trade-name" value={form.trade_name} onChange={set("trade_name")} autoFocus />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Material" htmlFor="trade-material">
-            <Select
-              id="trade-material"
-              value={form.material_code}
-              onChange={set("material_code")}
-            >
+            <Select id="trade-material" value={form.material_code} onChange={set("material_code")}>
               <option value="">Choose material</option>
               {MATERIALS.map((m) => (
                 <option key={m.code} value={m.code}>
@@ -120,11 +100,7 @@ function AddModal({ open, initial, onClose, onSaved }) {
             htmlFor="trade-category"
             hint="Optional. Without it the line still needs a category in review."
           >
-            <Select
-              id="trade-category"
-              value={form.cpcb_category}
-              onChange={set("cpcb_category")}
-            >
+            <Select id="trade-category" value={form.cpcb_category} onChange={set("cpcb_category")}>
               <option value="">Not sure</option>
               {CATEGORY_OPTIONS.map((key) => (
                 <option key={key} value={key}>
@@ -182,9 +158,7 @@ export default function Materials() {
 
   const q = query.trim().toLowerCase();
   const names = useMemo(() => {
-    const byCode = Object.fromEntries(
-      (library?.materials || []).map((m) => [m.material_code, m]),
-    );
+    const byCode = Object.fromEntries((library?.materials || []).map((m) => [m.material_code, m]));
     return { byCode };
   }, [library]);
 
@@ -219,8 +193,7 @@ export default function Materials() {
   const catalogue = library.catalogue.filter((c) =>
     matches(q, c.synonym, c.material_code, c.manufacturer, c.description),
   );
-  const catalogueCount = (code) =>
-    library.catalogue.filter((c) => c.material_code === code).length;
+  const catalogueCount = (code) => library.catalogue.filter((c) => c.material_code === code).length;
 
   return (
     <div className="space-y-6">
@@ -229,28 +202,21 @@ export default function Materials() {
           <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
             Tools · Materials library
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Materials library
-          </h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">Materials library</h1>
           <p className="mt-1 max-w-2xl text-sm text-neutral-500">
-            The trade names Provenance recognises on invoices. Add your
-            suppliers&apos; names and lines that mention them are suggested
-            straight away, without waiting on the classifier.
+            The trade names Provenance recognises on invoices. Add your suppliers&apos; names and
+            lines that mention them are suggested straight away, without waiting on the classifier.
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={() => setAdding({})}
-          disabled={!library.available}
-        >
+        <Button variant="primary" onClick={() => setAdding({})} disabled={!library.available}>
           <Plus className="size-4" /> Add trade name
         </Button>
       </div>
 
       {!library.available && (
         <Alert tone="warn" title="Your own trade names aren't set up yet">
-          Apply supabase/migrations/007_activity_obligations_trade_names.sql to
-          add trade names. The built-in catalogue below already works.
+          Apply supabase/migrations/007_activity_obligations_trade_names.sql to add trade names. The
+          built-in catalogue below already works.
         </Alert>
       )}
 
@@ -280,9 +246,7 @@ export default function Materials() {
             description="Add the names your suppliers use, or pick from the suggestions below when you have corrected lines in review."
           />
         ) : tradeNames.length === 0 ? (
-          <p className="px-5 pb-5 text-sm text-neutral-500">
-            No trade names match “{query}”.
-          </p>
+          <p className="px-5 pb-5 text-sm text-neutral-500">No trade names match “{query}”.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
@@ -301,18 +265,10 @@ export default function Materials() {
                 {tradeNames.map((entry) => (
                   <tr key={entry.id}>
                     <td className="px-5 py-3">
-                      <p className="font-medium text-neutral-950">
-                        {entry.trade_name}
-                      </p>
-                      {entry.notes && (
-                        <p className="text-xs text-neutral-500">
-                          {entry.notes}
-                        </p>
-                      )}
+                      <p className="font-medium text-neutral-950">{entry.trade_name}</p>
+                      {entry.notes && <p className="text-xs text-neutral-500">{entry.notes}</p>}
                     </td>
-                    <td className="mono px-3 py-3 text-neutral-700">
-                      {entry.material_code}
-                    </td>
+                    <td className="mono px-3 py-3 text-neutral-700">{entry.material_code}</td>
                     <td className="px-3 py-3 text-neutral-700">
                       {entry.cpcb_category ? (
                         CPCB_CATEGORIES[entry.cpcb_category]?.short
@@ -322,9 +278,7 @@ export default function Materials() {
                     </td>
                     <td className="px-3 py-3 text-xs text-neutral-500">
                       {entry.created_by_name && (
-                        <span className="block text-neutral-700">
-                          {entry.created_by_name}
-                        </span>
+                        <span className="block text-neutral-700">{entry.created_by_name}</span>
                       )}
                       {formatDate(entry.created_at)}
                     </td>
@@ -336,8 +290,7 @@ export default function Materials() {
                         loading={removing === entry.id}
                         aria-label={`Remove ${entry.trade_name}`}
                       >
-                        {removing !== entry.id && <X className="size-3.5" />}{" "}
-                        Remove
+                        {removing !== entry.id && <X className="size-3.5" />} Remove
                       </Button>
                     </td>
                   </tr>
@@ -362,19 +315,12 @@ export default function Materials() {
                   key={`${suggestion.line}-${suggestion.material_code}`}
                   className="flex flex-wrap items-center gap-3 px-5 py-3"
                 >
-                  <Sparkles
-                    className="size-4 shrink-0 text-emerald-600"
-                    aria-hidden
-                  />
+                  <Sparkles className="size-4 shrink-0 text-emerald-600" aria-hidden />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-neutral-950">
-                      {suggestion.line}
-                    </p>
+                    <p className="truncate text-sm text-neutral-950">{suggestion.line}</p>
                     <p className="text-xs text-neutral-500">
                       Corrected to{" "}
-                      <span className="mono text-neutral-700">
-                        {suggestion.material_code}
-                      </span>
+                      <span className="mono text-neutral-700">{suggestion.material_code}</span>
                       {suggestion.times > 1 && ` ${suggestion.times} times`}
                     </p>
                   </div>
@@ -403,17 +349,9 @@ export default function Materials() {
         />
         <div className="grid gap-px border-b border-neutral-200 bg-neutral-200 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {library.materials.map((material) => (
-            <div
-              key={material.material_code}
-              className="min-w-0 bg-white px-4 py-3"
-            >
-              <p className="mono text-sm font-medium text-neutral-950">
-                {material.material_code}
-              </p>
-              <p
-                className="truncate text-xs text-neutral-600"
-                title={material.material_name}
-              >
+            <div key={material.material_code} className="min-w-0 bg-white px-4 py-3">
+              <p className="mono text-sm font-medium text-neutral-950">{material.material_code}</p>
+              <p className="truncate text-xs text-neutral-600" title={material.material_name}>
                 {material.material_name}
               </p>
               <p className="mt-1 text-[11px] text-neutral-400">
@@ -443,9 +381,7 @@ export default function Materials() {
               <tbody className="divide-y divide-neutral-100">
                 {catalogue.map((entry) => (
                   <tr key={entry.id}>
-                    <td className="px-5 py-2.5 text-neutral-950">
-                      {entry.synonym}
-                    </td>
+                    <td className="px-5 py-2.5 text-neutral-950">{entry.synonym}</td>
                     <td className="px-3 py-2.5">
                       <Badge tone="neutral" className="mono">
                         {entry.material_code}
@@ -454,12 +390,8 @@ export default function Materials() {
                         {names.byCode[entry.material_code]?.material_name}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-neutral-700">
-                      {entry.manufacturer || "—"}
-                    </td>
-                    <td className="px-5 py-2.5 text-neutral-500">
-                      {entry.description || "—"}
-                    </td>
+                    <td className="px-3 py-2.5 text-neutral-700">{entry.manufacturer || "—"}</td>
+                    <td className="px-5 py-2.5 text-neutral-500">{entry.description || "—"}</td>
                   </tr>
                 ))}
               </tbody>

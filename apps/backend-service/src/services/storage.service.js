@@ -23,9 +23,7 @@ export const storageService = {
   async uploadFile(localFilePath, userId, originalName) {
     const ext = path.extname(originalName);
     const timestamp = Date.now();
-    const safeName = path
-      .basename(originalName, ext)
-      .replace(/[^a-zA-Z0-9]/g, "_");
+    const safeName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9]/g, "_");
     const storagePath = `${userId}/${timestamp}-${safeName}${ext}`;
 
     const fileBuffer = await fs.readFile(localFilePath);
@@ -33,8 +31,7 @@ export const storageService = {
     const { error } = await supabaseAdmin.storage
       .from(BUCKET_NAME)
       .upload(storagePath, fileBuffer, {
-        contentType:
-          CONTENT_TYPES[ext.toLowerCase()] || "application/octet-stream",
+        contentType: CONTENT_TYPES[ext.toLowerCase()] || "application/octet-stream",
         upsert: false,
       });
 
@@ -45,8 +42,6 @@ export const storageService = {
     return { path: storagePath };
   },
 
-  // Signing is a round trip to Supabase each time a document is opened, so a link is reused for
-  // all but the last two minutes of its life.
   async getSignedUrl(storagePath, expiresInSeconds = 3600) {
     const reuseFor = expiresInSeconds - 120;
     const create = async () => {
@@ -65,9 +60,7 @@ export const storageService = {
   },
 
   async downloadFile(storagePath) {
-    const { data, error } = await supabaseAdmin.storage
-      .from(BUCKET_NAME)
-      .download(storagePath);
+    const { data, error } = await supabaseAdmin.storage.from(BUCKET_NAME).download(storagePath);
 
     if (error) throw new Error(`Failed to download file: ${error.message}`);
 
@@ -75,9 +68,7 @@ export const storageService = {
   },
 
   async deleteFile(storagePath) {
-    const { error } = await supabaseAdmin.storage
-      .from(BUCKET_NAME)
-      .remove([storagePath]);
+    const { error } = await supabaseAdmin.storage.from(BUCKET_NAME).remove([storagePath]);
 
     if (error) throw new Error(`Failed to delete file: ${error.message}`);
   },

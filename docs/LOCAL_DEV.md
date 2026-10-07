@@ -16,12 +16,14 @@ None of these are committed. Copy each example and fill it in:
 cp apps/backend-service/.env.example apps/backend-service/.env.development
 cp apps/web-app/.env.example        apps/web-app/.env.development
 cp apps/rag-classify/.env.example   apps/rag-classify/.env
+cp infra/.env.example                infra/.env
 ```
 
 | File | Key values |
 | --- | --- |
 | `backend-service/.env.development` | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Docker Compose overrides the service URLs with container hostnames. |
 | `web-app/.env.development` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_API_URL=http://localhost:3000` |
+| `infra/.env` | Every port and service address the Docker stack uses (`REDIS_URL`, `OLLAMA_HOST`, `OCR_SERVICE_URL`, `CORS_ORIGIN`, `PUBLIC_API_URL`, and so on). Compose and the Makefile both read it; nothing is hardcoded. Change a port or address here. |
 | `rag-classify/.env` | `DATABASE_URL`: the Supabase Postgres connection string (Project Settings → Database). The `db-*` make targets read it too. |
 
 The service-role key and database URL are full-access credentials. Keep them out of the frontend and out of git.
@@ -36,7 +38,7 @@ The service-role key and database URL are full-access credentials. Keep them out
 ## 3. Run
 
 ```bash
-make up        # build and start all eight services; the app is on http://localhost:5173
+make up        # build and start all eight services; the app is at FRONTEND_URL in infra/.env
 make models    # first run: pull llama3.2:3b into the Ollama container
 make ingest    # first run: download and index the regulatory sources (a few minutes)
 make bench     # optional: time the slow paths, to compare before and after a change
@@ -87,6 +89,7 @@ The frontend works the same way: `make stop s=frontend`, then `cd apps/web-app &
 ```bash
 make setup     # once: npm installs plus a .venv for the Python tests
 make check     # what CI runs: lint, every test suite, the web build
+make format    # Prettier for JS, CSS and JSON; Black for Python
 make test-backend   # or test-web, test-ocr, test-classify, test-regulatory
 ```
 

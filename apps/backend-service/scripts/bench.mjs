@@ -1,6 +1,3 @@
-// Times the paths the queue and cache work targets, against the running stack and live Supabase.
-// Run with `make bench`. Optional: BENCH_TOKEN=<a Supabase access token> also times real API calls,
-// which include the auth middleware. Each path runs RUNS times; the median and first run are shown.
 import { supabaseAdmin } from "../src/config/database.js";
 import { complianceService } from "../src/services/internal/compliance.service.js";
 import { documentService } from "../src/services/internal/document.service.js";
@@ -11,7 +8,7 @@ import { ragService } from "../src/services/external/rag.service.js";
 import { regulatoryService } from "../src/services/external/regulatory.service.js";
 
 const RUNS = Number(process.env.BENCH_RUNS || 3);
-const API = process.env.BENCH_API || "http://localhost:3000/api";
+const API = process.env.BENCH_API;
 const results = [];
 
 const time = async (label, fn, runs = RUNS) => {
@@ -52,26 +49,25 @@ await time("filing summary", () => complianceService.getFiling(companyId, fy));
 await time("obligations", () => obligationService.get(companyId, fy));
 await time("documents list", () => documentService.listDocuments(companyId));
 await time("signed file URL", () => storageService.getSignedUrl(filePath, 600));
-// Through the backend, as the app calls them, so caching is included. The first run may be a miss.
 await time("classifier, one line", () =>
-  ragService.classifyItems([{ description: "PET preform 25g neck 1810", quantity: 500, unit: "kg" }]),
+  ragService.classifyItems([
+    { description: "PET preform 25g neck 1810", quantity: 500, unit: "kg" },
+  ]),
 );
-await time(
-  "regulatory question",
-  () =>
-    regulatoryService.query(
-      "How is environmental compensation calculated for a shortfall in EPR targets?",
-    ),
+await time("regulatory question", () =>
+  regulatoryService.query(
+    "How is environmental compensation calculated for a shortfall in EPR targets?",
+  ),
 );
 
-if (process.env.BENCH_TOKEN) {
+if (process.env.BENCH_TOKEN && API) {
   const get = (path) =>
-    fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${process.env.BENCH_TOKEN}` } }).then(
-      (response) => {
-        if (!response.ok) throw new Error(`${path} returned ${response.status}`);
-        return response.json();
-      },
-    );
+    fetch(`${API}${path}`, {
+      headers: { Authorization: `Bearer ${process.env.BENCH_TOKEN}` },
+    }).then((response) => {
+      if (!response.ok) throw new Error(`${path} returned ${response.status}`);
+      return response.json();
+    });
   await time("API GET /auth/me", () => get("/auth/me"));
   await time("API GET /compliance/filing", () => get(`/compliance/filing?fy=${fy}`));
   await time("API GET /documents", () => get("/documents"));
@@ -81,6 +77,11 @@ console.log(`\nProvenance benchmark · ${new Date().toISOString()} · ${RUNS} ru
 console.log("Path".padEnd(34), "First".padStart(9), "Median".padStart(9));
 for (const row of results) {
   if (row.error) console.log(row.label.padEnd(34), `  error: ${row.error}`);
-  else console.log(row.label.padEnd(34), `${row.first} ms`.padStart(9), `${row.median} ms`.padStart(9));
+  else
+    console.log(
+      row.label.padEnd(34),
+      `${row.first} ms`.padStart(9),
+      `${row.median} ms`.padStart(9),
+    );
 }
 process.exit(0);

@@ -11,8 +11,6 @@ import { cache } from "../../config/redis.js";
 import { classificationCacheText, digest } from "../../lib/cache-keys.js";
 import { classifierTag } from "./answer-tags.js";
 
-// Suppliers repeat the same line descriptions every month; a classified line is reused for 30
-// days. Failed or unidentified results are never cached.
 const CLASSIFICATION_CACHE_SECONDS = 30 * 24 * 3600;
 
 const classifyLine = async (item) => {
@@ -32,7 +30,6 @@ import { matchTradeName } from "../internal/trade-names.js";
 
 const REVIEW_THRESHOLD = 0.85;
 
-// Runs fn over items with at most `limit` in flight, keeping result order.
 const mapWithConcurrency = async (items, limit, fn) => {
   const results = new Array(items.length);
   let next = 0;
@@ -76,8 +73,6 @@ export const ragService = {
 
       const classifications = await this.classifyWithTradeNames(documentId, items);
 
-      // Suggestions are never auto-approved: a person confirms every line,
-      // high-confidence ones in bulk. verified_by_user stays a human signal.
       const { classificationCategory } = await schema();
       const classificationInserts = classifications.map((classification) => ({
         ...(classificationCategory && { cpcb_category: classification.cpcb_category || null }),
@@ -108,8 +103,7 @@ export const ragService = {
 
       const failedCount = classifications.filter((c) => c.failed).length;
       const averageConfidence =
-        classifications.reduce((sum, c) => sum + c.confidence_score, 0) /
-        classifications.length;
+        classifications.reduce((sum, c) => sum + c.confidence_score, 0) / classifications.length;
 
       const { error: updateError } = await supabaseAdmin
         .from("documents")
@@ -136,14 +130,11 @@ export const ragService = {
 
       return classifications;
     } catch (error) {
-      // The caller decides between retrying and marking the document failed.
       console.error(`[RAG] Failed for document ${documentId}:`, error.message);
       throw new Error(`Classification failed: ${error.message}`, { cause: error });
     }
   },
 
-  // Lines naming one of the company's own trade names are suggested from the Materials library;
-  // the rest go to the classifier. Either way a person still approves every line.
   async classifyWithTradeNames(documentId, items) {
     const { data: document } = await supabaseAdmin
       .from("documents")
@@ -253,22 +244,20 @@ const requestRagService = async (text) => {
   const timeout = setTimeout(() => controller.abort(), env.RAG_TIMEOUT_MS);
 
   try {
-    const response = await fetch(
-      `${env.RAG_SERVICE_URL.replace(/\/$/, "")}/classify`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-        signal: controller.signal,
-      },
-    );
+    const response = await fetch(`${env.RAG_SERVICE_URL.replace(/\/$/, "")}/classify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: controller.signal,
+    });
 
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      const detail = typeof payload.detail === "string"
-        ? payload.detail
-        : payload.detail?.error || payload.message || "request failed";
+      const detail =
+        typeof payload.detail === "string"
+          ? payload.detail
+          : payload.detail?.error || payload.message || "request failed";
       throw new Error(`RAG service returned ${response.status}: ${detail}`);
     }
 

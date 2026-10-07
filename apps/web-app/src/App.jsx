@@ -1,10 +1,4 @@
-import {
-  BrowserRouter,
-  Navigate,
-  Outlet,
-  Route,
-  Routes,
-} from "react-router-dom";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
 import Provenance from "./pages/Provenance.jsx";
 import Auth from "./pages/Auth.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
@@ -56,21 +50,11 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
           </Route>
 
-          {/* Old routes from the previous navigation. */}
-          <Route
-            path="/upload"
-            element={<Navigate to="/documents" replace />}
-          />
-          <Route
-            path="/validation"
-            element={<Navigate to="/review" replace />}
-          />
+          <Route path="/upload" element={<Navigate to="/documents" replace />} />
+          <Route path="/validation" element={<Navigate to="/review" replace />} />
           <Route path="/mapping" element={<Navigate to="/filing" replace />} />
           <Route path="/reports" element={<Navigate to="/filing" replace />} />
-          <Route
-            path="/insights"
-            element={<Navigate to="/dashboard" replace />}
-          />
+          <Route path="/insights" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -6,17 +6,18 @@ import { documentService } from "./document.service.js";
 import { summarizeFiling } from "./filing.summary.js";
 import { workspaceCache } from "./workspace.cache.js";
 
-// Long enough to serve page loads and polling; any write replaces it via the data version.
-const FILING_CACHE_SECONDS = 600;
 import { conflict, unavailable } from "../../utils/errors.js";
+import { env } from "../../config/env.js";
+
+const FILING_CACHE_SECONDS = 600;
 
 const SOURCE_BASIS = [
   {
     title: "CPCB Guidance Manual for Centralized EPR Portal for Plastic Packaging",
-    url: "https://eprplastic.cpcb.gov.in/assets/pdfs/Guidance_Manual.pdf",
+    url: env.EPR_GUIDANCE_MANUAL_URL,
   },
-  { title: "CPCB Centralized EPR Portal for Plastic Packaging", url: "https://eprplastic.cpcb.gov.in/" },
-];
+  { title: "CPCB Centralized EPR Portal for Plastic Packaging", url: env.EPR_PORTAL_URL },
+].filter((source) => source.url);
 
 export const currentFinancialYear = () => financialYearOf(new Date());
 
@@ -69,7 +70,6 @@ export const complianceService = {
     ]);
 
     const record = finalization.record;
-    // Documents dated in this year that arrived after sign-off aren't in the snapshot.
     const covered = new Set((record?.snapshot?.documents || []).map((d) => d.id));
     const lateDocuments = record
       ? filing.documents
@@ -81,17 +81,17 @@ export const complianceService = {
       status: record ? "FINALIZED" : "OPEN",
       finalized_at: record?.finalized_at || null,
       late_documents: lateDocuments,
-      // Once finalized, show the numbers that were signed off, not live recalculations.
       snapshot: record?.snapshot || null,
       finalization_available: finalization.available,
     };
   },
 
   async finalize(userId, fyStart, notes) {
-    // Decide from fresh data, never a cached summary.
     const filing = await this.buildFilingView(userId, fyStart);
     if (!filing.finalization_available) {
-      throw unavailable("Filing finalization needs the fy_filings table. Run supabase/migrations/001_fy_filings.sql.");
+      throw unavailable(
+        "Filing finalization needs the fy_filings table. Run supabase/migrations/001_fy_filings.sql.",
+      );
     }
     if (filing.status === "FINALIZED") throw conflict("This financial year is already finalized.");
     if (!filing.ready) {

@@ -4,7 +4,6 @@ import { ArrowRight, Lock, X } from "lucide-react";
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 
-// Trace's mark: three points joined into a path, the last one lit, like a trail being followed.
 export function TraceMark({ className, accent = "#059669" }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
@@ -28,9 +27,7 @@ const PREVIEW = [
   "See what's left before you can finalize the year",
 ];
 
-// Panel size once open; the launcher tile grows from 48px into this, anchored bottom-right.
-const PANEL =
-  "w-[min(360px,calc(100vw-2.5rem))] h-[min(468px,calc(100vh-6rem))]";
+const PANEL = "w-[min(360px,calc(100vw-2.5rem))] h-[min(468px,calc(100vh-6rem))]";
 const EASE = "ease-[cubic-bezier(0.2,0.8,0.2,1)]";
 
 export default function Assistant() {
@@ -50,7 +47,6 @@ export default function Assistant() {
     const launcher = launcherRef.current;
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onPointer);
-    // Move focus into the panel once it has grown, and back to the launcher when it closes.
     const focusTimer = setTimeout(() => closeRef.current?.focus(), 200);
     return () => {
       clearTimeout(focusTimer);
@@ -62,7 +58,6 @@ export default function Assistant() {
 
   return (
     <div className="group fixed bottom-5 right-5 z-40 print:hidden">
-      {/* Name on hover or keyboard focus, only while closed. */}
       <span
         role="tooltip"
         className={cx(
@@ -73,7 +68,6 @@ export default function Assistant() {
         Ask Trace
       </span>
 
-      {/* One element: the launcher tile itself grows into the chat panel. */}
       <div
         ref={rootRef}
         className={cx(
@@ -98,7 +92,6 @@ export default function Assistant() {
           <TraceMark className="size-6" />
         </button>
 
-        {/* Laid out at full size and pinned bottom-right, so growing the tile unfolds it instead of reflowing it. */}
         <section
           role="dialog"
           aria-label="Trace, your EPR assistant"
@@ -144,16 +137,13 @@ export default function Assistant() {
                   An assistant that knows your filing
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-neutral-600">
-                  Trace will answer questions on any page, using the official
-                  sources and your own documents.
+                  Trace will answer questions on any page, using the official sources and your own
+                  documents.
                 </p>
               </div>
               <ul className="space-y-2">
                 {PREVIEW.map((item) => (
-                  <li
-                    key={item}
-                    className="flex gap-2.5 text-sm text-neutral-700"
-                  >
+                  <li key={item} className="flex gap-2.5 text-sm text-neutral-700">
                     <span
                       className="mt-[7px] size-1.5 shrink-0 rounded-full bg-emerald-600"
                       aria-hidden
@@ -174,8 +164,7 @@ export default function Assistant() {
                 onClick={() => setOpen(false)}
                 className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-neutral-700 hover:text-emerald-700"
               >
-                Until then, ask Regulatory research{" "}
-                <ArrowRight className="size-3" />
+                Until then, ask Regulatory research <ArrowRight className="size-3" />
               </Link>
             </div>
           </div>

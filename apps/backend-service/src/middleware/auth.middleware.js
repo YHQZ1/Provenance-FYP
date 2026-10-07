@@ -12,9 +12,6 @@ const readToken = (req) => {
 
 export const authCacheKey = (token) => cache.key("auth", "v1", hashToken(token));
 
-// Verifying a token is a round trip to Supabase Auth on every request, so a verified identity is
-// cached briefly (at most 60 s, never past the token's expiry). The trade-off: after "sign out of
-// all devices", an already-issued token keeps working here for up to that long.
 const verifiedUser = async (token) => {
   const key = authCacheKey(token);
   const cached = await cache.get(key);
@@ -38,14 +35,19 @@ const verifiedUser = async (token) => {
 };
 
 const loadCompany = (companyId) =>
-  cache.wrap(companyCacheKey(companyId), COMPANY_CACHE_SECONDS, async () => {
-    const { data } = await supabaseAdmin
-      .from("companies")
-      .select("*")
-      .eq("id", companyId)
-      .maybeSingle();
-    return data || null;
-  }, { shouldCache: Boolean });
+  cache.wrap(
+    companyCacheKey(companyId),
+    COMPANY_CACHE_SECONDS,
+    async () => {
+      const { data } = await supabaseAdmin
+        .from("companies")
+        .select("*")
+        .eq("id", companyId)
+        .maybeSingle();
+      return data || null;
+    },
+    { shouldCache: Boolean },
+  );
 
 export const authenticate = async (req, res, next) => {
   try {

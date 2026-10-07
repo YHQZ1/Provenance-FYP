@@ -20,7 +20,9 @@ def test_documents_never_run_through_the_engine_concurrently(monkeypatch):
         time.sleep(0.05)
         with guard:
             active -= 1
-        return ocr_route.OCRResponse(pages=1, raw_text="", tokens=[], fields={}, line_items=[], confidence=0)
+        return ocr_route.OCRResponse(
+            pages=1, raw_text="", tokens=[], fields={}, line_items=[], confidence=0
+        )
 
     monkeypatch.setattr(ocr_route.pipeline, "process", fake_process)
     client = TestClient(app)
@@ -45,7 +47,9 @@ def test_health_answers_while_a_document_is_processing(monkeypatch):
     def slow_process(path, filename):
         started.set()
         release.wait(5)
-        return ocr_route.OCRResponse(pages=1, raw_text="", tokens=[], fields={}, line_items=[], confidence=0)
+        return ocr_route.OCRResponse(
+            pages=1, raw_text="", tokens=[], fields={}, line_items=[], confidence=0
+        )
 
     monkeypatch.setattr(ocr_route.pipeline, "process", slow_process)
     client = TestClient(app)

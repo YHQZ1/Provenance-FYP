@@ -49,16 +49,13 @@ function ActiveBar({ isActive }) {
   );
 }
 
-// Square counter for things that need attention; deliberately not a pill.
 function Counter({ value, tone = "neutral" }) {
   if (!value) return null;
   return (
     <span
       className={cx(
         "mono min-w-5 rounded-sm border px-1 text-center text-[11px] leading-[18px] tabular-nums",
-        tone === "error"
-          ? "border-red-200 text-red-700"
-          : "border-neutral-300 text-neutral-950",
+        tone === "error" ? "border-red-200 text-red-700" : "border-neutral-300 text-neutral-950",
       )}
     >
       {value}
@@ -68,11 +65,7 @@ function Counter({ value, tone = "neutral" }) {
 
 function NavItem({ to, icon: Icon, label, meta, onNavigate }) {
   return (
-    <NavLink
-      to={to}
-      onClick={onNavigate}
-      className={({ isActive }) => navItemClass(isActive)}
-    >
+    <NavLink to={to} onClick={onNavigate} className={({ isActive }) => navItemClass(isActive)}>
       {({ isActive }) => (
         <>
           <ActiveBar isActive={isActive} />
@@ -85,7 +78,6 @@ function NavItem({ to, icon: Icon, label, meta, onNavigate }) {
   );
 }
 
-// One step of the EPR workflow. The markers are joined by a line so the sidebar reads as a sequence.
 function StepItem({ to, index, label, state, meta, last, onNavigate }) {
   return (
     <li className="relative">
@@ -95,30 +87,19 @@ function StepItem({ to, index, label, state, meta, last, onNavigate }) {
           className="absolute left-[21px] top-8 h-[calc(100%-1rem)] w-px bg-neutral-200"
         />
       )}
-      <NavLink
-        to={to}
-        onClick={onNavigate}
-        className={({ isActive }) => navItemClass(isActive)}
-      >
+      <NavLink to={to} onClick={onNavigate} className={({ isActive }) => navItemClass(isActive)}>
         {({ isActive }) => (
           <>
             <ActiveBar isActive={isActive} />
             <span
               className={cx(
                 "mono relative z-10 flex size-5 shrink-0 items-center justify-center rounded-sm border text-[10px]",
-                state === "done" &&
-                  "border-emerald-600 bg-emerald-600 text-white",
-                state === "current" &&
-                  "border-neutral-950 bg-white text-neutral-950",
-                state === "upcoming" &&
-                  "border-neutral-200 bg-white text-neutral-400",
+                state === "done" && "border-emerald-600 bg-emerald-600 text-white",
+                state === "current" && "border-neutral-950 bg-white text-neutral-950",
+                state === "upcoming" && "border-neutral-200 bg-white text-neutral-400",
               )}
             >
-              {state === "done" ? (
-                <Check className="size-3" strokeWidth={3} aria-hidden />
-              ) : (
-                index
-              )}
+              {state === "done" ? <Check className="size-3" strokeWidth={3} aria-hidden /> : index}
             </span>
             <span className="flex-1">{label}</span>
             {meta}
@@ -139,11 +120,8 @@ function SectionLabel({ children }) {
 
 function YearSwitcher() {
   const { fy, setFy, filing } = useWorkspace();
-  const years = [...new Set([...(filing?.available_years || []), fy])].sort(
-    (a, b) => b - a,
-  );
-  const finalized =
-    filing?.financial_year?.start_year === fy && filing?.status === "FINALIZED";
+  const years = [...new Set([...(filing?.available_years || []), fy])].sort((a, b) => b - a);
+  const finalized = filing?.financial_year?.start_year === fy && filing?.status === "FINALIZED";
 
   return (
     <div className="px-3">
@@ -209,12 +187,8 @@ function ServiceStatus() {
 
   if (!status) return null;
 
-  const down = (status.services || []).filter(
-    (service) => service.status === "down",
-  );
-  const degraded = (status.services || []).filter(
-    (service) => service.status === "degraded",
-  );
+  const down = (status.services || []).filter((service) => service.status === "down");
+  const degraded = (status.services || []).filter((service) => service.status === "degraded");
 
   let tone = "ok";
   let text = "All services running";
@@ -232,19 +206,13 @@ function ServiceStatus() {
         ? `${SERVICE_NAMES[down[0].name]} unavailable`
         : `${down.length} services unavailable`;
     detail = down
-      .map(
-        (service) =>
-          `${SERVICE_NAMES[service.name]}: ${service.detail || "down"}`,
-      )
+      .map((service) => `${SERVICE_NAMES[service.name]}: ${service.detail || "down"}`)
       .join("\n");
   } else if (degraded.length) {
     tone = "neutral";
     text = `${SERVICE_NAMES[degraded[0].name]} degraded`;
     detail = degraded
-      .map(
-        (service) =>
-          `${SERVICE_NAMES[service.name]}: ${service.detail || "degraded"}`,
-      )
+      .map((service) => `${SERVICE_NAMES[service.name]}: ${service.detail || "degraded"}`)
       .join("\n");
   }
 
@@ -263,9 +231,7 @@ function ServiceStatus() {
         )}
         aria-hidden
       />
-      <span className={cx("truncate", tone === "error" && "text-red-700")}>
-        {text}
-      </span>
+      <span className={cx("truncate", tone === "error" && "text-red-700")}>{text}</span>
     </p>
   );
 }
@@ -277,8 +243,7 @@ function AccountMenu({ user, company, profileIncomplete }) {
 
   useEffect(() => {
     if (!open) return undefined;
-    const onPointer = (event) =>
-      !ref.current?.contains(event.target) && setOpen(false);
+    const onPointer = (event) => !ref.current?.contains(event.target) && setOpen(false);
     const onKey = (event) => event.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -316,12 +281,8 @@ function AccountMenu({ user, company, profileIncomplete }) {
           )}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-neutral-950">
-            {name}
-          </span>
-          <span className="block truncate text-xs text-neutral-500">
-            {user?.email}
-          </span>
+          <span className="block truncate text-sm font-medium text-neutral-950">{name}</span>
+          <span className="block truncate text-xs text-neutral-500">{user?.email}</span>
         </span>
         <ChevronDown
           className={cx(
@@ -347,9 +308,7 @@ function AccountMenu({ user, company, profileIncomplete }) {
           >
             <Settings className="size-4" aria-hidden />
             <span className="flex-1 whitespace-nowrap text-left">Settings</span>
-            {profileIncomplete && (
-              <span className="text-xs text-emerald-700">Incomplete</span>
-            )}
+            {profileIncomplete && <span className="text-xs text-emerald-700">Incomplete</span>}
           </button>
           <button
             type="button"
@@ -372,9 +331,7 @@ function Brand() {
       className="inline-flex items-center gap-2.5 rounded-md transition-opacity hover:opacity-80"
     >
       <img src="/provenance.png" alt="" className="size-7" />
-      <span className="text-[17px] font-semibold tracking-tight text-neutral-950">
-        Provenance
-      </span>
+      <span className="text-[17px] font-semibold tracking-tight text-neutral-950">Provenance</span>
     </Link>
   );
 }
@@ -385,9 +342,7 @@ function Sidebar({ onNavigate }) {
 
   const stepDone = [
     counts.documents > 0,
-    counts.documents > 0 &&
-      counts.pending_items === 0 &&
-      counts.processing === 0,
+    counts.documents > 0 && counts.pending_items === 0 && counts.processing === 0,
     filing?.status === "FINALIZED",
   ];
   const current = stepDone.findIndex((done) => !done);
@@ -406,24 +361,9 @@ function Sidebar({ onNavigate }) {
         <nav className="mt-2 px-3" aria-label="Main">
           <SectionLabel>Overview</SectionLabel>
           <div className="space-y-0.5">
-            <NavItem
-              to="/dashboard"
-              icon={Home}
-              label="Home"
-              onNavigate={onNavigate}
-            />
-            <NavItem
-              to="/obligations"
-              icon={Scale}
-              label="Obligations"
-              onNavigate={onNavigate}
-            />
-            <NavItem
-              to="/activity"
-              icon={History}
-              label="Activity"
-              onNavigate={onNavigate}
-            />
+            <NavItem to="/dashboard" icon={Home} label="Home" onNavigate={onNavigate} />
+            <NavItem to="/obligations" icon={Scale} label="Obligations" onNavigate={onNavigate} />
+            <NavItem to="/activity" icon={History} label="Activity" onNavigate={onNavigate} />
           </div>
 
           <SectionLabel>EPR workflow</SectionLabel>

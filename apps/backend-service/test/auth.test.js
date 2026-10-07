@@ -5,7 +5,8 @@ process.env.NODE_ENV = "test";
 process.env.SUPABASE_URL ||= "http://127.0.0.1:9";
 process.env.SUPABASE_ANON_KEY ||= "test-anon-key";
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= "test-service-key";
-process.env.CORS_ORIGIN ||= "http://localhost:5173";
+process.env.PORT ||= "3000";
+process.env.CORS_ORIGIN ||= "http://app.test";
 
 const { default: app } = await import("../src/app.js");
 

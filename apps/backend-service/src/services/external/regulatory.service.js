@@ -4,8 +4,6 @@ import { cache } from "../../config/redis.js";
 import { digest, questionCacheText } from "../../lib/cache-keys.js";
 import { regulatoryTag } from "./answer-tags.js";
 
-// Answers come only from the indexed sources, so the same question gets the same answer until the
-// sources or the model change; both are part of the key.
 const ANSWER_CACHE_SECONDS = 7 * 24 * 3600;
 
 const baseUrl = () => {
@@ -61,13 +59,11 @@ export const regulatoryService = {
       const cached = await cache.get(key);
       if (cached) return { ...cached, cached: true };
       const answer = await ask();
-      if (answer?.answer && answer?.sources?.length) await cache.set(key, answer, ANSWER_CACHE_SECONDS);
+      if (answer?.answer && answer?.sources?.length)
+        await cache.set(key, answer, ANSWER_CACHE_SECONDS);
       return answer;
     } catch (error) {
-      const detail =
-        error.response?.data?.detail ||
-        error.response?.data?.message ||
-        error.message;
+      const detail = error.response?.data?.detail || error.response?.data?.message || error.message;
       const serviceError = new Error("Regulatory RAG request failed: " + detail);
       serviceError.status = error.code === "ECONNABORTED" ? 504 : 502;
       throw serviceError;

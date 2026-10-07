@@ -80,7 +80,11 @@ vi.mock("../lib/api", () => ({
           summary: "corrected PP to HDPE on invoice-001.pdf",
           document_id: "d1",
           financial_year: 2026,
-          details: { line: "HD drums", from: { material_code: "PP" }, to: { material_code: "HDPE", quantity_kg: 50 } },
+          details: {
+            line: "HD drums",
+            from: { material_code: "PP" },
+            to: { material_code: "HDPE", quantity_kg: 50 },
+          },
           created_at: "2026-10-07T09:30:00Z",
         },
         {
@@ -104,10 +108,30 @@ vi.mock("../lib/api", () => ({
     library: vi.fn().mockResolvedValue({
       data: {
         available: true,
-        materials: [{ material_code: "PET", material_name: "Polyethylene Terephthalate", category: "RIGID_PLASTIC" }],
-        catalogue: [{ id: "s1", material_code: "PET", synonym: "POLYPET 3020", manufacturer: "Reliance Industries" }],
+        materials: [
+          {
+            material_code: "PET",
+            material_name: "Polyethylene Terephthalate",
+            category: "RIGID_PLASTIC",
+          },
+        ],
+        catalogue: [
+          {
+            id: "s1",
+            material_code: "PET",
+            synonym: "POLYPET 3020",
+            manufacturer: "Reliance Industries",
+          },
+        ],
         trade_names: [],
-        suggestions: [{ line: "BOPP film 20 micron", material_code: "PP", cpcb_category: "CATEGORY_II", times: 2 }],
+        suggestions: [
+          {
+            line: "BOPP film 20 micron",
+            material_code: "PP",
+            cpcb_category: "CATEGORY_II",
+            times: 2,
+          },
+        ],
       },
     }),
     addTradeName: vi.fn().mockResolvedValue({ data: {} }),
@@ -165,11 +189,9 @@ describe("Home", () => {
     const { default: Home } = await import("../pages/Home");
     renderPage(<Home />);
     expect(screen.getByText("Review 3 line item(s)")).toBeTruthy();
-    expect(
-      screen
-        .getAllByRole("link", { name: /start review/i })[0]
-        .getAttribute("href"),
-    ).toBe("/review");
+    expect(screen.getAllByRole("link", { name: /start review/i })[0].getAttribute("href")).toBe(
+      "/review",
+    );
   });
 
   it("asks for the company profile first", async () => {
@@ -190,12 +212,8 @@ describe("Filing", () => {
   it("blocks finalizing while items are open", async () => {
     const { default: Filing } = await import("../pages/Filing");
     renderPage(<Filing />);
-    expect(
-      screen.getByText("3 line item(s) are waiting for review."),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: /finalize fy 2026-27/i }).disabled,
-    ).toBe(true);
+    expect(screen.getByText("3 line item(s) are waiting for review.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /finalize fy 2026-27/i }).disabled).toBe(true);
   });
 
   it("shows the signed-off snapshot once finalized", async () => {
@@ -225,9 +243,7 @@ describe("Review", () => {
     expect(
       (await screen.findAllByText("Reliance Polypet 3020 bottle grade")).length,
     ).toBeGreaterThan(0);
-    expect(
-      screen.getByRole("button", { name: /approve 1 suggested/i }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: /approve 1 suggested/i })).toBeTruthy();
     expect(screen.getAllByText("500 kg").length).toBeGreaterThan(0);
   });
 });
@@ -274,17 +290,12 @@ describe("Review shortcuts", () => {
 
     const { default: Review } = await import("../pages/Review");
     renderPage(<Review />);
-    expect((await screen.findAllByText("First line")).length).toBeGreaterThan(
-      0,
-    );
+    expect((await screen.findAllByText("First line")).length).toBeGreaterThan(0);
 
     fireEvent.keyDown(document, { key: "a" });
 
-    // Wait for the approval itself, then for the next line to open, then make sure nothing else fired.
     await waitFor(() => expect(reviewAPI.approve).toHaveBeenCalledTimes(1));
-    expect((await screen.findAllByText("Second line")).length).toBeGreaterThan(
-      0,
-    );
+    expect((await screen.findAllByText("Second line")).length).toBeGreaterThan(0);
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(reviewAPI.approve).toHaveBeenCalledTimes(1);
     expect(reviewAPI.approve).toHaveBeenCalledWith("c1", "");
@@ -294,9 +305,7 @@ describe("Review shortcuts", () => {
 describe("Regulatory research", () => {
   it("answers a suggested question with page citations", async () => {
     const { fireEvent } = await import("@testing-library/react");
-    const { default: RegulatoryResearch } = await import(
-      "../pages/RegulatoryResearch"
-    );
+    const { default: RegulatoryResearch } = await import("../pages/RegulatoryResearch");
     renderPage(<RegulatoryResearch />);
 
     expect(await screen.findByText("383 passages indexed")).toBeTruthy();
@@ -307,9 +316,9 @@ describe("Regulatory research", () => {
     );
 
     expect(await screen.findByText("Rs. 5,000 the first time")).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: "Open page 27" }).getAttribute("href"),
-    ).toBe("https://example.org/ec.pdf#page=27");
+    expect(screen.getByRole("link", { name: "Open page 27" }).getAttribute("href")).toBe(
+      "https://example.org/ec.pdf#page=27",
+    );
   });
 });
 
@@ -329,9 +338,7 @@ describe("Settings", () => {
       target: { value: "27ABC" },
     });
     expect(screen.getByText(/Enter a valid 15-character GSTIN/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Save profile" }).disabled).toBe(
-      true,
-    );
+    expect(screen.getByRole("button", { name: "Save profile" }).disabled).toBe(true);
   });
 
   it("shows which services are running and what fixes missing features", async () => {
@@ -362,15 +369,11 @@ describe("Forgot password", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Forgot password?" }));
 
-    expect(
-      await screen.findByRole("heading", { name: "Reset your password" }),
-    ).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Reset your password" })).toBeTruthy();
     expect(screen.getByLabelText("Email").value).toBe("owner@acme.in");
 
     fireEvent.click(screen.getByRole("button", { name: "Send reset link" }));
-    expect(
-      await screen.findByRole("heading", { name: "Reset link sent" }),
-    ).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Reset link sent" })).toBeTruthy();
     expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith(
       "owner@acme.in",
       expect.any(Object),
@@ -395,9 +398,7 @@ describe("Forgot password", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send reset link" }));
 
-    expect(
-      await screen.findByText(/We can't send email to this address/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/We can't send email to this address/)).toBeTruthy();
     expect(screen.queryByText(/is invalid/)).toBeNull();
     window.history.replaceState({}, "", "/");
   });
@@ -426,7 +427,9 @@ describe("Not found", () => {
     const { default: NotFound } = await import("../pages/NotFound");
     renderPage(<NotFound />);
     expect(screen.getByRole("heading", { name: "This page doesn't exist" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Go to Home" }).getAttribute("href")).toBe("/dashboard");
+    expect(screen.getByRole("link", { name: "Go to Home" }).getAttribute("href")).toBe(
+      "/dashboard",
+    );
   });
 });
 
@@ -474,7 +477,9 @@ describe("Obligations", () => {
     renderPage(<Obligations />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Edit Category I inputs" }));
-    fireEvent.change(screen.getByLabelText("B · Pre-consumer waste (kg)"), { target: { value: "75" } });
+    fireEvent.change(screen.getByLabelText("B · Pre-consumer waste (kg)"), {
+      target: { value: "75" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await screen.findByText("Category I updated");
@@ -498,11 +503,17 @@ describe("Materials library", () => {
     expect(screen.getByLabelText("Trade name").value).toBe("BOPP film 20 micron");
     fireEvent.change(screen.getByLabelText("Trade name"), { target: { value: "BOPP film" } });
     const { within } = await import("@testing-library/react");
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add trade name" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Add trade name" }),
+    );
 
     await screen.findByText('"BOPP film" added');
     expect(materialsAPI.addTradeName).toHaveBeenCalledWith(
-      expect.objectContaining({ trade_name: "BOPP film", material_code: "PP", cpcb_category: "CATEGORY_II" }),
+      expect.objectContaining({
+        trade_name: "BOPP film",
+        material_code: "PP",
+        cpcb_category: "CATEGORY_II",
+      }),
     );
   });
 });

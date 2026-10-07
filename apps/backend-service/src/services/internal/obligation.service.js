@@ -25,7 +25,6 @@ const INPUT_FIELDS = [
   "ec_rate_per_kg",
 ];
 
-// Finalized years contribute their signed-off numbers; open years their live ones.
 const ledgerByYear = async (userId, years) => {
   const [{ data: company }, documents, capabilities] = await Promise.all([
     supabaseAdmin.from("companies").select("*").eq("id", userId).maybeSingle(),
@@ -86,8 +85,11 @@ const parseInput = (field, value) => {
 export const obligationService = {
   async get(userId, fyStart, basis = "current") {
     if (!BASES.includes(basis)) throw badRequest(`basis must be one of ${BASES.join(", ")}`);
-    return workspaceCache.wrap(userId, ["obligations", fyStart, basis], OBLIGATIONS_CACHE_SECONDS, () =>
-      this.compute(userId, fyStart, basis),
+    return workspaceCache.wrap(
+      userId,
+      ["obligations", fyStart, basis],
+      OBLIGATIONS_CACHE_SECONDS,
+      () => this.compute(userId, fyStart, basis),
     );
   },
 

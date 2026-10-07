@@ -16,16 +16,11 @@ export default function ResetPassword() {
   const [hasSession, setHasSession] = useState(null);
   const navigate = useNavigate();
 
-  // Supabase reads the recovery token from the link and opens a session.
   useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data }) => setHasSession(Boolean(data.session)));
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (session) setHasSession(true);
-      },
-    );
+    supabase.auth.getSession().then(({ data }) => setHasSession(Boolean(data.session)));
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session) setHasSession(true);
+    });
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -51,9 +46,7 @@ export default function ResetPassword() {
       <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
         Account recovery
       </p>
-      <h2 className="mt-4 text-3xl font-semibold tracking-tight">
-        Set a new password
-      </h2>
+      <h2 className="mt-4 text-3xl font-semibold tracking-tight">Set a new password</h2>
       <p className="mt-2 text-neutral-600">
         Choose a password with at least {MIN_LENGTH} characters.
       </p>
@@ -91,11 +84,7 @@ export default function ResetPassword() {
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
                 aria-label={visible ? "Hide password" : "Show password"}
               >
-                {visible ? (
-                  <EyeOff className="size-4" />
-                ) : (
-                  <Eye className="size-4" />
-                )}
+                {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
             </div>
           </Field>
@@ -123,10 +112,7 @@ export default function ResetPassword() {
             Update password
           </Button>
           <p className="text-center text-sm text-neutral-500">
-            <Link
-              to="/auth?mode=login"
-              className="underline underline-offset-2"
-            >
+            <Link to="/auth?mode=login" className="underline underline-offset-2">
               Back to sign in
             </Link>
           </p>

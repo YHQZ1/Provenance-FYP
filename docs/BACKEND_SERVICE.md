@@ -38,13 +38,14 @@ npm test
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | required | Database, storage and token verification |
-| `PORT` | `3000` | |
+| `PORT` | required | |
 | `CORS_ORIGIN` | | The web app's origin |
 | `OCR_SERVICE_URL`, `OCR_TIMEOUT_MS` | `300000` | OCR service; `http://ocr-service:8000` in Compose |
 | `RAG_SERVICE_URL`, `RAG_TIMEOUT_MS` | `180000` | Material classifier |
 | `RAG_CONCURRENCY` | `2` | Lines classified in parallel per document |
 | `REGULATORY_RAG_URL`, `REGULATORY_RAG_TIMEOUT_MS` | `180000` | Regulatory research |
 | `USE_MOCK_SERVICES` | `false` | Canned OCR and classification results, for UI work without the ML stack |
+| `EPR_PORTAL_URL`, `EPR_GUIDANCE_MANUAL_URL` | empty | CPCB links shown as the filing's sources. Omitted when empty. |
 | `REDIS_URL` | empty | Queue and cache; `redis://redis:6379` in Compose. Empty processes documents in the API process with no cache. |
 | `PROCESSING_CONCURRENCY` | `2` | Documents processed at once |
 | `PROCESSING_ATTEMPTS` | `3` | Attempts before a document is marked failed |

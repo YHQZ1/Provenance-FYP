@@ -1,37 +1,19 @@
 /* eslint-disable react-refresh/only-export-components */
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ChevronDown,
-  Info,
-  Loader2,
-  X,
-  XCircle,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Info, Loader2, X, XCircle } from "lucide-react";
 import { STAGES } from "../lib/domain";
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 
 const BUTTON_VARIANTS = {
-  primary:
-    "bg-neutral-950 text-white hover:bg-neutral-800 border border-neutral-950",
+  primary: "bg-neutral-950 text-white hover:bg-neutral-800 border border-neutral-950",
   secondary:
     "bg-white text-neutral-900 border border-neutral-200 hover:border-neutral-400 hover:bg-neutral-50",
   ghost:
     "bg-transparent text-neutral-600 border border-transparent hover:bg-neutral-100 hover:text-neutral-900",
-  danger:
-    "bg-white text-red-700 border border-red-200 hover:bg-red-50 hover:border-red-300",
-  accent:
-    "bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700",
+  danger: "bg-white text-red-700 border border-red-200 hover:bg-red-50 hover:border-red-300",
+  accent: "bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700",
 };
 
 const BUTTON_SIZES = {
@@ -68,12 +50,7 @@ export function Button({
   }
 
   return (
-    <button
-      type={type}
-      className={classes}
-      disabled={disabled || loading}
-      {...props}
-    >
+    <button type={type} className={classes} disabled={disabled || loading} {...props}>
       {loading && <Loader2 className="size-4 animate-spin" aria-hidden />}
       {children}
     </button>
@@ -82,10 +59,7 @@ export function Button({
 
 export function Card({ className, children, ...props }) {
   return (
-    <div
-      className={cx("rounded-xl border border-neutral-200 bg-white", className)}
-      {...props}
-    >
+    <div className={cx("rounded-xl border border-neutral-200 bg-white", className)} {...props}>
       {children}
     </div>
   );
@@ -96,17 +70,13 @@ export function CardHeader({ title, description, action }) {
     <div className="flex items-start justify-between gap-4 border-b border-neutral-100 px-5 py-4">
       <div>
         <h2 className="text-sm font-semibold text-neutral-900">{title}</h2>
-        {description && (
-          <p className="mt-0.5 text-sm text-neutral-500">{description}</p>
-        )}
+        {description && <p className="mt-0.5 text-sm text-neutral-500">{description}</p>}
       </div>
       {action}
     </div>
   );
 }
 
-// Tags stay inside the product palette: emerald for done, red only for errors,
-// and dark ink for things that need attention.
 const TONES = {
   ok: "bg-emerald-50 text-emerald-800 ring-emerald-600/25",
   warn: "bg-white text-neutral-950 ring-neutral-950/40",
@@ -133,9 +103,7 @@ export function StageBadge({ stage }) {
   const meta = STAGES[stage] || STAGES.review;
   return (
     <Badge tone={meta.tone}>
-      {stage === "processing" && (
-        <Loader2 className="size-3 animate-spin" aria-hidden />
-      )}
+      {stage === "processing" && <Loader2 className="size-3 animate-spin" aria-hidden />}
       {meta.label}
     </Badge>
   );
@@ -150,16 +118,10 @@ export function PageHeader({ eyebrow, title, description, actions }) {
             {eyebrow}
           </p>
         )}
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-950">
-          {title}
-        </h1>
-        {description && (
-          <p className="mt-1.5 text-sm text-neutral-500">{description}</p>
-        )}
+        <h1 className="text-2xl font-semibold tracking-tight text-neutral-950">{title}</h1>
+        {description && <p className="mt-1.5 text-sm text-neutral-500">{description}</p>}
       </div>
-      {actions && (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
-      )}
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -190,9 +152,7 @@ export function EmptyState({ icon: Icon, title, description, action }) {
         </div>
       )}
       <p className="text-sm font-semibold text-neutral-900">{title}</p>
-      {description && (
-        <p className="mt-1 max-w-sm text-sm text-neutral-500">{description}</p>
-      )}
+      {description && <p className="mt-1 max-w-sm text-sm text-neutral-500">{description}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
   );
@@ -214,18 +174,13 @@ export function Alert({ tone = "info", title, children, action }) {
   const Icon = icons[tone];
   return (
     <div
-      className={cx(
-        "flex items-start gap-3 rounded-xl border px-4 py-3 text-sm",
-        styles[tone],
-      )}
+      className={cx("flex items-start gap-3 rounded-xl border px-4 py-3 text-sm", styles[tone])}
       role={tone === "error" ? "alert" : "status"}
     >
       <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div className="min-w-0 flex-1">
         {title && <p className="font-medium">{title}</p>}
-        {children && (
-          <div className={cx(title && "mt-0.5", "opacity-90")}>{children}</div>
-        )}
+        {children && <div className={cx(title && "mt-0.5", "opacity-90")}>{children}</div>}
       </div>
       {action}
     </div>
@@ -245,19 +200,14 @@ export function Spinner({ label = "Loading…" }) {
 }
 
 export function Skeleton({ className }) {
-  return (
-    <div className={cx("animate-pulse rounded-md bg-neutral-100", className)} />
-  );
+  return <div className={cx("animate-pulse rounded-md bg-neutral-100", className)} />;
 }
 
 export function Field({ label, hint, error, children, htmlFor }) {
   return (
     <div className="space-y-1.5">
       {label && (
-        <label
-          htmlFor={htmlFor}
-          className="block text-sm font-medium text-neutral-800"
-        >
+        <label htmlFor={htmlFor} className="block text-sm font-medium text-neutral-800">
           {label}
         </label>
       )}
@@ -281,10 +231,7 @@ export function Input({ className, ...props }) {
 export function Select({ className, children, ...props }) {
   return (
     <div className="relative">
-      <select
-        className={cx(controlClasses, "h-10 appearance-none pr-9", className)}
-        {...props}
-      >
+      <select className={cx(controlClasses, "h-10 appearance-none pr-9", className)} {...props}>
         {children}
       </select>
       <ChevronDown
@@ -296,20 +243,10 @@ export function Select({ className, children, ...props }) {
 }
 
 export function Textarea({ className, ...props }) {
-  return (
-    <textarea className={cx(controlClasses, "py-2", className)} {...props} />
-  );
+  return <textarea className={cx(controlClasses, "py-2", className)} {...props} />;
 }
 
-export function Modal({
-  open,
-  onClose,
-  title,
-  description,
-  children,
-  footer,
-  wide,
-}) {
+export function Modal({ open, onClose, title, description, children, footer, wide }) {
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -325,9 +262,7 @@ export function Modal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-4"
-      onMouseDown={(event) =>
-        event.target === event.currentTarget && onClose?.()
-      }
+      onMouseDown={(event) => event.target === event.currentTarget && onClose?.()}
     >
       <div
         ref={panelRef}
@@ -342,12 +277,8 @@ export function Modal({
       >
         <div className="flex items-start justify-between gap-4 border-b border-neutral-100 px-6 py-4">
           <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold text-neutral-950">
-              {title}
-            </h2>
-            {description && (
-              <p className="mt-0.5 text-sm text-neutral-500">{description}</p>
-            )}
+            <h2 className="truncate text-base font-semibold text-neutral-950">{title}</h2>
+            {description && <p className="mt-0.5 text-sm text-neutral-500">{description}</p>}
           </div>
           <button
             type="button"
@@ -369,15 +300,7 @@ export function Modal({
   );
 }
 
-// Slide-over panel from the right, for details that shouldn't hide the list behind them.
-export function Drawer({
-  open,
-  onClose,
-  title,
-  description,
-  children,
-  footer,
-}) {
+export function Drawer({ open, onClose, title, description, children, footer }) {
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -397,11 +320,7 @@ export function Drawer({
 
   return (
     <div className="fixed inset-0 z-50">
-      <div
-        className="absolute inset-0 bg-neutral-950/30"
-        onClick={onClose}
-        aria-hidden
-      />
+      <div className="absolute inset-0 bg-neutral-950/30" onClick={onClose} aria-hidden />
       <section
         ref={panelRef}
         tabIndex={-1}
@@ -412,14 +331,8 @@ export function Drawer({
       >
         <div className="flex items-start justify-between gap-4 border-b border-neutral-200 px-6 py-4">
           <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold text-neutral-950">
-              {title}
-            </h2>
-            {description && (
-              <div className="mt-0.5 text-sm text-neutral-500">
-                {description}
-              </div>
-            )}
+            <h2 className="truncate text-base font-semibold text-neutral-950">{title}</h2>
+            {description && <div className="mt-0.5 text-sm text-neutral-500">{description}</div>}
           </div>
           <button
             type="button"
@@ -449,10 +362,7 @@ export function ToastProvider({ children }) {
   const notify = useCallback((message, tone = "ok") => {
     const id = Math.random().toString(36).slice(2);
     setToasts((current) => [...current, { id, message, tone }]);
-    setTimeout(
-      () => setToasts((current) => current.filter((t) => t.id !== id)),
-      4500,
-    );
+    setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 4500);
   }, []);
 
   return (
@@ -471,15 +381,9 @@ export function ToastProvider({ children }) {
             )}
           >
             {toast.tone === "error" ? (
-              <XCircle
-                className="mt-0.5 size-4 shrink-0 text-red-600"
-                aria-hidden
-              />
+              <XCircle className="mt-0.5 size-4 shrink-0 text-red-600" aria-hidden />
             ) : (
-              <CheckCircle2
-                className="mt-0.5 size-4 shrink-0 text-emerald-600"
-                aria-hidden
-              />
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden />
             )}
             <span className="text-neutral-800">{toast.message}</span>
           </div>

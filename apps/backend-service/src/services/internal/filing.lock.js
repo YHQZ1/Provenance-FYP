@@ -17,7 +17,6 @@ export const isYearFinalized = async (userId, fyStart) => {
   return Boolean(data);
 };
 
-// Finalized years are read-only so signed-off evidence can't drift from the snapshot.
 export const assertYearOpen = async (userId, fyStart) => {
   if (await isYearFinalized(userId, fyStart)) {
     throw conflict(
@@ -29,7 +28,6 @@ export const assertYearOpen = async (userId, fyStart) => {
 export const assertDocumentEditable = async (userId, document) =>
   assertYearOpen(userId, financialYearOf(effectiveDate(document)));
 
-// Finalized years for a company, each with the ids of the documents its snapshot covers.
 export const finalizedYears = async (userId) => {
   const years = new Map();
   if (!(await schema()).fyFilings) return years;
@@ -39,15 +37,11 @@ export const finalizedYears = async (userId) => {
     .eq("company_id", userId);
   if (error) throw new Error(`Failed to read filing status: ${error.message}`);
   for (const filing of data || []) {
-    years.set(
-      filing.financial_year,
-      new Set((filing.snapshot?.documents || []).map((d) => d.id)),
-    );
+    years.set(filing.financial_year, new Set((filing.snapshot?.documents || []).map((d) => d.id)));
   }
   return years;
 };
 
-// A late document never reached the signed-off numbers, so removing it changes nothing filed.
 export const assertDocumentRemovable = async (userId, document) => {
   const position = filingPosition(document, await finalizedYears(userId));
   if (position.included) {

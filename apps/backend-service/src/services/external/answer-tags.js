@@ -17,7 +17,6 @@ const getJson = async (url) => {
   }
 };
 
-// Asks each service what produces its answers, at most every 5 minutes per process.
 const remembered = async (name, load) => {
   const hit = memo.get(name);
   if (hit && Date.now() - hit.at < TAG_TTL_MS) return hit.tag;
@@ -50,5 +49,4 @@ export const regulatoryTag = () =>
     return sources.length ? answerSourceTag([model, sources.join("|")]) : null;
   });
 
-// Forget remembered tags, for example right after re-ingesting sources.
 export const resetAnswerTags = () => memo.clear();

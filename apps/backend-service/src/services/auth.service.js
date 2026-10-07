@@ -15,8 +15,7 @@ export const authService = {
       .insert({
         id: user.id,
         email_id: user.email,
-        company_name:
-          user.user_metadata?.company_name || user.email?.split("@")[0],
+        company_name: user.user_metadata?.company_name || user.email?.split("@")[0],
         gst_number: user.user_metadata?.gst_number || null,
         Pibo_category: [],
         onboarding_completed: false,

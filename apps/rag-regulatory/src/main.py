@@ -7,7 +7,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from src.config import OLLAMA_HOST, OLLAMA_MODEL, QDRANT_COLLECTION, QDRANT_HOST, QDRANT_PORT
+from src.config import (
+    CORS_ORIGINS,
+    OLLAMA_HOST,
+    OLLAMA_MODEL,
+    QDRANT_COLLECTION,
+    QDRANT_HOST,
+    QDRANT_PORT,
+)
 from src.rag.chatbot import chat
 from src.rag.retrieval import client, ensure_collection
 from qdrant_client.http.models import FieldCondition, Filter, MatchValue
@@ -23,7 +30,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
@@ -73,14 +80,17 @@ def query(request: QueryRequest):
     try:
         return chat(request.query)
     except requests.Timeout as error:
-        raise HTTPException(status_code=504, detail="The language model took too long to answer.") from error
+        raise HTTPException(
+            status_code=504, detail="The language model took too long to answer."
+        ) from error
     except requests.RequestException as error:
-        raise HTTPException(status_code=503, detail=f"The language model is unavailable: {error}") from error
+        raise HTTPException(
+            status_code=503, detail=f"The language model is unavailable: {error}"
+        ) from error
 
 
 @app.get("/sources")
 def sources():
-    """The documents in the library, with how many passages each contributes."""
     with open(SOURCES_FILE, "r", encoding="utf-8") as handle:
         configured = yaml.safe_load(handle).get("sources", [])
 
@@ -89,7 +99,9 @@ def sources():
         try:
             passages = client.count(
                 collection_name=QDRANT_COLLECTION,
-                count_filter=Filter(must=[FieldCondition(key="source_url", match=MatchValue(value=source["url"]))]),
+                count_filter=Filter(
+                    must=[FieldCondition(key="source_url", match=MatchValue(value=source["url"]))]
+                ),
                 exact=True,
             ).count
         except Exception:

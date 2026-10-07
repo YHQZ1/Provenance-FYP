@@ -1,5 +1,3 @@
--- Records a financial year's EPR position once the company signs it off.
--- The snapshot keeps the signed-off numbers stable even if documents change later.
 create table if not exists public.fy_filings (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,

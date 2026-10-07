@@ -1,6 +1,9 @@
 import os
 
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
+os.environ.setdefault("OLLAMA_HOST", "http://ollama.test")
+os.environ.setdefault("QDRANT_HOST", "qdrant.test")
+os.environ.setdefault("QDRANT_PORT", "6333")
 
 from src.services.local_llm import LocalLLMService  # noqa: E402
 from src.services.quantity_parser import parse_quantity  # noqa: E402
@@ -41,7 +44,9 @@ def test_keyword_detection():
 
 
 def test_parse_response_requires_review_without_category():
-    result = parse('{"material_code": "PET", "confidence": 0.95, "reasoning": "PET resin"}', "PET resin chips")
+    result = parse(
+        '{"material_code": "PET", "confidence": 0.95, "reasoning": "PET resin"}', "PET resin chips"
+    )
     assert result["material_code"] == "PET"
     assert result["cpcb_category"] is None
     assert result["needs_human_review"] is True
@@ -56,7 +61,10 @@ def test_parse_response_accepts_confident_detailed_code():
 
 
 def test_unknown_material_has_zero_confidence():
-    result = parse('{"material_code": "UNKNOWN", "confidence": 0.95, "reasoning": "?"}', "Compostable carry bags")
+    result = parse(
+        '{"material_code": "UNKNOWN", "confidence": 0.95, "reasoning": "?"}',
+        "Compostable carry bags",
+    )
     assert result["material_code"] == "UNKNOWN"
     assert result["confidence"] == 0.0
     assert result["cpcb_category"] == "CATEGORY_IV"

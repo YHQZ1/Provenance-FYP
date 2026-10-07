@@ -25,9 +25,7 @@ export function WorkspaceProvider({ children }) {
     setFyState(year);
     try {
       localStorage.setItem(FY_KEY, String(year));
-    } catch {
-      // preference only
-    }
+    } catch {}
   }, []);
 
   const refreshFiling = useCallback(async () => {
@@ -46,12 +44,9 @@ export function WorkspaceProvider({ children }) {
     try {
       const response = await authAPI.me();
       setAccount({ user: response.data.user, company: response.data.company });
-    } catch {
-      // the API client handles expired sessions
-    }
+    } catch {}
   }, []);
 
-  // Load on mount and whenever the selected financial year changes.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount; state is set after the request resolves
     refreshFiling();
@@ -62,7 +57,6 @@ export function WorkspaceProvider({ children }) {
     refreshAccount();
   }, [refreshAccount]);
 
-  // Keep counts live while documents are being processed in the background.
   const processing = filing?.counts?.processing > 0;
   useEffect(() => {
     if (!processing) return undefined;

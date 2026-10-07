@@ -13,7 +13,10 @@ Never commit `.env` files, keys or database URLs. If a secret is committed, rota
 
 **Everywhere**
 - Match the surrounding code: naming, comment density, file layout.
-- Comments explain *why*, not *what*.
+- Don't comment code. Names, small functions and tests carry the explanation; longer reasoning belongs in these docs.
+- No hardcoded URLs or ports. Addresses come from environment variables: `apps/*/.env*` for each app, `infra/.env` for Docker. Required values fail at startup with a clear message instead of falling back to a default.
+- No emojis, in code, logs or docs.
+- Run `make format` before committing.
 - User-facing text is plain, specific and calm. Say what happened and what to do next, for example "Already uploaded as invoice_4.jpg (FY 2025-26)", never "Error 409".
 
 **Backend**

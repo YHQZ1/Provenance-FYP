@@ -1,7 +1,5 @@
 import { supabaseAdmin } from "./database.js";
 
-// Optional schema pieces added by supabase/migrations. Features that need them
-// degrade gracefully until the migration is applied.
 const capabilities = {
   fyFilings: false,
   classificationCategory: false,
@@ -19,15 +17,21 @@ const probe = async (table, columns) => {
 };
 
 export const detectSchema = async () => {
-  const [fyFilings, classificationCategory, reviewerIdentity, activityLog, obligations, tradeNames] =
-    await Promise.all([
-      probe("fy_filings", "id"),
-      probe("document_classifications", "cpcb_category, corrected_cpcb_category"),
-      probe("document_classifications", "reviewed_by, reviewed_by_name, reviewed_at"),
-      probe("activity_events", "id"),
-      probe("epr_obligation_inputs", "id"),
-      probe("company_trade_names", "id"),
-    ]);
+  const [
+    fyFilings,
+    classificationCategory,
+    reviewerIdentity,
+    activityLog,
+    obligations,
+    tradeNames,
+  ] = await Promise.all([
+    probe("fy_filings", "id"),
+    probe("document_classifications", "cpcb_category, corrected_cpcb_category"),
+    probe("document_classifications", "reviewed_by, reviewed_by_name, reviewed_at"),
+    probe("activity_events", "id"),
+    probe("epr_obligation_inputs", "id"),
+    probe("company_trade_names", "id"),
+  ]);
   capabilities.fyFilings = fyFilings;
   capabilities.classificationCategory = classificationCategory;
   capabilities.reviewerIdentity = reviewerIdentity;

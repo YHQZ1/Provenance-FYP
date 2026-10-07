@@ -43,9 +43,6 @@ const CATEGORY_LABELS = {
 
 const MIN_LENGTH = 3;
 
-/* ------------------------------------------------------------------ */
-
-// Renders the model's plain-text answer: paragraphs, bullet and numbered lists, and **bold**.
 function inline(text) {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) =>
     part.startsWith("**") && part.endsWith("**") ? (
@@ -94,9 +91,7 @@ function Answer({ text }) {
               key={index}
               className={cx(
                 "space-y-1.5 pl-5",
-                block.ordered
-                  ? "list-decimal"
-                  : "list-disc marker:text-neutral-400",
+                block.ordered ? "list-decimal" : "list-disc marker:text-neutral-400",
               )}
             >
               {block.items.map((item, itemIndex) => (
@@ -115,10 +110,7 @@ function Citation({ source }) {
   const pages = source.pages || [];
   return (
     <li className="flex items-start gap-3 rounded-md border border-neutral-200 px-3.5 py-3">
-      <FileText
-        className="mt-0.5 size-4 shrink-0 text-neutral-400"
-        aria-hidden
-      />
+      <FileText className="mt-0.5 size-4 shrink-0 text-neutral-400" aria-hidden />
       <div className="min-w-0 flex-1">
         <a
           href={source.url}
@@ -127,16 +119,11 @@ function Citation({ source }) {
           className="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-950 hover:underline"
         >
           {source.name || source.url}
-          <ExternalLink
-            className="size-3.5 shrink-0 text-neutral-400"
-            aria-hidden
-          />
+          <ExternalLink className="size-3.5 shrink-0 text-neutral-400" aria-hidden />
         </a>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
           {source.category && (
-            <Badge tone="neutral">
-              {CATEGORY_LABELS[source.category] || source.category}
-            </Badge>
+            <Badge tone="neutral">{CATEGORY_LABELS[source.category] || source.category}</Badge>
           )}
           {pages.length > 0 && <span>Pages</span>}
           {pages.map((page) => (
@@ -173,20 +160,14 @@ function ResultCard({ entry, onRetry }) {
       );
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // clipboard unavailable; nothing to do
-    }
+    } catch {}
   };
 
   return (
     <Card className="min-w-0">
       <div className="flex items-start justify-between gap-4 border-b border-neutral-100 px-5 py-4">
-        <p className="text-sm font-semibold text-neutral-950">
-          {entry.question}
-        </p>
-        <span className="mono shrink-0 text-[11px] text-neutral-400">
-          {entry.askedAt}
-        </span>
+        <p className="text-sm font-semibold text-neutral-950">{entry.question}</p>
+        <span className="mono shrink-0 text-[11px] text-neutral-400">{entry.askedAt}</span>
       </div>
 
       <div className="px-5 py-5">
@@ -194,16 +175,14 @@ function ResultCard({ entry, onRetry }) {
           <div className="space-y-3" role="status">
             <p className="flex items-center gap-2 text-sm text-neutral-500">
               <Loader2 className="size-4 animate-spin" aria-hidden />
-              Searching the source library and drafting an answer…{" "}
-              {entry.elapsed}s
+              Searching the source library and drafting an answer… {entry.elapsed}s
             </p>
             <Skeleton className="h-4 w-11/12" />
             <Skeleton className="h-4 w-4/5" />
             <Skeleton className="h-4 w-2/3" />
             {entry.elapsed >= 20 && (
               <p className="text-xs text-neutral-400">
-                Answers usually take 10 to 60 seconds; the language model runs
-                on your own server.
+                Answers usually take 10 to 60 seconds; the language model runs on your own server.
               </p>
             )}
           </div>
@@ -236,24 +215,18 @@ function ResultCard({ entry, onRetry }) {
               </div>
             ) : (
               <p className="text-sm text-neutral-500">
-                No matching passage in the source library. Try rephrasing the
-                question.
+                No matching passage in the source library. Try rephrasing the question.
               </p>
             )}
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 pt-4">
               <p className="text-xs text-neutral-500">
-                AI-generated from the cited documents. Check the cited pages
-                before relying on it.
+                AI-generated from the cited documents. Check the cited pages before relying on it.
                 {entry.result.cached &&
                   " Answered earlier from the same sources, so it came back instantly."}
               </p>
               <Button size="sm" variant="ghost" onClick={copy}>
-                {copied ? (
-                  <Check className="size-3.5" />
-                ) : (
-                  <Copy className="size-3.5" />
-                )}{" "}
+                {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}{" "}
                 {copied ? "Copied" : "Copy answer"}
               </Button>
             </div>
@@ -268,9 +241,7 @@ function Library({ sources, error }) {
   return (
     <Card className="min-w-0">
       <div className="border-b border-neutral-100 px-5 py-4">
-        <h2 className="text-sm font-semibold text-neutral-950">
-          Source library
-        </h2>
+        <h2 className="text-sm font-semibold text-neutral-950">Source library</h2>
         <p className="mt-0.5 text-sm text-neutral-500">
           Answers come only from these official documents.
         </p>
@@ -298,9 +269,7 @@ function Library({ sources, error }) {
                 {source.title}
               </a>
               <p className="mt-1 flex items-center gap-2 text-xs text-neutral-500">
-                <Badge tone="neutral">
-                  {CATEGORY_LABELS[source.category] || source.category}
-                </Badge>
+                <Badge tone="neutral">{CATEGORY_LABELS[source.category] || source.category}</Badge>
                 {source.ingested ? (
                   <span>{source.passages} passages indexed</span>
                 ) : (
@@ -314,8 +283,6 @@ function Library({ sources, error }) {
     </Card>
   );
 }
-
-/* ------------------------------------------------------------------ */
 
 export default function RegulatoryResearch() {
   const [question, setQuestion] = useState("");
@@ -332,15 +299,12 @@ export default function RegulatoryResearch() {
       .catch(() => setSourcesError(true));
   }, []);
 
-  // Ticks the elapsed-time counter on the answer being drafted.
   useEffect(() => {
     if (!busy) return undefined;
     const timer = setInterval(() => {
       setEntries((current) =>
         current.map((entry) =>
-          entry.status === "loading"
-            ? { ...entry, elapsed: entry.elapsed + 1 }
-            : entry,
+          entry.status === "loading" ? { ...entry, elapsed: entry.elapsed + 1 } : entry,
         ),
       );
     }, 1000);
@@ -374,17 +338,13 @@ export default function RegulatoryResearch() {
       const response = await regulatoryAPI.query(trimmed);
       setEntries((current) =>
         current.map((entry) =>
-          entry.id === id
-            ? { ...entry, status: "done", result: response.data }
-            : entry,
+          entry.id === id ? { ...entry, status: "done", result: response.data } : entry,
         ),
       );
     } catch (error) {
       setEntries((current) =>
         current.map((entry) =>
-          entry.id === id
-            ? { ...entry, status: "error", error: error.message }
-            : entry,
+          entry.id === id ? { ...entry, status: "error", error: error.message } : entry,
         ),
       );
     }
@@ -401,13 +361,10 @@ export default function RegulatoryResearch() {
         <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
           Tools · Regulatory research
         </p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-          Regulatory research
-        </h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">Regulatory research</h1>
         <p className="mt-1 max-w-2xl text-sm text-neutral-500">
-          Ask about plastic EPR, environmental compensation or BRSR. Answers are
-          drawn only from official CPCB and SEBI documents and cite the page
-          they came from.
+          Ask about plastic EPR, environmental compensation or BRSR. Answers are drawn only from
+          official CPCB and SEBI documents and cite the page they came from.
         </p>
       </div>
 
@@ -461,9 +418,7 @@ export default function RegulatoryResearch() {
               <div className="mt-4 grid gap-5 md:grid-cols-3">
                 {SUGGESTIONS.map((group) => (
                   <div key={group.topic}>
-                    <p className="text-sm font-medium text-neutral-950">
-                      {group.topic}
-                    </p>
+                    <p className="text-sm font-medium text-neutral-950">{group.topic}</p>
                     <ul className="mt-2 space-y-1.5">
                       {group.questions.map((suggestion) => (
                         <li key={suggestion}>
@@ -505,20 +460,16 @@ export default function RegulatoryResearch() {
           <Library sources={sources} error={sourcesError} />
           <Card className="px-5 py-4">
             <div className="flex items-start gap-3">
-              <BookOpen
-                className="mt-0.5 size-4 shrink-0 text-neutral-400"
-                aria-hidden
-              />
+              <BookOpen className="mt-0.5 size-4 shrink-0 text-neutral-400" aria-hidden />
               <div className="space-y-2 text-sm text-neutral-600">
                 <p className="font-medium text-neutral-950">How answers work</p>
                 <p>
-                  Your question is matched to the most relevant passages in the
-                  library, and a language model writes an answer from those
-                  passages only.
+                  Your question is matched to the most relevant passages in the library, and a
+                  language model writes an answer from those passages only.
                 </p>
                 <p>
-                  It can still misread a table or miss a clause, so treat
-                  answers as a pointer to the right page, not legal advice.
+                  It can still misread a table or miss a clause, so treat answers as a pointer to
+                  the right page, not legal advice.
                 </p>
               </div>
             </div>

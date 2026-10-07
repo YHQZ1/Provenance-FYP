@@ -15,8 +15,14 @@ test("the same product shares a classification whatever the quantity", () => {
 
 test("a different unit or product is a different classification", () => {
   const film = { description: "BOPP film", unit: "kg" };
-  assert.notEqual(classificationCacheText(film), classificationCacheText({ ...film, unit: "rolls" }));
-  assert.notEqual(classificationCacheText(film), classificationCacheText({ description: "BOPP bags", unit: "kg" }));
+  assert.notEqual(
+    classificationCacheText(film),
+    classificationCacheText({ ...film, unit: "rolls" }),
+  );
+  assert.notEqual(
+    classificationCacheText(film),
+    classificationCacheText({ description: "BOPP bags", unit: "kg" }),
+  );
 });
 
 test("questions differing only in case, spacing or punctuation share an answer", () => {

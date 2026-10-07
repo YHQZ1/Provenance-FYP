@@ -29,7 +29,16 @@ def test_only_scanned_pages_are_sent_to_ocr(tmp_path, monkeypatch):
 
     def fake_ocr(images, page_numbers):
         return [
-            {"text": "LDPE Film 40 kg", "x": 0.1, "y": 0.1, "w": 0.3, "h": 0.02, "page": page, "conf": 0.9, "source": "paddleocr"}
+            {
+                "text": "LDPE Film 40 kg",
+                "x": 0.1,
+                "y": 0.1,
+                "w": 0.3,
+                "h": 0.02,
+                "page": page,
+                "conf": 0.9,
+                "source": "paddleocr",
+            }
             for page in page_numbers
         ]
 
@@ -40,7 +49,11 @@ def test_only_scanned_pages_are_sent_to_ocr(tmp_path, monkeypatch):
 
     assert rendered == [1]
     assert result.pages == 3
-    assert {item.description for item in result.line_items} == {"PET Preform", "HDPE Granules", "LDPE Film"}
+    assert {item.description for item in result.line_items} == {
+        "PET Preform",
+        "HDPE Granules",
+        "LDPE Film",
+    }
     assert any("1 scanned page" in warning for warning in result.warnings)
 
 

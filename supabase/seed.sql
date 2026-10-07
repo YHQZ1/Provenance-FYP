@@ -1,6 +1,3 @@
--- Reference data: the CPCB polymer list and trade-name synonyms the classifier seeds Qdrant from.
--- Safe to re-run; existing rows are left alone.
-
 INSERT INTO public.materials_master VALUES
 	('PET', 'Polyethylene Terephthalate', 'RIGID_PLASTIC', 'Used for water bottles, food containers'),
 	('HDPE', 'High Density Polyethylene', 'RIGID_PLASTIC', 'Used for pipes, milk jugs, durable containers'),

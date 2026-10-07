@@ -10,8 +10,6 @@ import { workspaceCache } from "./workspace.cache.js";
 
 const now = () => new Date().toISOString();
 
-// Status changes move documents between the filing's counters, so each one invalidates the
-// company's cached filing.
 const updateDocument = async (documentId, changes) => {
   const { data } = await supabaseAdmin
     .from("documents")
@@ -21,12 +19,10 @@ const updateDocument = async (documentId, changes) => {
   await workspaceCache.invalidate(data?.[0]?.company_id);
 };
 
-const setStatus = (documentId, status, reasoning) => updateDocument(documentId, { status, reasoning });
+const setStatus = (documentId, status, reasoning) =>
+  updateDocument(documentId, { status, reasoning });
 
 export const processingService = {
-  // The whole pipeline for one document: read it, then classify its lines. Each run starts from
-  // the stored file, so it can be repeated safely; OCR output is cached by file hash, so a
-  // retry after a classification failure doesn't read the document again.
   async processDocument(documentId, { attempt = 1, attempts = 1 } = {}) {
     const { data: document, error } = await supabaseAdmin
       .from("documents")
@@ -34,7 +30,6 @@ export const processingService = {
       .eq("id", documentId)
       .maybeSingle();
     if (error) throw new Error(`Couldn't load the document: ${error.message}`);
-    // Deleted while it waited in the queue: nothing to do.
     if (!document) return { skipped: "deleted" };
 
     await setStatus(documentId, "OCR_PROCESSING", readingMessage(attempt, attempts));
@@ -69,14 +64,16 @@ export const processingService = {
     });
   },
 
-  // Queue the document when Redis is available; otherwise process it here, as before the queue.
   async schedule(documentId) {
     if (documentQueue()) {
       try {
         await enqueueDocument(documentId);
         return "queued";
       } catch (error) {
-        console.error(`[Processing] Queue unavailable, processing ${documentId} inline:`, error.message);
+        console.error(
+          `[Processing] Queue unavailable, processing ${documentId} inline:`,
+          error.message,
+        );
       }
     }
     this.processDocument(documentId).catch(async (error) => {
@@ -86,8 +83,6 @@ export const processingService = {
     return "inline";
   },
 
-  // Documents left mid-processing by a restart, or whose job is gone (Redis was wiped), are put
-  // back in the queue. Jobs that are still in Redis resume by themselves.
   async recoverInterrupted() {
     const { data, error } = await supabaseAdmin
       .from("documents")

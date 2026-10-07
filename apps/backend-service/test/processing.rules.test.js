@@ -29,7 +29,10 @@ test("messages say which attempt this is and what went wrong", () => {
     retryingMessage(1, 3, error),
     "Attempt 1 of 3 failed (OCR service returned 503). Retrying shortly.",
   );
-  assert.match(failedMessage(3, error), /^Processing failed after 3 attempts: OCR service returned 503/);
+  assert.match(
+    failedMessage(3, error),
+    /^Processing failed after 3 attempts: OCR service returned 503/,
+  );
   assert.match(failedMessage(1, error), /^Processing failed: OCR service returned 503/);
   assert.equal(readingMessage(1, 3), "Reading the document.");
   assert.equal(readingMessage(2, 3), "Reading the document (attempt 2 of 3).");

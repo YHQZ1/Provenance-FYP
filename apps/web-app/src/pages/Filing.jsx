@@ -14,13 +14,7 @@ import {
   Unlock,
 } from "lucide-react";
 import { filingAPI } from "../lib/api";
-import {
-  CPCB_CATEGORIES,
-  MATERIALS,
-  formatDate,
-  formatKg,
-  formatKgExact,
-} from "../lib/domain";
+import { CPCB_CATEGORIES, MATERIALS, formatDate, formatKg, formatKgExact } from "../lib/domain";
 import { useWorkspace } from "../lib/workspace";
 import {
   Alert,
@@ -58,16 +52,8 @@ const toCsv = (report) => {
   const rows = [["Section", "Item", "Value (kg)"]];
   rows.push(["Entity", "Company", report.entity.company_name || ""]);
   rows.push(["Entity", "GSTIN", report.entity.gst_number || ""]);
-  rows.push([
-    "Entity",
-    "EPR registration number",
-    report.entity.epr_registration_number || "",
-  ]);
-  rows.push([
-    "Entity",
-    "PIBO category",
-    (report.entity.pibo_category || []).join(" / "),
-  ]);
+  rows.push(["Entity", "EPR registration number", report.entity.epr_registration_number || ""]);
+  rows.push(["Entity", "PIBO category", (report.entity.pibo_category || []).join(" / ")]);
   rows.push(["Period", "Financial year", report.financial_year.label]);
   rows.push(["Period", "Status", report.status]);
   for (const [section, label] of [
@@ -79,9 +65,7 @@ const toCsv = (report) => {
       rows.push([label, code, kg]);
     rows.push([label, "Total", report.totals[section].total_kg]);
   }
-  for (const [category, kg] of Object.entries(
-    report.totals.introduced.by_category || {},
-  )) {
+  for (const [category, kg] of Object.entries(report.totals.introduced.by_category || {})) {
     rows.push([
       "Plastic introduced by CPCB category",
       CPCB_CATEGORIES[category]?.short || category,
@@ -96,18 +80,11 @@ const toCsv = (report) => {
     ]);
   }
   return rows
-    .map((row) =>
-      row
-        .map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`)
-        .join(","),
-    )
+    .map((row) => row.map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`).join(","))
     .join("\n");
 };
 
-const share = (part, whole) =>
-  whole > 0 ? `${Math.round((part / whole) * 100)}%` : "—";
-
-/* ------------------------------------------------------------------ */
+const share = (part, whole) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : "—");
 
 function ExportMenu({ report, fileStem }) {
   const [open, setOpen] = useState(false);
@@ -115,8 +92,7 @@ function ExportMenu({ report, fileStem }) {
 
   useEffect(() => {
     if (!open) return undefined;
-    const onPointer = (event) =>
-      !ref.current?.contains(event.target) && setOpen(false);
+    const onPointer = (event) => !ref.current?.contains(event.target) && setOpen(false);
     const onKey = (event) => event.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -137,12 +113,7 @@ function ExportMenu({ report, fileStem }) {
       icon: FileJson,
       label: "JSON",
       hint: "The full position, for other systems",
-      run: () =>
-        download(
-          `${fileStem}.json`,
-          JSON.stringify(report, null, 2),
-          "application/json",
-        ),
+      run: () => download(`${fileStem}.json`, JSON.stringify(report, null, 2), "application/json"),
     },
     {
       icon: Printer,
@@ -154,15 +125,9 @@ function ExportMenu({ report, fileStem }) {
 
   return (
     <div className="relative" ref={ref}>
-      <Button
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-      >
+      <Button onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-haspopup="menu">
         <Download className="size-4" /> Export{" "}
-        <ChevronDown
-          className={cx("size-3.5 transition-transform", open && "rotate-180")}
-        />
+        <ChevronDown className={cx("size-3.5 transition-transform", open && "rotate-180")} />
       </Button>
       {open && (
         <div
@@ -180,17 +145,10 @@ function ExportMenu({ report, fileStem }) {
               }}
               className="flex w-full items-start gap-3 rounded-sm px-3 py-2.5 text-left hover:bg-neutral-50"
             >
-              <option.icon
-                className="mt-0.5 size-4 shrink-0 text-neutral-500"
-                aria-hidden
-              />
+              <option.icon className="mt-0.5 size-4 shrink-0 text-neutral-500" aria-hidden />
               <span>
-                <span className="block text-sm font-medium text-neutral-950">
-                  {option.label}
-                </span>
-                <span className="block text-xs text-neutral-500">
-                  {option.hint}
-                </span>
+                <span className="block text-sm font-medium text-neutral-950">{option.label}</span>
+                <span className="block text-xs text-neutral-500">{option.hint}</span>
               </span>
             </button>
           ))}
@@ -206,9 +164,7 @@ function Panel({ title, description, action, children, className, flush }) {
       <div className="flex flex-wrap items-start justify-between gap-4 px-5 pb-1 pt-5">
         <div>
           <h2 className="text-sm font-semibold text-neutral-950">{title}</h2>
-          {description && (
-            <p className="mt-0.5 text-sm text-neutral-500">{description}</p>
-          )}
+          {description && <p className="mt-0.5 text-sm text-neutral-500">{description}</p>}
         </div>
         {action}
       </div>
@@ -261,9 +217,7 @@ function Readiness({ filing, onFinalize }) {
       to: "/documents",
     },
   ];
-  const messages = Object.fromEntries(
-    filing.blockers.map((b) => [b.key, b.message]),
-  );
+  const messages = Object.fromEntries(filing.blockers.map((b) => [b.key, b.message]));
   const detailFor = (check) =>
     check.done
       ? null
@@ -282,9 +236,7 @@ function Readiness({ filing, onFinalize }) {
     <Card className="grid min-w-0 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
       <div className="px-5 py-5">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-sm font-semibold text-neutral-950">
-            Before you finalize
-          </h2>
+          <h2 className="text-sm font-semibold text-neutral-950">Before you finalize</h2>
           <span className="mono text-[11px] text-neutral-500">
             {done} of {checks.length} done
           </span>
@@ -306,17 +258,13 @@ function Readiness({ filing, onFinalize }) {
                   <span
                     className={cx(
                       "block text-sm",
-                      check.done
-                        ? "text-neutral-500"
-                        : "font-medium text-neutral-950",
+                      check.done ? "text-neutral-500" : "font-medium text-neutral-950",
                     )}
                   >
                     {check.label}
                   </span>
                   {!check.done && detailFor(check) && (
-                    <span className="block text-xs text-neutral-500">
-                      {detailFor(check)}
-                    </span>
+                    <span className="block text-xs text-neutral-500">{detailFor(check)}</span>
                   )}
                 </span>
                 {!check.done && (
@@ -343,24 +291,19 @@ function Readiness({ filing, onFinalize }) {
       <div className="flex flex-col justify-between gap-6 border-t border-neutral-100 bg-neutral-50 px-5 py-5 lg:border-l lg:border-t-0">
         {filing.ready ? (
           <div>
-            <p className="text-sm font-semibold text-neutral-950">
-              Ready to finalize
-            </p>
+            <p className="text-sm font-semibold text-neutral-950">Ready to finalize</p>
             <p className="mt-1 text-sm text-neutral-600">
               Finalizing records these totals as your signed-off position for{" "}
-              {filing.financial_year.label} and locks its documents. You can
-              reopen it later if something changes.
+              {filing.financial_year.label} and locks its documents. You can reopen it later if
+              something changes.
             </p>
           </div>
         ) : (
           <div>
-            <p className="text-sm font-semibold text-neutral-950">
-              Not ready yet
-            </p>
+            <p className="text-sm font-semibold text-neutral-950">Not ready yet</p>
             <p className="mt-1 text-sm text-neutral-600">
               Finish the {checks.length - done} open item
-              {checks.length - done === 1 ? "" : "s"} in the list. It updates as
-              you work.
+              {checks.length - done === 1 ? "" : "s"} in the list. It updates as you work.
             </p>
           </div>
         )}
@@ -375,12 +318,8 @@ function Readiness({ filing, onFinalize }) {
           </Button>
           {!filing.finalization_available && (
             <p className="mt-2 text-xs text-neutral-500">
-              Finalizing needs the <code className="mono">fy_filings</code>{" "}
-              table. Run{" "}
-              <code className="mono">
-                supabase/migrations/001_fy_filings.sql
-              </code>
-              .
+              Finalizing needs the <code className="mono">fy_filings</code> table. Run{" "}
+              <code className="mono">supabase/migrations/001_fy_filings.sql</code>.
             </p>
           )}
         </div>
@@ -397,16 +336,13 @@ function MaterialTable({ totals }) {
       ...Object.keys(totals.collected.by_material),
     ]),
   ].sort(
-    (a, b) =>
-      (totals.introduced.by_material[b] || 0) -
-      (totals.introduced.by_material[a] || 0),
+    (a, b) => (totals.introduced.by_material[b] || 0) - (totals.introduced.by_material[a] || 0),
   );
 
   if (codes.length === 0) {
     return (
       <p className="px-5 pb-5 text-sm text-neutral-500">
-        No reviewed quantities yet. Totals appear as you approve lines in
-        Review.
+        No reviewed quantities yet. Totals appear as you approve lines in Review.
       </p>
     );
   }
@@ -419,9 +355,7 @@ function MaterialTable({ totals }) {
             <th className="px-5 py-2.5 font-medium">Material</th>
             <th className="px-3 py-2.5 text-right font-medium">Introduced</th>
             <th className="px-3 py-2.5 text-right font-medium">Share</th>
-            <th className="px-3 py-2.5 text-right font-medium">
-              Recycling certificates
-            </th>
+            <th className="px-3 py-2.5 text-right font-medium">Recycling certificates</th>
             <th className="px-5 py-2.5 text-right font-medium">Collected</th>
           </tr>
         </thead>
@@ -434,10 +368,7 @@ function MaterialTable({ totals }) {
                   <span className="font-medium text-neutral-950">{code}</span>
                   <span className="text-neutral-500">
                     {" "}
-                    ·{" "}
-                    {MATERIALS.find((m) => m.code === code)?.name.split(
-                      "— ",
-                    )[1] || ""}
+                    · {MATERIALS.find((m) => m.code === code)?.name.split("— ")[1] || ""}
                   </span>
                 </td>
                 <td className="mono whitespace-nowrap px-3 py-3 text-right text-neutral-950">
@@ -462,9 +393,7 @@ function MaterialTable({ totals }) {
             <td className="mono whitespace-nowrap px-3 py-3 text-right">
               {formatKgExact(totals.introduced.total_kg)}
             </td>
-            <td className="mono whitespace-nowrap px-3 py-3 text-right text-neutral-500">
-              100%
-            </td>
+            <td className="mono whitespace-nowrap px-3 py-3 text-right text-neutral-500">100%</td>
             <td className="mono whitespace-nowrap px-3 py-3 text-right">
               {formatKgExact(totals.recycled.total_kg)}
             </td>
@@ -479,9 +408,7 @@ function MaterialTable({ totals }) {
 }
 
 function CategoryTable({ totals }) {
-  const rows = Object.entries(totals.introduced.by_category || {}).sort(
-    (a, b) => b[1] - a[1],
-  );
+  const rows = Object.entries(totals.introduced.by_category || {}).sort((a, b) => b[1] - a[1]);
   return (
     <table className="w-full text-sm">
       <thead>
@@ -498,9 +425,7 @@ function CategoryTable({ totals }) {
               <span className="block font-medium text-neutral-950">
                 {CPCB_CATEGORIES[key]?.short || key}
               </span>
-              <span className="block text-xs text-neutral-500">
-                {CPCB_CATEGORIES[key]?.label}
-              </span>
+              <span className="block text-xs text-neutral-500">{CPCB_CATEGORIES[key]?.label}</span>
             </td>
             <td className="mono whitespace-nowrap px-3 py-3 text-right text-neutral-950">
               {formatKgExact(kg)}
@@ -546,24 +471,18 @@ function EvidenceTable({ documents }) {
                   {doc.filename}
                 </Link>
               </td>
-              <td className="px-3 py-3 text-neutral-600">
-                {doc.document_type_label}
-              </td>
+              <td className="px-3 py-3 text-neutral-600">{doc.document_type_label}</td>
               <td className="whitespace-nowrap px-3 py-3 text-neutral-600">
                 {formatDate(doc.effective_date)}
                 {doc.date_source === "upload" && (
-                  <span className="block text-xs text-neutral-400">
-                    upload date
-                  </span>
+                  <span className="block text-xs text-neutral-400">upload date</span>
                 )}
               </td>
               <td className="px-3 py-3">
                 <StageBadge stage={doc.stage} />
               </td>
               <td className="mono whitespace-nowrap px-5 py-3 text-right text-neutral-950">
-                {doc.stage === "evidence"
-                  ? "—"
-                  : formatKgExact(doc.verified_kg)}
+                {doc.stage === "evidence" ? "—" : formatKgExact(doc.verified_kg)}
               </td>
             </tr>
           ))}
@@ -632,8 +551,7 @@ function RegulatoryCheck({ fy }) {
             </div>
           )}
           <p className="text-xs text-neutral-400">
-            AI-generated from the source library. Check the cited pages before
-            relying on it.
+            AI-generated from the source library. Check the cited pages before relying on it.
           </p>
         </div>
       ) : (
@@ -642,8 +560,6 @@ function RegulatoryCheck({ fy }) {
     </Panel>
   );
 }
-
-/* ------------------------------------------------------------------ */
 
 export default function Filing() {
   const { filing: live, filingError, refreshFiling, fy } = useWorkspace();
@@ -679,29 +595,20 @@ export default function Filing() {
   }
 
   const finalized = live.status === "FINALIZED";
-  // A finalized year shows exactly the numbers that were signed off.
-  const report =
-    finalized && live.snapshot
-      ? { ...live.snapshot, status: "FINALIZED" }
-      : live;
+  const report = finalized && live.snapshot ? { ...live.snapshot, status: "FINALIZED" } : live;
   const label = report.financial_year.label;
   const totals = report.totals;
   const changedSinceFinalized =
     finalized &&
     live.snapshot &&
-    (live.totals.introduced.total_kg !==
-      live.snapshot.totals.introduced.total_kg ||
-      live.totals.recycled.total_kg !==
-        live.snapshot.totals.recycled.total_kg ||
+    (live.totals.introduced.total_kg !== live.snapshot.totals.introduced.total_kg ||
+      live.totals.recycled.total_kg !== live.snapshot.totals.recycled.total_kg ||
       live.counts.documents !== live.snapshot.counts.documents);
   const lateDocuments = (finalized && live.late_documents) || [];
   const showCategories =
-    report.categories_tracked &&
-    Object.keys(totals.introduced.by_category || {}).length > 0;
+    report.categories_tracked && Object.keys(totals.introduced.by_category || {}).length > 0;
   const coverage =
-    totals.introduced.total_kg > 0
-      ? totals.recycled.total_kg / totals.introduced.total_kg
-      : null;
+    totals.introduced.total_kg > 0 ? totals.recycled.total_kg / totals.introduced.total_kg : null;
   const fileStem = `provenance-epr-${label.replace(/\s+/g, "-").toLowerCase()}`;
 
   const finalize = async () => {
@@ -734,20 +641,15 @@ export default function Filing() {
 
   return (
     <div className="space-y-6">
-      {/* Printed reports carry their own context. */}
       <div className="hidden border-b border-neutral-300 pb-4 print:block">
         <p className="text-lg font-semibold">Plastic EPR position · {label}</p>
         <p className="text-sm">
-          {report.entity.company_name || "Company"} · GSTIN{" "}
-          {report.entity.gst_number || "not set"} · EPR registration{" "}
-          {report.entity.epr_registration_number || "not set"} ·{" "}
-          {(report.entity.pibo_category || []).join(", ") ||
-            "PIBO category not set"}
+          {report.entity.company_name || "Company"} · GSTIN {report.entity.gst_number || "not set"}{" "}
+          · EPR registration {report.entity.epr_registration_number || "not set"} ·{" "}
+          {(report.entity.pibo_category || []).join(", ") || "PIBO category not set"}
         </p>
         <p className="text-xs text-neutral-600">
-          {finalized
-            ? `Finalized ${formatDate(live.finalized_at, true)}`
-            : "Draft, not finalized"}{" "}
+          {finalized ? `Finalized ${formatDate(live.finalized_at, true)}` : "Draft, not finalized"}{" "}
           · generated {formatDate(new Date(), true)}
         </p>
       </div>
@@ -758,17 +660,14 @@ export default function Filing() {
             Step 3 · Filing
           </p>
           <div className="mt-2 flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {label} EPR position
-            </h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{label} EPR position</h1>
             <Badge tone={finalized ? "ok" : "neutral"}>
               {finalized && <Lock className="size-3" />}
               {finalized ? "Finalized" : "Open"}
             </Badge>
           </div>
           <p className="mt-1 max-w-2xl text-sm text-neutral-500">
-            Built only from reviewed lines.{" "}
-            {report.entity.company_name || "Your company"} · GSTIN{" "}
+            Built only from reviewed lines. {report.entity.company_name || "Your company"} · GSTIN{" "}
             {report.entity.gst_number || "not set"}
             {report.entity.epr_registration_number &&
               ` · EPR ${report.entity.epr_registration_number}`}
@@ -790,8 +689,8 @@ export default function Filing() {
                 Finalized on {formatDate(live.finalized_at, true)}
               </p>
               <p className="mt-0.5 text-sm text-neutral-600">
-                These are your signed-off numbers. Documents dated in {label}{" "}
-                are locked until you reopen the year.
+                These are your signed-off numbers. Documents dated in {label} are locked until you
+                reopen the year.
               </p>
             </div>
           </div>
@@ -817,18 +716,15 @@ export default function Filing() {
             .slice(0, 3)
             .map((d) => d.filename)
             .join(", ")}
-          {lateDocuments.length > 3 && ` and ${lateDocuments.length - 3} more`}.
-          They aren't in the signed-off numbers. Reopen the year to review and
-          include them, or delete them if they don't belong.
+          {lateDocuments.length > 3 && ` and ${lateDocuments.length - 3} more`}. They aren't in the
+          signed-off numbers. Reopen the year to review and include them, or delete them if they
+          don't belong.
         </Alert>
       )}
       {changedSinceFinalized && lateDocuments.length === 0 && (
-        <Alert
-          tone="warn"
-          title="Your documents have changed since this year was finalized"
-        >
-          The numbers below are the signed-off ones. Reopen the year and
-          finalize again to include the changes.
+        <Alert tone="warn" title="Your documents have changed since this year was finalized">
+          The numbers below are the signed-off ones. Reopen the year and finalize again to include
+          the changes.
         </Alert>
       )}
 
@@ -905,8 +801,8 @@ export default function Filing() {
       <RegulatoryCheck fy={fy} />
 
       <p className="text-xs leading-relaxed text-neutral-500">
-        Provenance prepares your EPR position and the evidence behind it. It
-        does not submit to the CPCB portal. References:{" "}
+        Provenance prepares your EPR position and the evidence behind it. It does not submit to the
+        CPCB portal. References:{" "}
         {report.source_basis?.map((source, index) => (
           <span key={source.url}>
             {index > 0 && ", "}
@@ -940,21 +836,12 @@ export default function Filing() {
         <div className="space-y-5">
           <dl className="divide-y divide-neutral-100 rounded-md border border-neutral-200">
             {[
-              [
-                "Plastic introduced",
-                formatKgExact(live.totals.introduced.total_kg),
-              ],
-              [
-                "Recycling certificates",
-                formatKgExact(live.totals.recycled.total_kg),
-              ],
+              ["Plastic introduced", formatKgExact(live.totals.introduced.total_kg)],
+              ["Recycling certificates", formatKgExact(live.totals.recycled.total_kg)],
               ["Collected", formatKgExact(live.totals.collected.total_kg)],
               ["Documents", live.counts.documents],
             ].map(([term, value]) => (
-              <div
-                key={term}
-                className="flex items-center justify-between px-4 py-2.5 text-sm"
-              >
+              <div key={term} className="flex items-center justify-between px-4 py-2.5 text-sm">
                 <dt className="text-neutral-600">{term}</dt>
                 <dd className="mono font-medium text-neutral-950">{value}</dd>
               </div>
@@ -992,8 +879,8 @@ export default function Filing() {
         }
       >
         <p className="text-sm text-neutral-600">
-          The signed-off snapshot is discarded and this year's documents can be
-          changed again. You'll need to finalize again afterwards.
+          The signed-off snapshot is discarded and this year's documents can be changed again.
+          You'll need to finalize again afterwards.
         </p>
       </Modal>
     </div>

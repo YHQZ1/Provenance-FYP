@@ -19,7 +19,6 @@ export const CPCB_CATEGORIES = [
 
 const now = () => new Date().toISOString();
 
-// Who made the decision, kept with the line for the audit trail.
 const reviewStamp = async (reviewer) => {
   if (!(await schema()).reviewerIdentity) return {};
   return {
@@ -42,8 +41,6 @@ const fetchOwned = async (classificationId, userId, { forWrite = true } = {}) =>
   return data;
 };
 
-// One audit entry per decision, tied to the document and the year it counts toward. A decision
-// changes the filing's totals, so it also invalidates the company's cached filing.
 const recordDecision = async (reviewer, item, action, summary, details = {}) => {
   await workspaceCache.invalidate(reviewer.id);
   return activityService.record(reviewer, {
@@ -84,7 +81,6 @@ export const feedbackService = {
       (item) => !PROCESSING_STATUSES.includes(item.documents?.status),
     );
 
-    // Lines from a finalized year stay visible but can't be decided until that year is reopened.
     const finalized = await finalizedYears(userId);
     const lockedYear = (document) => {
       const fy = financialYearOf(effectiveDate(document));
@@ -104,26 +100,26 @@ export const feedbackService = {
     const items = ready.map((item) => {
       const locked = lockedYear(item.documents);
       return {
-      financial_year: financialYearOf(effectiveDate(item.documents)),
-      id: item.id,
-      document_id: item.document_id,
-      document_filename: item.documents?.filename,
-      document_type: documentTypeOf(item.documents?.extracted_data),
-      line_description: item.matched_synonym,
-      material_code: item.material_code,
-      material_name: names[item.material_code] || null,
-      cpcb_category: item.cpcb_category || null,
-      quantity_kg: item.quantity_kg,
-      confidence_score: item.confidence_score,
-      reasoning: item.reasoning,
-      locked_financial_year: locked == null ? null : financialYearRange(locked).label,
-      locked_financial_year_start: locked,
-      suggested:
-        locked == null &&
-        !item.requires_human_review &&
-        Boolean(item.material_code) &&
-        item.quantity_kg != null,
-      created_at: item.created_at,
+        financial_year: financialYearOf(effectiveDate(item.documents)),
+        id: item.id,
+        document_id: item.document_id,
+        document_filename: item.documents?.filename,
+        document_type: documentTypeOf(item.documents?.extracted_data),
+        line_description: item.matched_synonym,
+        material_code: item.material_code,
+        material_name: names[item.material_code] || null,
+        cpcb_category: item.cpcb_category || null,
+        quantity_kg: item.quantity_kg,
+        confidence_score: item.confidence_score,
+        reasoning: item.reasoning,
+        locked_financial_year: locked == null ? null : financialYearRange(locked).label,
+        locked_financial_year_start: locked,
+        suggested:
+          locked == null &&
+          !item.requires_human_review &&
+          Boolean(item.material_code) &&
+          item.quantity_kg != null,
+        created_at: item.created_at,
       };
     });
 
@@ -210,8 +206,7 @@ export const feedbackService = {
 
     if (error) throw new Error(`Correction failed: ${error.message}`);
 
-    const changed =
-      material_code !== original.material_code || quantity !== original.quantity_kg;
+    const changed = material_code !== original.material_code || quantity !== original.quantity_kg;
     if (changed) {
       await supabaseAdmin.from("classification_feedback").insert({
         classification_id: classificationId,
@@ -242,7 +237,6 @@ export const feedbackService = {
     return data;
   },
 
-  // Excluded lines are reviewed but carry no material, so they never reach filing totals.
   async exclude(classificationId, reviewer, reason = "") {
     const item = await fetchOwned(classificationId, reviewer.id);
 

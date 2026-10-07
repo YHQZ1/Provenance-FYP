@@ -14,9 +14,6 @@ router = APIRouter(prefix="/v1", tags=["ocr"])
 pipeline = OCRPipeline()
 SUPPORTED_TYPES = {"application/pdf", "image/png", "image/jpeg", "image/tiff"}
 
-# PaddleOCR's engine is a shared, non-thread-safe object: two documents running through it
-# at once corrupt its tensors ("Tensor holds no memory"). Documents take turns; /health,
-# which never touches the engine, stays responsive because the work runs off the event loop.
 _engine_lock = threading.Lock()
 
 
@@ -44,7 +41,6 @@ async def process_document(file: UploadFile = File(...)) -> OCRResponse:
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
             temp_file.write(payload)
             temp_path = temp_file.name
-        # OCR is CPU-bound; run it off the event loop so /health stays responsive.
         return await run_in_threadpool(_process_exclusively, temp_path, file.filename)
     except ValueError as exc:
         raise HTTPException(status_code=415, detail=str(exc)) from exc

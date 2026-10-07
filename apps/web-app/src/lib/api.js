@@ -1,14 +1,12 @@
 import axios from "axios";
 import { supabase } from "./supabase";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+import { API_URL } from "./config";
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
   withCredentials: true,
 });
 
-// Always use the live Supabase session so refreshed tokens are picked up.
 api.interceptors.request.use(async (config) => {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -78,8 +76,7 @@ export const filingAPI = {
   get: (fy) => api.get("/compliance/filing", { params: { fy } }),
   finalize: (fy, notes) => api.post("/compliance/filing/finalize", { fy, notes }),
   reopen: (fy) => api.post("/compliance/filing/reopen", { fy }),
-  regulatoryReview: (fy) =>
-    api.post("/compliance/filing/regulatory-review", { fy }),
+  regulatoryReview: (fy) => api.post("/compliance/filing/regulatory-review", { fy }),
 };
 
 export const companyAPI = {

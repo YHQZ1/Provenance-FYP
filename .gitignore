@@ -1,15 +1,12 @@
-# Dependencies
 node_modules/
 .pnp
 .pnp.js
 
-# Environment variables
 .env
 .env.*
 !.env.example
 !.env.*.example
 
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -22,7 +19,6 @@ venv/
 .mypy_cache/
 .ruff_cache/
 
-# Build outputs
 dist/
 build/
 coverage/
@@ -32,7 +28,6 @@ out/
 .vercel/
 .storybook-out/
 
-# Runtime/generated data
 uploads/
 data/
 vector_db/
@@ -45,7 +40,6 @@ apps/ocr-service/poppler.zip
 *.sqlite3
 *.db
 
-# Logs
 logs/
 *.log
 npm-debug.log*
@@ -53,20 +47,16 @@ yarn-debug.log*
 pnpm-debug.log*
 pip-log.txt
 
-# OS / System
 .DS_Store
 Thumbs.db
 
-# IDE / Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# TypeScript
 *.tsbuildinfo
 
-# Misc
 .tmp/
 .cache/
 tmp/

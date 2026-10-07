@@ -1,9 +1,6 @@
 import { Router } from "express";
 import { authenticate } from "../middleware/auth.middleware.js";
-import {
-  uploadMiddleware,
-  handleUploadError,
-} from "../middleware/upload.middleware.js";
+import { uploadMiddleware, handleUploadError } from "../middleware/upload.middleware.js";
 import { documentController } from "../controllers/document.controller.js";
 
 const router = Router();

@@ -11,12 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { documentAPI, reviewAPI } from "../lib/api";
-import {
-  CPCB_CATEGORIES,
-  MATERIALS,
-  documentTypeLabel,
-  formatKgExact,
-} from "../lib/domain";
+import { CPCB_CATEGORIES, MATERIALS, documentTypeLabel, formatKgExact } from "../lib/domain";
 import { useWorkspace } from "../lib/workspace";
 import {
   Alert,
@@ -35,7 +30,6 @@ import {
 
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 
-// Why a line needs a person, in plain words, and what to do about it.
 const REASONS = {
   locked: {
     label: "Year finalized",
@@ -90,12 +84,8 @@ const FILTERS = [
   { id: "suggested", label: "Suggested" },
 ];
 
-const isTyping = (target) =>
-  ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName);
+const isTyping = (target) => ["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName);
 
-/* ------------------------------------------------------------------ */
-
-// Highlights the reviewed line inside the OCR text so it can be found on the page quickly.
 function HighlightedText({ text, needle }) {
   const index = needle ? text.toLowerCase().indexOf(needle.toLowerCase()) : -1;
   const markRef = useRef(null);
@@ -108,10 +98,7 @@ function HighlightedText({ text, needle }) {
   return (
     <>
       {text.slice(0, index)}
-      <mark
-        ref={markRef}
-        className="rounded-sm bg-neutral-950 px-0.5 text-white"
-      >
+      <mark ref={markRef} className="rounded-sm bg-neutral-950 px-0.5 text-white">
         {text.slice(index, index + needle.length)}
       </mark>
       {text.slice(index + needle.length)}
@@ -136,10 +123,7 @@ function SourcePanel({ documentId, needle }) {
         <p className="mono text-[10px] font-medium uppercase tracking-[0.14em] text-neutral-500">
           Source document
         </p>
-        <div
-          className="flex rounded-md border border-neutral-200 p-0.5 text-xs"
-          role="tablist"
-        >
+        <div className="flex rounded-md border border-neutral-200 p-0.5 text-xs" role="tablist">
           {[
             ["file", "Original"],
             ["text", "Extracted text"],
@@ -176,17 +160,9 @@ function SourcePanel({ documentId, needle }) {
             )}
           </pre>
         ) : doc.file_url && doc.mime_type === "application/pdf" ? (
-          <iframe
-            title="Source document"
-            src={doc.file_url}
-            className="size-full"
-          />
+          <iframe title="Source document" src={doc.file_url} className="size-full" />
         ) : doc.file_url ? (
-          <img
-            src={doc.file_url}
-            alt="Source document"
-            className="size-full object-contain"
-          />
+          <img src={doc.file_url} alt="Source document" className="size-full object-contain" />
         ) : (
           <EmptyState icon={FileText} title="Preview unavailable" />
         )}
@@ -197,8 +173,6 @@ function SourcePanel({ documentId, needle }) {
     </div>
   );
 }
-
-/* ------------------------------------------------------------------ */
 
 function Fact({ label, value, hint, muted }) {
   return (
@@ -212,20 +186,12 @@ function Fact({ label, value, hint, muted }) {
       >
         {value}
       </p>
-      {hint && (
-        <p className="mt-0.5 truncate text-xs text-neutral-500">{hint}</p>
-      )}
+      {hint && <p className="mt-0.5 truncate text-xs text-neutral-500">{hint}</p>}
     </div>
   );
 }
 
-function DecisionPanel({
-  item,
-  position,
-  categoriesTracked,
-  onDone,
-  modeRequest,
-}) {
+function DecisionPanel({ item, position, categoriesTracked, onDone, modeRequest }) {
   const reason = reasonOf(item);
   const meta = REASONS[reason];
   const canApprove = reason === "suggested" || reason === "check";
@@ -253,8 +219,7 @@ function DecisionPanel({
     }
   };
 
-  const approve = () =>
-    run("approve", () => reviewAPI.approve(item.id, notes), "Line approved");
+  const approve = () => run("approve", () => reviewAPI.approve(item.id, notes), "Line approved");
   const saveCorrection = () =>
     run(
       "correct",
@@ -270,32 +235,22 @@ function DecisionPanel({
   const exclude = () =>
     run(
       "exclude",
-      () =>
-        reviewAPI.exclude(
-          item.id,
-          [excludeReason, notes].filter(Boolean).join(": "),
-        ),
+      () => reviewAPI.exclude(item.id, [excludeReason, notes].filter(Boolean).join(": ")),
       "Line excluded from the filing",
     );
 
-  // Keyboard shortcuts on the page arrive here as mode requests. Each request names the line
-  // it was made for, so the next line never acts on a request meant for the previous one.
   useEffect(() => {
-    if (!modeRequest || modeRequest.itemId !== item.id || saving || locked)
-      return;
+    if (!modeRequest || modeRequest.itemId !== item.id || saving || locked) return;
     if (modeRequest.mode === "approve") {
       if (canApprove && mode === "view") approve();
       return;
     }
     setMode(modeRequest.mode);
-    // Only react to new requests, not to the handlers changing identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeRequest]);
 
   const quantityValid = quantity !== "" && Number(quantity) > 0;
-  const materialName = MATERIALS.find(
-    (m) => m.code === item.material_code,
-  )?.name.split("— ")[1];
+  const materialName = MATERIALS.find((m) => m.code === item.material_code)?.name.split("— ")[1];
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
@@ -326,12 +281,7 @@ function DecisionPanel({
         <p className="mt-0.5 text-sm text-neutral-600">{meta.body}</p>
       </div>
 
-      <div
-        className={cx(
-          "grid gap-2.5",
-          categoriesTracked ? "sm:grid-cols-3" : "sm:grid-cols-2",
-        )}
-      >
+      <div className={cx("grid gap-2.5", categoriesTracked ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
         <Fact
           label="Suggested material"
           value={item.material_code || "Not identified"}
@@ -341,20 +291,14 @@ function DecisionPanel({
         {categoriesTracked && (
           <Fact
             label="CPCB category"
-            value={
-              CPCB_CATEGORIES[item.cpcb_category]?.short || "Not identified"
-            }
+            value={CPCB_CATEGORIES[item.cpcb_category]?.short || "Not identified"}
             hint={CPCB_CATEGORIES[item.cpcb_category]?.label}
             muted={!item.cpcb_category}
           />
         )}
         <Fact
           label="Weight"
-          value={
-            item.quantity_kg == null
-              ? "Not a weight"
-              : formatKgExact(item.quantity_kg)
-          }
+          value={item.quantity_kg == null ? "Not a weight" : formatKgExact(item.quantity_kg)}
           hint={
             item.confidence_score > 0
               ? `${Math.round(item.confidence_score * 100)}% confidence in the material`
@@ -367,9 +311,7 @@ function DecisionPanel({
       {item.reasoning && (
         <div>
           <p className="text-xs text-neutral-500">Why it was suggested</p>
-          <p className="mt-1 text-sm leading-relaxed text-neutral-700">
-            {item.reasoning}
-          </p>
+          <p className="mt-1 text-sm leading-relaxed text-neutral-700">{item.reasoning}</p>
         </div>
       )}
 
@@ -382,16 +324,13 @@ function DecisionPanel({
                 navigate("/filing");
               }}
             >
-              Open {item.locked_financial_year} filing{" "}
-              <ArrowRight className="size-4" />
+              Open {item.locked_financial_year} filing <ArrowRight className="size-4" />
             </Button>
           </div>
         ) : mode === "edit" ? (
           <div className="space-y-4">
             <p className="text-sm font-medium text-neutral-950">
-              {canApprove
-                ? "Correct the suggestion"
-                : "Enter what this line is"}
+              {canApprove ? "Correct the suggestion" : "Enter what this line is"}
             </p>
             <div
               className={cx(
@@ -478,9 +417,7 @@ function DecisionPanel({
         ) : mode === "exclude" ? (
           <div className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-neutral-950">
-                Why exclude this line?
-              </p>
+              <p className="text-sm font-medium text-neutral-950">Why exclude this line?</p>
               <p className="mt-0.5 text-sm text-neutral-500">
                 It stays on record with the reason, but counts toward no total.
               </p>
@@ -511,10 +448,7 @@ function DecisionPanel({
               aria-label="Exclusion note"
             />
             <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => setMode(canApprove ? "view" : "edit")}
-              >
+              <Button variant="ghost" onClick={() => setMode(canApprove ? "view" : "edit")}>
                 Cancel
               </Button>
               <Button
@@ -529,11 +463,7 @@ function DecisionPanel({
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="primary"
-              onClick={approve}
-              loading={saving === "approve"}
-            >
+            <Button variant="primary" onClick={approve} loading={saving === "approve"}>
               <Check className="size-4" /> Approve
             </Button>
             <Button onClick={() => setMode("edit")}>
@@ -553,19 +483,11 @@ function DecisionPanel({
   );
 }
 
-/* ------------------------------------------------------------------ */
-
 function Guide({ onDismiss }) {
   const steps = [
     ["Check", "Compare the line with the invoice on the right."],
-    [
-      "Decide",
-      "Approve it, correct it, or exclude it if it isn't plastic packaging.",
-    ],
-    [
-      "Repeat",
-      "The next line opens automatically. Only approved lines count toward your filing.",
-    ],
+    ["Decide", "Approve it, correct it, or exclude it if it isn't plastic packaging."],
+    ["Repeat", "The next line opens automatically. Only approved lines count toward your filing."],
   ];
   return (
     <Card className="flex flex-wrap items-start gap-x-8 gap-y-4 px-5 py-4">
@@ -575,8 +497,7 @@ function Guide({ onDismiss }) {
             {index + 1}
           </span>
           <p className="text-sm text-neutral-600">
-            <span className="font-medium text-neutral-950">{title}.</span>{" "}
-            {body}
+            <span className="font-medium text-neutral-950">{title}.</span> {body}
           </p>
         </div>
       ))}
@@ -639,7 +560,6 @@ export default function Review() {
     }
   }, []);
 
-  // Reload as documents finish processing and new suggestions arrive.
   const processing = filing?.counts?.processing || 0;
   const pendingCount = filing?.counts?.pending_items;
   useEffect(() => {
@@ -647,25 +567,17 @@ export default function Review() {
   }, [processing, pendingCount, load]);
 
   const scoped = useMemo(
-    () =>
-      (items || []).filter(
-        (item) => !documentFilter || item.document_id === documentFilter,
-      ),
+    () => (items || []).filter((item) => !documentFilter || item.document_id === documentFilter),
     [items, documentFilter],
   );
   const visible = useMemo(
     () =>
       scoped.filter((item) =>
-        filter === "all"
-          ? true
-          : filter === "suggested"
-            ? item.suggested
-            : !item.suggested,
+        filter === "all" ? true : filter === "suggested" ? item.suggested : !item.suggested,
       ),
     [scoped, filter],
   );
-  const selected =
-    visible.find((item) => item.id === selectedId) || visible[0] || null;
+  const selected = visible.find((item) => item.id === selectedId) || visible[0] || null;
   const selectedIndex = selected ? visible.indexOf(selected) : -1;
   const suggested = scoped.filter((item) => item.suggested);
   const attention = scoped.length - suggested.length;
@@ -681,9 +593,7 @@ export default function Review() {
   }, [visible]);
 
   const positionOf = (item) => {
-    const siblings = scoped.filter(
-      (other) => other.document_id === item.document_id,
-    );
+    const siblings = scoped.filter((other) => other.document_id === item.document_id);
     return `${siblings.indexOf(item) + 1} of ${siblings.length} in this document`;
   };
 
@@ -699,9 +609,7 @@ export default function Review() {
   const approveSuggested = async () => {
     setBulkSaving(true);
     try {
-      const response = await reviewAPI.approveSuggested(
-        documentFilter || undefined,
-      );
+      const response = await reviewAPI.approveSuggested(documentFilter || undefined);
       const { approved, failed } = response.data;
       notify(
         failed.length
@@ -720,7 +628,6 @@ export default function Review() {
     }
   };
 
-  // A approve · E edit · X exclude · arrows (or J/K) move. Ignored while typing or in a dialog.
   useEffect(() => {
     const onKey = (event) => {
       if (
@@ -758,9 +665,7 @@ export default function Review() {
     setGuideHidden(true);
     try {
       localStorage.setItem(GUIDE_KEY, "1");
-    } catch {
-      // preference only
-    }
+    } catch {}
   };
 
   const total = scoped.length + reviewedCount;
@@ -772,12 +677,10 @@ export default function Review() {
           <p className="mono text-[11px] font-medium uppercase tracking-[0.14em] text-emerald-700">
             Step 2 · Review
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Review line items
-          </h1>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight">Review line items</h1>
           <p className="mt-1 max-w-2xl text-sm text-neutral-500">
-            Each line has a suggested material and weight. Approve, correct or
-            exclude it. Only approved lines count toward your filing.
+            Each line has a suggested material and weight. Approve, correct or exclude it. Only
+            approved lines count toward your filing.
           </p>
         </div>
         {suggested.length > 0 && (
@@ -792,18 +695,13 @@ export default function Review() {
           <Stat label="Lines left" value={scoped.length}>
             {reviewedCount > 0 ? (
               <div className="mt-3 flex items-center gap-3">
-                <span
-                  className="h-1.5 flex-1 rounded-sm bg-neutral-100"
-                  aria-hidden
-                >
+                <span className="h-1.5 flex-1 rounded-sm bg-neutral-100" aria-hidden>
                   <span
                     className="block h-1.5 rounded-sm bg-emerald-600"
                     style={{ width: `${(reviewedCount / total) * 100}%` }}
                   />
                 </span>
-                <span className="text-xs text-neutral-500">
-                  {reviewedCount} done this session
-                </span>
+                <span className="text-xs text-neutral-500">{reviewedCount} done this session</span>
               </div>
             ) : (
               <p className="mt-2 text-xs text-neutral-500">
@@ -812,9 +710,7 @@ export default function Review() {
             )}
           </Stat>
           <Stat label="Ready to approve" value={suggested.length}>
-            <p className="mt-2 text-xs text-neutral-500">
-              Complete, confident suggestions
-            </p>
+            <p className="mt-2 text-xs text-neutral-500">Complete, confident suggestions</p>
           </Stat>
           <Stat label="Need your input" value={attention}>
             <p className="mt-2 text-xs text-neutral-500">
@@ -824,19 +720,13 @@ export default function Review() {
         </div>
       )}
 
-      {!guideHidden && items && scoped.length > 0 && (
-        <Guide onDismiss={hideGuide} />
-      )}
+      {!guideHidden && items && scoped.length > 0 && <Guide onDismiss={hideGuide} />}
 
       {documentFilter && (
         <Alert
           tone="info"
           action={
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setSearchParams({})}
-            >
+            <Button size="sm" variant="ghost" onClick={() => setSearchParams({})}>
               Show all documents
             </Button>
           }
@@ -847,8 +737,8 @@ export default function Review() {
 
       {processing > 0 && (
         <Alert tone="info">
-          {processing} document(s) are still being processed. Their lines will
-          appear here automatically.
+          {processing} document(s) are still being processed. Their lines will appear here
+          automatically.
         </Alert>
       )}
 
@@ -882,9 +772,7 @@ export default function Review() {
               processing > 0 ? null : (
                 <div className="flex gap-2">
                   {documentFilter ? (
-                    <Button onClick={() => setSearchParams({})}>
-                      Review other documents
-                    </Button>
+                    <Button onClick={() => setSearchParams({})}>Review other documents</Button>
                   ) : (
                     <Button to="/documents">Upload more</Button>
                   )}
@@ -926,24 +814,17 @@ export default function Review() {
                     )}
                   >
                     {option.label}
-                    <span className="mono text-[11px] text-neutral-400">
-                      {count}
-                    </span>
+                    <span className="mono text-[11px] text-neutral-400">{count}</span>
                   </button>
                 );
               })}
             </div>
             <div className="flex-1 overflow-y-auto">
               {visible.length === 0 ? (
-                <p className="px-4 py-6 text-sm text-neutral-500">
-                  No lines in this view.
-                </p>
+                <p className="px-4 py-6 text-sm text-neutral-500">No lines in this view.</p>
               ) : (
                 groups.map(([documentId, group]) => (
-                  <div
-                    key={documentId}
-                    className="border-b border-neutral-100 last:border-0"
-                  >
+                  <div key={documentId} className="border-b border-neutral-100 last:border-0">
                     <p className="sticky top-0 truncate bg-white px-4 pb-1 pt-3 text-xs font-semibold text-neutral-500">
                       {group.name}
                     </p>
@@ -958,9 +839,7 @@ export default function Review() {
                               onClick={() => setSelectedId(item.id)}
                               className={cx(
                                 "relative w-full rounded-md px-3 py-2.5 text-left transition-colors",
-                                active
-                                  ? "bg-neutral-100"
-                                  : "hover:bg-neutral-50",
+                                active ? "bg-neutral-100" : "hover:bg-neutral-50",
                               )}
                             >
                               {active && (
@@ -976,26 +855,20 @@ export default function Review() {
                                 <span
                                   className={cx(
                                     "flex items-center gap-1.5",
-                                    meta.tone === "ok"
-                                      ? "text-emerald-700"
-                                      : "text-neutral-700",
+                                    meta.tone === "ok" ? "text-emerald-700" : "text-neutral-700",
                                   )}
                                 >
                                   <span
                                     className={cx(
                                       "size-1.5 rounded-full",
-                                      meta.tone === "ok"
-                                        ? "bg-emerald-600"
-                                        : "bg-neutral-950",
+                                      meta.tone === "ok" ? "bg-emerald-600" : "bg-neutral-950",
                                     )}
                                     aria-hidden
                                   />
                                   {meta.label}
                                 </span>
                                 <span className="mono text-neutral-500">
-                                  {item.quantity_kg == null
-                                    ? "—"
-                                    : formatKgExact(item.quantity_kg)}
+                                  {item.quantity_kg == null ? "—" : formatKgExact(item.quantity_kg)}
                                 </span>
                               </span>
                             </button>
@@ -1044,20 +917,15 @@ export default function Review() {
         footer={
           <>
             <Button onClick={() => setBulkOpen(false)}>Cancel</Button>
-            <Button
-              variant="primary"
-              onClick={approveSuggested}
-              loading={bulkSaving}
-            >
+            <Button variant="primary" onClick={approveSuggested} loading={bulkSaving}>
               Approve {suggested.length}
             </Button>
           </>
         }
       >
         <p className="text-sm text-neutral-600">
-          These lines have an identified material, a weight in kg and high
-          confidence. They'll be recorded as approved by you. Lines that need
-          your input stay in the queue.
+          These lines have an identified material, a weight in kg and high confidence. They'll be
+          recorded as approved by you. Lines that need your input stay in the queue.
         </p>
       </Modal>
     </div>

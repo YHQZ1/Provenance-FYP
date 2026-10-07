@@ -16,11 +16,9 @@ export const documentController = {
     try {
       if (!req.file) throw badRequest("No file uploaded");
 
-      const document = await documentService.createDocument(
-        req.user.id,
-        req.file,
-        { documentType: req.body?.document_type },
-      );
+      const document = await documentService.createDocument(req.user.id, req.file, {
+        documentType: req.body?.document_type,
+      });
       await recordDocument(req, document, "document.uploaded", `uploaded ${document.filename}`, {
         document_type: document.document_type,
       });
@@ -55,10 +53,7 @@ export const documentController = {
 
   async getById(req, res, next) {
     try {
-      const document = await documentService.getDocument(
-        req.params.id,
-        req.user.id,
-      );
+      const document = await documentService.getDocument(req.params.id, req.user.id);
       res.json({ success: true, data: document });
     } catch (error) {
       next(error);
@@ -75,11 +70,9 @@ export const documentController = {
       ) {
         throw badRequest("document_date must be YYYY-MM-DD");
       }
-      const document = await documentService.updateDocument(
-        req.params.id,
-        req.user.id,
-        { document_date },
-      );
+      const document = await documentService.updateDocument(req.params.id, req.user.id, {
+        document_date,
+      });
       if (document_date !== undefined) {
         await recordDocument(
           req,
@@ -99,10 +92,7 @@ export const documentController = {
 
   async retry(req, res, next) {
     try {
-      const data = await documentService.retryDocument(
-        req.params.id,
-        req.user.id,
-      );
+      const data = await documentService.retryDocument(req.params.id, req.user.id);
       await recordDocument(req, data, "document.retried", `retried ${data.filename}`);
       res.status(202).json({ success: true, data });
     } catch (error) {

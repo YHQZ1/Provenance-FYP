@@ -11,7 +11,6 @@ const readToken = (req) => {
 };
 
 export const authController = {
-  // Called after sign-in so every user has a company record before loading data.
   async syncUser(req, res, next) {
     try {
       const token = readToken(req);
@@ -40,9 +39,7 @@ export const authController = {
     }
   },
 
-  // Sessions live in the Supabase client. This clears the cookie older builds set.
   async logout(req, res) {
-    // Forget the cached identity so this token stops working here straight away.
     const header = req.headers.authorization;
     if (header?.startsWith("Bearer ")) await cache.del(authCacheKey(header.slice(7).trim()));
     res.clearCookie("token", { path: "/" });

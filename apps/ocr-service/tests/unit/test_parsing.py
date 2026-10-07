@@ -1,6 +1,5 @@
 from ocr_service.pipeline.parsing import extract_fields, parse_line_items, tokens_to_text
 
-
 INVOICE_0_TEXT = """Tax Invoice
 Invoice No:1410515599 Customer No:791114435
 Delivery Type Invoice Date INTERNATIONAL CARRIER 27/07/2020
@@ -123,13 +122,24 @@ def test_indian_number_grouping_and_weight_units_are_extracted():
 
 
 def test_month_name_invoice_dates_are_extracted():
-    assert extract_fields("Invoice Date: 12-Jul-2022", 0.9)["invoice_date"]["value"] == "12-Jul-2022"
+    assert (
+        extract_fields("Invoice Date: 12-Jul-2022", 0.9)["invoice_date"]["value"] == "12-Jul-2022"
+    )
     assert extract_fields("Bill Date 03 Sept 2026", 0.9)["invoice_date"]["value"] == "03 Sept 2026"
 
 
 def test_tightly_spaced_lines_stay_separate():
     def token(text, x, y):
-        return {"text": text, "x": x, "y": y, "w": 0.2, "h": 0.012, "page": 0, "conf": 1.0, "source": "pdf"}
+        return {
+            "text": text,
+            "x": x,
+            "y": y,
+            "w": 0.2,
+            "h": 0.012,
+            "page": 0,
+            "conf": 1.0,
+            "source": "pdf",
+        }
 
     text = tokens_to_text(
         [
@@ -166,7 +176,10 @@ def test_total_rows_are_not_line_items():
 
 
 def test_date_below_its_label_is_extracted():
-    assert extract_fields("Dated\n22-Jul-2020\nDelivery Note", 0.9)["invoice_date"]["value"] == "22-Jul-2020"
+    assert (
+        extract_fields("Dated\n22-Jul-2020\nDelivery Note", 0.9)["invoice_date"]["value"]
+        == "22-Jul-2020"
+    )
 
 
 def test_date_in_column_header_row_is_extracted():
@@ -175,4 +188,7 @@ def test_date_in_column_header_row_is_extracted():
 
 
 def test_invoice_references_are_not_mistaken_for_dates():
-    assert extract_fields("Invoice No. Dated\n012/20-21 22-Jul-2020", 0.9)["invoice_date"]["value"] == "22-Jul-2020"
+    assert (
+        extract_fields("Invoice No. Dated\n012/20-21 22-Jul-2020", 0.9)["invoice_date"]["value"]
+        == "22-Jul-2020"
+    )
