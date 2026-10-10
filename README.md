@@ -116,6 +116,7 @@ Makefile              Everyday commands
 | [DATABASE.md](docs/DATABASE.md) | Tables, migrations, row-level security, reference data |
 | [LOCAL_DEV.md](docs/LOCAL_DEV.md) | Setting up, running, testing and troubleshooting locally |
 | [KUBERNETES.md](docs/KUBERNETES.md) | Running the stack on Kubernetes with Helm, and moving it to a cloud cluster |
+| [MONITORING.md](docs/MONITORING.md) | Metrics, dashboards, alerts, logs and error tracking |
 | [BACKEND_SERVICE.md](docs/BACKEND_SERVICE.md) | API endpoints, configuration and business rules |
 | [OCR_SERVICE.md](docs/OCR_SERVICE.md) | The OCR service on its own |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Workflow, conventions, UI design rules, tests and CI |

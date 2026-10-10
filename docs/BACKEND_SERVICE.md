@@ -48,6 +48,10 @@ npm test
 | `EPR_PORTAL_URL`, `EPR_GUIDANCE_MANUAL_URL` | empty | CPCB links shown as the filing's sources. Omitted when empty. |
 | `OLLAMA_HOST`, `OLLAMA_MODEL` | empty | The model Trace uses; the same Ollama and model as the RAG services. Trace returns 503 while unset. |
 | `TRACE_RATE_LIMIT` | `20` | Trace questions per user per 5 minutes |
+| `LOG_LEVEL`, `LOG_FORMAT` | `info`, `json` in production and `pretty` otherwise | Log verbosity and format. See [MONITORING.md](MONITORING.md#logs). |
+| `SERVICE_NAME` | `backend` | The `service` field on log lines and the Sentry tag. The chart sets `worker` for the worker. |
+| `METRICS_PORT` | `9464` | The worker's `/metrics` port. The API serves `/metrics` on `PORT`. |
+| `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | empty, `NODE_ENV` | Error reporting to Sentry. Off while the DSN is empty. |
 | `TRUST_PROXY` | `0` | Reverse proxies in front of the API (`1` behind the ingress). Sets which address counts as the client's. |
 | `RATE_LIMIT_ENABLED` | `true` | `false` turns every rate limit and the processing cap off (benchmarks, load tests) |
 | `RATE_LIMIT_*`, `MAX_PENDING_DOCUMENTS` | see below | Limits per route; the full list is in [Rate limits](#rate-limits) |

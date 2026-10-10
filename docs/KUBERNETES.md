@@ -61,7 +61,10 @@ Run `make` for the full list.
 | `make k8s-ingest` | Re-indexes the regulatory sources (forced, a few minutes) |
 | `make k8s-secrets` | Re-creates the Secrets after you change an `.env` file |
 | `make k8s-cache-clear` | Empties the cache (for example after editing data directly in Supabase). Queued jobs are kept. |
-| `make k8s-lint` | Lints and renders the chart without a cluster |
+| `make k8s-lint` | Lints and renders the charts and checks the alert rules, without a cluster |
+| `make k8s-monitoring-up` | Installs Prometheus, Grafana, Alertmanager, Loki and Alloy (about 2 GB). See [MONITORING.md](MONITORING.md). |
+| `make k8s-grafana` | Opens Grafana and prints the admin password |
+| `make k8s-monitoring-down` | Removes the monitoring stack to free memory |
 | `make k8s-down` | Removes the app. Volumes, the model and the index are kept. |
 | `make k8s-purge CONFIRM=yes` | Removes the app and all its data, then the namespace |
 
@@ -104,4 +107,4 @@ Redis (the queue), Qdrant (the indexes), Ollama (the models), the two embedding 
 
 ## Moving to a cloud cluster
 
-The chart needs a `values-<env>.yaml` with the registry's image names, the cloud ingress class and host, the cloud storage class, and secrets supplied by the cluster (for example External Secrets) instead of `make k8s-secrets`. Everything else carries over. Metrics and dashboards are not installed: Docker Desktop has no metrics server, and a monitoring stack is the planned next addition.
+The chart needs a `values-<env>.yaml` with the registry's image names, the cloud ingress class and host, the cloud storage class, and secrets supplied by the cluster (for example External Secrets) instead of `make k8s-secrets`. Everything else carries over. The monitoring stack carries over unchanged apart from storage classes and the alert email provider; see [MONITORING.md](MONITORING.md#moving-to-a-cloud-cluster).
