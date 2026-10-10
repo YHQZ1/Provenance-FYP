@@ -14,6 +14,7 @@ import {
 } from "../external/normalization.js";
 import { conflict, notFound } from "../../utils/errors.js";
 import { schema } from "../../config/schema.js";
+import { logger } from "../../lib/logger.js";
 import { PROCESSING_STATUSES, effectiveDate } from "./filing.summary.js";
 import {
   assertDocumentEditable,
@@ -226,7 +227,7 @@ export const documentService = {
     await workspaceCache.invalidate(userId);
 
     await storageService.deleteFile(document.file_path).catch((err) => {
-      console.error(`[Document] Stored file cleanup failed: ${err.message}`);
+      logger.warn("stored file cleanup failed", { document_id: documentId, error: err });
     });
 
     return { ...document, financial_year: financialYearOf(effectiveDate(document)) };

@@ -1,4 +1,6 @@
 import { env } from "../config/env.js";
+import { logger } from "../lib/logger.js";
+import { captureError } from "../lib/sentry.js";
 
 export const errorHandler = (err, req, res, next) => {
   const isDev = env.NODE_ENV === "development";
@@ -16,8 +18,8 @@ export const errorHandler = (err, req, res, next) => {
   const statusCode = err.status || err.statusCode || 500;
 
   if (statusCode >= 500) {
-    console.error(`Error [${statusCode}]:`, err.message);
-    if (isDev && err.stack) console.error(err.stack);
+    logger.error("request failed", { status: statusCode, error: err });
+    captureError(err);
   }
 
   res.status(statusCode).json({

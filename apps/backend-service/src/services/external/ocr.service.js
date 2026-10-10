@@ -1,6 +1,8 @@
 import { supabaseAdmin } from "../../config/database.js";
 import { env } from "../../config/env.js";
 import { cache } from "../../config/redis.js";
+import { logger } from "../../lib/logger.js";
+import { outboundFetch } from "../../lib/outbound.js";
 import {
   isQuantifiedDocumentType,
   normalizeLineItems,
@@ -110,10 +112,10 @@ export const ocrService = {
         }
       }
 
-      console.log(`[OCR] Document ${documentId} processed successfully`);
+      logger.info("ocr complete", { document_id: documentId, lines: items.length });
       return { ...result, line_items: items };
     } catch (error) {
-      console.error(`[OCR] Failed for document ${documentId}:`, error.message);
+      logger.error("ocr failed", { document_id: documentId, error });
       throw new Error(`Text extraction failed: ${error.message}`, { cause: error });
     }
   },
@@ -137,11 +139,15 @@ const requestOcrService = async (file) => {
   const timeout = setTimeout(() => controller.abort(), env.OCR_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${env.OCR_SERVICE_URL.replace(/\/$/, "")}/v1/ocr`, {
-      method: "POST",
-      body: form,
-      signal: controller.signal,
-    });
+    const response = await outboundFetch(
+      "ocr",
+      `${env.OCR_SERVICE_URL.replace(/\/$/, "")}/v1/ocr`,
+      {
+        method: "POST",
+        body: form,
+        signal: controller.signal,
+      },
+    );
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {

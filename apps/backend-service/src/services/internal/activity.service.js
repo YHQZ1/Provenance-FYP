@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../../config/database.js";
 import { schema } from "../../config/schema.js";
+import { logger } from "../../lib/logger.js";
 
 export const ACTIVITY_GROUPS = {
   documents: ["document.uploaded", "document.deleted", "document.retried", "document.redated"],
@@ -26,7 +27,7 @@ export const activityService = {
       });
       if (error) throw error;
     } catch (error) {
-      console.error(`[Activity] Could not record ${action}:`, error.message);
+      logger.error("could not record activity", { action, error });
     }
   },
 

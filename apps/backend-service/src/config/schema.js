@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./database.js";
+import { logger } from "../lib/logger.js";
 
 const capabilities = {
   fyFilings: false,
@@ -43,9 +44,7 @@ export const detectSchema = async () => {
     .filter(([, available]) => !available)
     .map(([name]) => name);
   if (missing.length) {
-    console.warn(
-      `[Schema] Missing optional schema: ${missing.join(", ")}. Apply supabase/migrations to enable them.`,
-    );
+    logger.warn("missing optional schema, apply supabase/migrations to enable it", { missing });
   }
   return capabilities;
 };
@@ -53,7 +52,7 @@ export const detectSchema = async () => {
 export const schema = async () => {
   detected ??= detectSchema().catch((error) => {
     detected = null;
-    console.error("[Schema] Detection failed:", error.message);
+    logger.error("schema detection failed", { error });
     return capabilities;
   });
   return detected;

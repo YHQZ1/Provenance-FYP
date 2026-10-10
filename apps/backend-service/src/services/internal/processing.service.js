@@ -7,6 +7,9 @@ import { documentTypeOf } from "../external/normalization.js";
 import { PROCESSING_STATUSES } from "./filing.summary.js";
 import { failedMessage, readingMessage, retryingMessage } from "./processing.rules.js";
 import { workspaceCache } from "./workspace.cache.js";
+import { runWithContext } from "../../lib/context.js";
+import { logger } from "../../lib/logger.js";
+import { documentProcessingDuration, documentsProcessed } from "../../lib/metrics.js";
 
 const now = () => new Date().toISOString();
 
@@ -23,7 +26,22 @@ const setStatus = (documentId, status, reasoning) =>
   updateDocument(documentId, { status, reasoning });
 
 export const processingService = {
-  async processDocument(documentId, { attempt = 1, attempts = 1 } = {}) {
+  processDocument(documentId, options = {}) {
+    return runWithContext({ documentId }, async () => {
+      const stop = documentProcessingDuration.startTimer();
+      let outcome = "error";
+      try {
+        const result = await this.run(documentId, options);
+        outcome = result.skipped ? "skipped" : "ok";
+        return result;
+      } finally {
+        stop({ outcome });
+        documentsProcessed.inc({ outcome });
+      }
+    });
+  },
+
+  async run(documentId, { attempt = 1, attempts = 1 } = {}) {
     const { data: document, error } = await supabaseAdmin
       .from("documents")
       .select("id, company_id, filename, file_path, mime_type, extracted_data")
@@ -70,14 +88,11 @@ export const processingService = {
         await enqueueDocument(documentId);
         return "queued";
       } catch (error) {
-        console.error(
-          `[Processing] Queue unavailable, processing ${documentId} inline:`,
-          error.message,
-        );
+        logger.error("queue unavailable, processing inline", { document_id: documentId, error });
       }
     }
     this.processDocument(documentId).catch(async (error) => {
-      console.error(`[Processing] ${documentId} failed:`, error.message);
+      logger.error("processing failed", { document_id: documentId, error });
       await this.markFailed(documentId, 1, error);
     });
     return "inline";
@@ -89,7 +104,7 @@ export const processingService = {
       .select("id")
       .in("status", PROCESSING_STATUSES);
     if (error) {
-      console.error("[Processing] Recovery check failed:", error.message);
+      logger.error("recovery check failed", { error });
       return;
     }
 
@@ -101,6 +116,6 @@ export const processingService = {
       await this.schedule(id);
       resumed += 1;
     }
-    if (resumed) console.log(`[Processing] Re-queued ${resumed} interrupted document(s)`);
+    if (resumed) logger.info("re-queued interrupted documents", { count: resumed });
   },
 };

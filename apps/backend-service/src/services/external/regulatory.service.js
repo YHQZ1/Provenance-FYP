@@ -3,6 +3,8 @@ import { env } from "../../config/env.js";
 import { cache } from "../../config/redis.js";
 import { digest, questionCacheText } from "../../lib/cache-keys.js";
 import { regulatoryTag } from "./answer-tags.js";
+import { timeDownstream } from "../../lib/metrics.js";
+import { outboundHeaders } from "../../lib/outbound.js";
 
 const ANSWER_CACHE_SECONDS = 7 * 24 * 3600;
 
@@ -18,7 +20,9 @@ const baseUrl = () => {
 export const regulatoryService = {
   async sources() {
     try {
-      const response = await axios.get(`${baseUrl()}/sources`, { timeout: 10000 });
+      const response = await timeDownstream("regulatory", () =>
+        axios.get(`${baseUrl()}/sources`, { timeout: 10000, headers: outboundHeaders() }),
+      );
       return response.data.sources || [];
     } catch (error) {
       if (error.status) throw error;
@@ -29,10 +33,12 @@ export const regulatoryService = {
   },
 
   async search(query, topK) {
-    const response = await axios.post(
-      `${baseUrl()}/search`,
-      { query, top_k: topK },
-      { timeout: 30000 },
+    const response = await timeDownstream("regulatory", () =>
+      axios.post(
+        `${baseUrl()}/search`,
+        { query, top_k: topK },
+        { timeout: 30000, headers: outboundHeaders() },
+      ),
     );
     return response.data;
   },
@@ -53,10 +59,12 @@ export const regulatoryService = {
     }
 
     const ask = async () => {
-      const response = await axios.post(
-        env.REGULATORY_RAG_URL.replace(/\/$/, "") + "/query",
-        { query: normalizedQuery },
-        { timeout: env.REGULATORY_RAG_TIMEOUT_MS },
+      const response = await timeDownstream("regulatory", () =>
+        axios.post(
+          env.REGULATORY_RAG_URL.replace(/\/$/, "") + "/query",
+          { query: normalizedQuery },
+          { timeout: env.REGULATORY_RAG_TIMEOUT_MS, headers: outboundHeaders() },
+        ),
       );
       return response.data;
     };

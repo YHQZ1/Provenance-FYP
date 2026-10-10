@@ -1,6 +1,7 @@
 import { env } from "../config/env.js";
 import { cache } from "../config/redis.js";
 import { createRateLimiter } from "../lib/rate-limit.js";
+import { rateLimitRejections } from "../lib/metrics.js";
 import { AppError } from "../utils/errors.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -25,6 +26,7 @@ export const createRateLimit =
     const id = by === "ip" ? clientIp(req) : (req.user?.id ?? clientIp(req));
     const result = await limiter.hit({ name, id, max, windowSeconds });
     if (result.allowed) return next();
+    rateLimitRejections.inc({ limit: name });
     res.set({
       "Retry-After": String(result.resetSeconds),
       "RateLimit-Limit": String(result.limit),

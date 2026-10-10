@@ -14,9 +14,14 @@ import workspaceRoutes from "./routes/workspace.routes.js";
 import traceRoutes from "./routes/trace.routes.js";
 import { mountQueueDashboard } from "./routes/admin.routes.js";
 import { limits } from "./middleware/rate-limit.middleware.js";
+import { observeRequests } from "./middleware/observability.middleware.js";
+import { registry } from "./lib/metrics.js";
+import { registerQueueMetrics } from "./lib/queue-metrics.js";
 
 const app = express();
 app.set("trust proxy", env.TRUST_PROXY);
+app.use(observeRequests);
+registerQueueMetrics();
 const configuredOrigins = env.CORS_ORIGIN.split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
@@ -39,6 +44,10 @@ app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
+app.get("/metrics", async (_, res) => {
+  res.set("Content-Type", registry.contentType);
+  res.end(await registry.metrics());
+});
 app.get("/", (_, res) => res.json({ message: "Provenance API is running" }));
 app.get("/health", (_, res) => res.json({ status: "OK", timestamp: new Date().toISOString() }));
 

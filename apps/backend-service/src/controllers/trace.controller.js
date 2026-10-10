@@ -1,5 +1,7 @@
 import { traceService } from "../services/internal/trace/trace.service.js";
 import { unavailable } from "../utils/errors.js";
+import { logger } from "../lib/logger.js";
+import { captureError } from "../lib/sentry.js";
 import { parseTraceRequest } from "../services/internal/trace/request.js";
 
 export const traceController = {
@@ -34,7 +36,8 @@ export const traceController = {
       send("done", { links: result.links, sources: result.sources });
     } catch (error) {
       if (!controller.signal.aborted) {
-        console.error("[Trace]", error.message);
+        logger.error("trace failed", { error });
+        captureError(error);
         send("error", {
           message:
             error.name === "TimeoutError"

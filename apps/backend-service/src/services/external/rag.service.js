@@ -10,6 +10,8 @@ import { listTradeNames } from "../internal/materials.service.js";
 import { cache } from "../../config/redis.js";
 import { classificationCacheText, digest } from "../../lib/cache-keys.js";
 import { classifierTag } from "./answer-tags.js";
+import { logger } from "../../lib/logger.js";
+import { outboundFetch } from "../../lib/outbound.js";
 
 const CLASSIFICATION_CACHE_SECONDS = 30 * 24 * 3600;
 
@@ -124,13 +126,15 @@ export const ragService = {
         throw new Error(`Document classification update failed: ${updateError.message}`);
       }
 
-      console.log(
-        `[RAG] Document ${documentId} classified successfully with ${classifications.length} items`,
-      );
+      logger.info("classification complete", {
+        document_id: documentId,
+        lines: classifications.length,
+        failed: failedCount,
+      });
 
       return classifications;
     } catch (error) {
-      console.error(`[RAG] Failed for document ${documentId}:`, error.message);
+      logger.error("classification failed", { document_id: documentId, error });
       throw new Error(`Classification failed: ${error.message}`, { cause: error });
     }
   },
@@ -143,7 +147,7 @@ export const ragService = {
       .maybeSingle();
     const tradeNames = document
       ? await listTradeNames(document.company_id).catch((error) => {
-          console.error("[RAG] Trade names unavailable:", error.message);
+          logger.warn("trade names unavailable", { error });
           return [];
         })
       : [];
@@ -205,7 +209,7 @@ export const ragService = {
             confidence < REVIEW_THRESHOLD,
         };
       } catch (error) {
-        console.error("[RAG] Line classification failed:", error.message);
+        logger.warn("line classification failed", { error });
         return {
           material_code: null,
           cpcb_category: null,
@@ -244,12 +248,16 @@ const requestRagService = async (text) => {
   const timeout = setTimeout(() => controller.abort(), env.RAG_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${env.RAG_SERVICE_URL.replace(/\/$/, "")}/classify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-      signal: controller.signal,
-    });
+    const response = await outboundFetch(
+      "classifier",
+      `${env.RAG_SERVICE_URL.replace(/\/$/, "")}/classify`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+        signal: controller.signal,
+      },
+    );
 
     const payload = await response.json().catch(() => ({}));
 

@@ -4,6 +4,10 @@ import { createQueueConnection, redisEnabled } from "../config/redis.js";
 import { DOCUMENT_QUEUE } from "../queues/document.queue.js";
 import { processingService } from "../services/internal/processing.service.js";
 import { isFinalAttempt } from "../services/internal/processing.rules.js";
+import { randomUUID } from "node:crypto";
+import { runWithContext } from "../lib/context.js";
+import { logger } from "../lib/logger.js";
+import { captureError } from "../lib/sentry.js";
 
 export const startDocumentWorker = () => {
   if (!redisEnabled) return null;
@@ -11,9 +15,12 @@ export const startDocumentWorker = () => {
   const worker = new Worker(
     DOCUMENT_QUEUE,
     (job) =>
-      processingService.processDocument(job.data.documentId, {
-        attempt: job.attemptsMade + 1,
-        attempts: job.opts.attempts ?? 1,
+      runWithContext({ requestId: randomUUID(), documentId: job.data.documentId }, async () => {
+        logger.info("processing started", { attempt: job.attemptsMade + 1 });
+        return processingService.processDocument(job.data.documentId, {
+          attempt: job.attemptsMade + 1,
+          attempts: job.opts.attempts ?? 1,
+        });
       }),
     { connection: createQueueConnection(), concurrency: env.PROCESSING_CONCURRENCY },
   );
@@ -22,22 +29,25 @@ export const startDocumentWorker = () => {
     if (!job) return;
     const attempts = job.opts.attempts ?? 1;
     const { documentId } = job.data;
-    console.error(
-      `[Worker] ${documentId} attempt ${job.attemptsMade}/${attempts} failed:`,
-      error.message,
-    );
+    logger.error("processing attempt failed", {
+      document_id: documentId,
+      attempt: job.attemptsMade,
+      attempts,
+      error,
+    });
     try {
       if (isFinalAttempt(job.attemptsMade, attempts)) {
+        captureError(error, { documentId });
         await processingService.markFailed(documentId, attempts, error);
       } else {
         await processingService.markRetrying(documentId, job.attemptsMade, attempts, error);
       }
     } catch (statusError) {
-      console.error(`[Worker] Couldn't record the failure for ${documentId}:`, statusError.message);
+      logger.error("couldn't record the failure", { document_id: documentId, error: statusError });
     }
   });
-  worker.on("error", (error) => console.error("[Worker]", error.message));
+  worker.on("error", (error) => logger.error("worker error", { error }));
 
-  console.log(`[Worker] Processing documents, ${env.PROCESSING_CONCURRENCY} at a time`);
+  logger.info("processing documents", { concurrency: env.PROCESSING_CONCURRENCY });
   return worker;
 };

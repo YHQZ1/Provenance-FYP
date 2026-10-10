@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../config/database.js";
 import { cache } from "../config/redis.js";
 import { hashToken, tokenCacheSeconds } from "../lib/tokens.js";
+import { setContext } from "../lib/context.js";
 import { companyCacheKey } from "../services/internal/workspace.cache.js";
 
 const COMPANY_CACHE_SECONDS = 300;
@@ -69,6 +70,7 @@ export const authenticate = async (req, res, next) => {
     }
 
     req.user = user;
+    setContext({ userId: user.id });
     req.company = await loadCompany(user.id);
     next();
   } catch {

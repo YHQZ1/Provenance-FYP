@@ -9,7 +9,7 @@ const withDeadline = (promise) =>
     ),
   ]);
 
-export const createCache = ({ client, prefix = "prov:", log = console.warn } = {}) => {
+export const createCache = ({ client, prefix = "prov:", log = console.warn, observe } = {}) => {
   let lastWarning = 0;
   const warn = (operation, error) => {
     if (Date.now() - lastWarning < WARN_EVERY_MS) return;
@@ -71,7 +71,11 @@ export const createCache = ({ client, prefix = "prov:", log = console.warn } = {
 
     async wrap(name, ttlSeconds, compute, { shouldCache = () => true } = {}) {
       const hit = await cache.get(name);
-      if (hit !== null) return hit;
+      if (hit !== null) {
+        observe?.("hit");
+        return hit;
+      }
+      observe?.("miss");
       const value = await compute();
       if (value !== undefined && shouldCache(value)) await cache.set(name, value, ttlSeconds);
       return value;

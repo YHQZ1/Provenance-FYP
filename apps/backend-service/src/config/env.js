@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 const NODE_ENV = process.env.NODE_ENV || "development";
 const envPath = path.resolve(__dirname, "../../", `.env.${NODE_ENV}`);
 
-dotenv.config({ path: envPath });
+dotenv.config({ path: envPath, quiet: true });
 
 const requiredEnvVars = [
   "PORT",
@@ -31,6 +31,13 @@ export const env = {
   PORT: parseInt(process.env.PORT, 10),
   NODE_ENV,
   TRUST_PROXY: Math.max(parseInt(process.env.TRUST_PROXY, 10) || 0, 0),
+
+  SERVICE_NAME: process.env.SERVICE_NAME || "backend",
+  LOG_LEVEL: process.env.LOG_LEVEL || "info",
+  LOG_FORMAT: process.env.LOG_FORMAT || (NODE_ENV === "production" ? "json" : "pretty"),
+  METRICS_PORT: parseInt(process.env.METRICS_PORT, 10) || 9464,
+  SENTRY_DSN: process.env.SENTRY_DSN || "",
+  SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT || NODE_ENV,
 
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,

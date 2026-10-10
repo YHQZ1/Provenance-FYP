@@ -4,6 +4,7 @@ import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
 import { env } from "../config/env.js";
 import { documentQueue } from "../queues/document.queue.js";
+import { rateLimitRejections } from "../lib/metrics.js";
 import {
   adminFailureLimit,
   clientIp,
@@ -23,6 +24,7 @@ const basicAuth = async (req, res, next) => {
   const ip = clientIp(req);
   const lockout = await rateLimiter.peek({ ...adminFailureLimit, id: ip });
   if (lockout.exceeded) {
+    rateLimitRejections.inc({ limit: adminFailureLimit.name });
     res.set("Retry-After", String(lockout.resetSeconds));
     return res
       .status(429)
