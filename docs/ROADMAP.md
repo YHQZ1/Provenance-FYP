@@ -2,16 +2,11 @@
 
 What's built is described in [PRODUCT.md](PRODUCT.md) and [ARCHITECTURE.md](ARCHITECTURE.md). This page lists what is left, in rough priority order, and why each item matters. Size is a rough guide: S is under a day, M is a few days, L is a week or more.
 
-## Next week
+## Built since the last plan
 
-The plan for the coming week, in the order to do it. Each item names where it lands in the repo, so it extends the existing infrastructure rather than sitting beside it.
+Rate limiting, metrics, logs and error tracking (see [MONITORING.md](MONITORING.md)), GitOps with Argo CD and images in GHCR (see [ARGOCD.md](ARGOCD.md)), and an end-to-end test in CI that signs up, uploads, reviews, finalizes and exports against a real local Supabase (see [LOCAL_DEV.md](LOCAL_DEV.md#tests)).
 
-| Order | Work | Lands in | Size |
-| --- | --- | --- | --- |
-| 1 | **Better regulatory search**: hybrid keyword and vector search, re-ranking, more passages for the model. Keep the 13-question graded set in the repo (`apps/rag-regulatory/eval/`) with `make eval`, and aim for 11 of 13 or better. | `apps/rag-regulatory/src/rag/`, `scripts/` | M |
-| 2 | **End-to-end test in CI** (Playwright: sign in, upload, review, finalize, export), if time allows. | `apps/web-app/e2e/`, `.github/workflows/ci.yml` | M |
-
-Built since this was written: rate limiting, metrics, logs and error tracking (see [MONITORING.md](MONITORING.md)), and GitOps with Argo CD and images in GHCR (see [ARGOCD.md](ARGOCD.md)).
+Nothing is scheduled. The sections below are the backlog, with the order to take it in at the end.
 
 **Memory budget.** The local cluster has 12 GB and the app already uses about 8 GB. Prometheus, Grafana, Alertmanager and Loki add roughly 2 GB, and Argo CD another 0.5 to 1 GB. Treat monitoring and Argo CD as opt-in stacks started on demand and stopped afterwards, not always on. If memory gets tight, scale the Ollama and classifier pods down while working on them.
 
@@ -34,7 +29,6 @@ Built since this was written: rate limiting, metrics, logs and error tracking (s
 
 | Item | Why | Size |
 | --- | --- | --- |
-| **Better regulatory search** | Regulatory research and Trace answered 8 of 13 test questions correctly. In four of the five misses the passage holding the answer ranked 10th to 15th, below the 5 the model sees, so no model change helped (3B, Llama 3.1 8B and Qwen 2.5 7B all scored the same). Fix: combine keyword and vector search, re-rank the top candidates, and give the model more passages. A graded question set already exists from the model test and should be kept in the repo to measure the fix. | M |
 | **Test on real invoices** | Extraction has been validated on about five sample invoices. Real invoices vary in layout, scan quality, handwriting, page count and language. Collect 30 to 50 varied ones, measure OCR and classification accuracy, and fix what the numbers show. | M |
 | **Classifier accuracy report** | Corrections already accumulate in `classification_feedback` and feed trade-name suggestions. Report accuracy over time and use the corrections to grow the synonym library. | S |
 
@@ -51,7 +45,7 @@ Rate limiting is built: per-address and per-user limits across the API, a cap on
 
 | Item | Why | Size |
 | --- | --- | --- |
-| **End-to-end test in CI** | About 130 unit tests exist, but nothing automatically exercises the whole flow (sign in, upload, review, finalize, export) in a browser against a real database. A Playwright test would catch most regressions. | M |
+| **More end-to-end coverage** | One Playwright test covers the happy path. Worth adding: a failed document and retry, correcting a suggested line, reopening a finalized year, and the obligations page. | S |
 | **Backend integration tests** | The API against a disposable Postgres built from the migrations in `supabase/`. | M |
 | **Image builds and scans in CI** | CI tests the code and lints the chart, but doesn't build the images or scan them for vulnerabilities. | S |
 
@@ -81,10 +75,15 @@ Where these live in the repo: monitoring settings, scrape and alert rules and da
 - Decide whether Docker Compose stays. The Compose frontend still runs the development server; Kubernetes uses the production image.
 - Demo seed data, screenshots in the README and a short demo script, if the project is going to be presented.
 
+## Known limitations
+
+- **Regulatory answers can miss.** On a graded set of 13 regulatory questions, Regulatory research and Trace answered 8 correctly. In four of the five misses the passage holding the answer ranked 10th to 15th in the search, below the 5 the model sees. Trying larger models (Llama 3.1 8B, Qwen 2.5 7B) scored the same, so it is a ranking limit, not a model one. Every answer lists its sources, so the passage can be checked. Combining keyword and vector search with re-ranking would address it; this is a deliberate decision not to do that work.
+- **Extraction is validated on about five sample invoices.** See "Test on real invoices" above.
+
 ## Suggested order
 
-1. Better regulatory search (contained and high impact). See "Next week" above for the full plan.
-2. An end-to-end test in CI.
-3. Tune the new alerts against real traffic.
-4. Test on real invoices, in parallel with the above, since it needs collecting documents.
+1. Test on real invoices, since it needs collecting documents and is the biggest unknown for accuracy.
+2. Tune the new alerts against real traffic, and add the Gmail app password and Sentry DSNs.
+3. A security review and a backup restore test, before real data goes in.
+4. More end-to-end coverage as features change.
 5. The rest as needed.

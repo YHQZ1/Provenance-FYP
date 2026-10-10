@@ -95,6 +95,8 @@ make setup     # once: npm installs plus a .venv for the Python tests
 make check     # what CI runs: lint, every test suite, the web build
 make format    # Prettier for JS, CSS and JSON; Black for Python
 make test-backend   # or test-web, test-ocr, test-classify, test-regulatory
+make e2e            # the browser test: starts a local Supabase in Docker (about 1.5 GB)
+make e2e-stop       # stops that Supabase again
 ```
 
 | Suite | Runner | Covers |
@@ -104,8 +106,15 @@ make test-backend   # or test-web, test-ocr, test-classify, test-regulatory
 | OCR | pytest | Line-item and date parsing, PDF page handling, concurrent requests |
 | Classifier | pytest | Category taxonomy, model response parsing |
 | Regulatory | pytest | Header stripping, chunking, prompt building |
+| End to end | Playwright | Sign up, set the profile, upload, review every line, finalize, export a CSV, in a real browser against the real backend and a local Supabase |
 
-The tests need no network or credentials, and CI runs them with no `.env` files. Keep it that way: a test must not import a module that creates the Supabase client.
+The unit tests need no network or credentials, and CI runs them with no `.env` files. Keep it that way: a unit test must not import a module that creates the Supabase client.
+
+### The end-to-end test
+
+`make e2e` runs the Supabase CLI (`supabase/config.toml`) to start Postgres, Auth and Storage in Docker, applies every migration and the seed, creates the `documents` bucket, then Playwright starts the backend and a production build of the web app against it. The backend runs with `USE_MOCK_SERVICES=true`, so no OCR, classifier or language model is needed: the mock returns three invoice lines with no material, which the test then classifies by hand in Review. Everything else is real: sign-up, the company profile, storage, the database, finalization and the CSV export.
+
+The test creates its own account with a timestamped email, so reruns need no cleanup. It uses ports 3100 and 5174, so it won't clash with the stack on 3000 and 5173. On a failure, Playwright keeps a screenshot and a trace in `apps/web-app/test-results/`; open a trace with `npx playwright show-trace`.
 
 ## Troubleshooting
 

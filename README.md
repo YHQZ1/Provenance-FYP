@@ -125,11 +125,11 @@ Makefile              Everyday commands
 
 ## Status and roadmap
 
-The Plastic EPR workflow works end to end, on Docker Compose or Kubernetes. The full list of what is left, the plan for next week and the decisions behind it are in [ROADMAP.md](docs/ROADMAP.md). The next items are:
+The Plastic EPR workflow works end to end, on Docker Compose or Kubernetes. The full list of what is left and the decisions behind it are in [ROADMAP.md](docs/ROADMAP.md). Rate limiting, metrics, logs, error tracking, GitOps and an end-to-end test in CI are built. The next items are:
 
-1. **Better regulatory search.** The search behind Regulatory research and Trace sometimes ranks the passage with the answer too low for the model to see it. Combining keyword and vector search with re-ranking should fix it; a larger model alone did not.
-2. **Rate limiting** on the regulatory query, uploads and the rest of the API. Only Trace is limited today.
-3. **An end-to-end test in CI**, then metrics, logs and error tracking.
+1. **Test on real invoices**, to measure OCR and classification accuracy on varied documents.
+2. **A security review and a backup restore test**, before real data goes in.
+3. **More end-to-end coverage** as features change.
 
 Further out: EPR certificate tracking against obligations, BRSR Core reporting, and product-level carbon estimates. See [PRODUCT.md](docs/PRODUCT.md#roadmap).
 

@@ -55,8 +55,9 @@ The interface is deliberately quiet: a compliance tool should look precise, not 
 | `apps/web-app/src/test/` | Change a page's behaviour: what it shows for a given API response, or what an action sends |
 | `apps/backend-service/test/` | Change filing logic, normalisation, auth or any rule in the business-rules list |
 | `apps/*/tests/` (Python) | Change parsing, taxonomy, chunking or response handling |
+| `apps/web-app/e2e/` | Add or change a step a person takes from sign-up to export. Runs the real backend and web app against a local Supabase. |
 
-Tests must not need network access, credentials or running services. Use fixtures and mocks, as the existing suites do.
+Unit tests must not need network access, credentials or running services. Use fixtures and mocks, as the existing suites do. The end-to-end test is the exception: it needs Docker and runs with `make e2e`, and in CI as its own job.
 
 ## Database changes
 
