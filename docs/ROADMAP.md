@@ -9,12 +9,11 @@ The plan for the coming week, in the order to do it. Each item names where it la
 | Order | Work | Lands in | Size |
 | --- | --- | --- | --- |
 | 1 | **Better regulatory search**: hybrid keyword and vector search, re-ranking, more passages for the model. Keep the 13-question graded set in the repo (`apps/rag-regulatory/eval/`) with `make eval`, and aim for 11 of 13 or better. | `apps/rag-regulatory/src/rag/`, `scripts/` | M |
-| 2 | **Rate limiting**, as planned below: ingress annotations plus per-user Redis counters on the regulatory query, uploads and the general API. | `apps/backend-service/src/middleware/`, `infra/helm/provenance/templates/ingress.yaml` | S |
-| 3 | **Metrics**: a `/metrics` endpoint on the backend and each Python service, then Prometheus, Grafana and Alertmanager with our dashboards and alert rules. | App code; `infra/monitoring/`; optional `servicemonitor.yaml` and `prometheusrule.yaml` in the app chart; `infra/k8s/monitoring.sh` | M |
-| 4 | **Logs**: structured JSON logging with a request or document ID in every service, then Loki for storage and Alloy for collection, viewed in the same Grafana. | App code; `infra/monitoring/loki-values.yaml`, `alloy-values.yaml` | M |
-| 5 | **Error tracking**: Sentry for the frontend and backend. | `apps/web-app`, `apps/backend-service` | S |
-| 6 | **GitOps with Argo CD**: an `Application` for the app chart and one for the monitoring stack, so the cluster follows Git. Needs images in a registry first (see the decision below). | `infra/argocd/`; image push step in `.github/workflows/` | M |
-| 7 | **End-to-end test in CI** (Playwright: sign in, upload, review, finalize, export), if time allows. | `apps/web-app/e2e/`, `.github/workflows/ci.yml` | M |
+| 2 | **Metrics**: a `/metrics` endpoint on the backend and each Python service, then Prometheus, Grafana and Alertmanager with our dashboards and alert rules. | App code; `infra/monitoring/`; optional `servicemonitor.yaml` and `prometheusrule.yaml` in the app chart; `infra/k8s/monitoring.sh` | M |
+| 3 | **Logs**: structured JSON logging with a request or document ID in every service, then Loki for storage and Alloy for collection, viewed in the same Grafana. | App code; `infra/monitoring/loki-values.yaml`, `alloy-values.yaml` | M |
+| 4 | **Error tracking**: Sentry for the frontend and backend. | `apps/web-app`, `apps/backend-service` | S |
+| 5 | **GitOps with Argo CD**: an `Application` for the app chart and one for the monitoring stack, so the cluster follows Git. Needs images in a registry first (see the decision below). | `infra/argocd/`; image push step in `.github/workflows/` | M |
+| 6 | **End-to-end test in CI** (Playwright: sign in, upload, review, finalize, export), if time allows. | `apps/web-app/e2e/`, `.github/workflows/ci.yml` | M |
 
 New Make targets with these: `make k8s-monitoring-up`, `k8s-monitoring-down`, `k8s-grafana`, `k8s-argocd-up` and `k8s-argocd` (opens the UI), plus `make eval`.
 
@@ -47,25 +46,10 @@ New Make targets with these: `make k8s-monitoring-up`, `k8s-monitoring-down`, `k
 
 | Item | Why | Size |
 | --- | --- | --- |
-| **Rate limiting** | Only Trace is limited today (`TRACE_RATE_LIMIT`). Everything else is open: the regulatory query (a 5 to 15 second model call), uploads (each queues OCR and classification), the auth sync call and the rest of the API. One client could saturate the model or fill the queue. See the plan below. | S |
 | **Security review** | The large holes were closed early (header-based auth bypass, open database policies). A proper pass would still cover dependency vulnerabilities, request validation, the classifier and regulatory images running as root, network policies between pods, and image scanning. | M |
 | **Backups and a restore test** | The data lives in Supabase. Confirm backups are on, and prove a restore works. | S |
 
-### Rate limiting plan
-
-Limits apply at two layers, and both answer `429` with a `Retry-After` header and a plain-language message.
-
-- **At the ingress:** NGINX annotations for requests per second and connections per client IP. This stops floods before they reach Node, and covers unauthenticated routes.
-- **In the API, per signed-in user:** counters in Redis, using the same helper Trace already uses (`cache.count`). Suggested starting limits, all configurable in env:
-
-  | Route | Limit |
-  | --- | --- |
-  | `POST /api/regulatory/query` | 20 per 5 minutes |
-  | `POST /api/documents/upload` | 30 per hour, plus a cap on documents waiting in the queue |
-  | `POST /api/trace/chat` | 20 per 5 minutes (exists) |
-  | Everything else | 300 per minute |
-
-Counters fail open: if Redis is unavailable, requests are allowed rather than blocked. Tests cover the limit, the reset, and the fail-open behaviour.
+Rate limiting is built: per-address and per-user limits across the API, a cap on documents in processing, a lockout on the queue dashboard, and ingress limits. The table of limits is in [BACKEND_SERVICE.md](BACKEND_SERVICE.md#rate-limits). Still to do on top of it: a per-company limit once teams exist, and limit hits as a metric once Prometheus is in.
 
 ## 3. Confidence that it keeps working
 
@@ -106,7 +90,7 @@ Where these live in the repo: monitoring settings and dashboards under `infra/mo
 
 ## Suggested order
 
-1. Better regulatory search, then rate limiting (both are contained and high impact). See "Next week" above for the full plan.
+1. Better regulatory search (contained and high impact). See "Next week" above for the full plan.
 2. An end-to-end test in CI.
 3. Metrics, logs and error tracking.
 4. Test on real invoices, in parallel with the above, since it needs collecting documents.

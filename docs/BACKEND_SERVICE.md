@@ -48,6 +48,9 @@ npm test
 | `EPR_PORTAL_URL`, `EPR_GUIDANCE_MANUAL_URL` | empty | CPCB links shown as the filing's sources. Omitted when empty. |
 | `OLLAMA_HOST`, `OLLAMA_MODEL` | empty | The model Trace uses; the same Ollama and model as the RAG services. Trace returns 503 while unset. |
 | `TRACE_RATE_LIMIT` | `20` | Trace questions per user per 5 minutes |
+| `TRUST_PROXY` | `0` | Reverse proxies in front of the API (`1` behind the ingress). Sets which address counts as the client's. |
+| `RATE_LIMIT_ENABLED` | `true` | `false` turns every rate limit and the processing cap off (benchmarks, load tests) |
+| `RATE_LIMIT_*`, `MAX_PENDING_DOCUMENTS` | see below | Limits per route; the full list is in [Rate limits](#rate-limits) |
 | `REDIS_URL` | empty | Queue and cache; `redis://redis:6379` in Compose. Empty processes documents in the API process with no cache. |
 | `PROCESSING_CONCURRENCY` | `2` | Documents processed at once |
 | `PROCESSING_ATTEMPTS` | `3` | Attempts before a document is marked failed |
@@ -55,6 +58,34 @@ npm test
 | `ADMIN_USER`, `ADMIN_PASSWORD` | empty | Login for the queue dashboard at `/admin/queues`; it's off while either is empty |
 
 The environment file is chosen by `NODE_ENV`: `.env.development` by default, `.env.production` with `npm start`.
+
+## Rate limits
+
+Limits are counted in Redis, per signed-in user where the route needs a sign-in and per network address where it doesn't. Counters use fixed windows, are shared by every API pod, and fail open: if Redis is unavailable, requests are allowed rather than blocked. A refused request gets `429` with `Retry-After`, `RateLimit-Limit`, `RateLimit-Remaining` and `RateLimit-Reset` headers, and a body of `{ success: false, code: "RATE_LIMITED", message, details: { retry_after_seconds } }`. The web app shows the message as it does any other error.
+
+Every route also sits behind the ingress limits (`ingress.rateLimit` in the Helm values), which stop floods before they reach Node.
+
+| Limit | Applies to | Default | Variable |
+| --- | --- | --- | --- |
+| Per address | every `/api` route, before sign-in is checked | 600 per minute | `RATE_LIMIT_IP` |
+| Sign-in sync | `POST /api/auth/sync`, per address | 20 per 10 minutes | `RATE_LIMIT_AUTH_SYNC` |
+| Per user | every signed-in route | 300 per minute | `RATE_LIMIT_USER` |
+| Changes | every `POST`, `PUT`, `PATCH` and `DELETE` | 120 per minute | `RATE_LIMIT_WRITES` |
+| Upload | `POST /api/documents/upload` | 30 per hour | `RATE_LIMIT_UPLOAD` |
+| Upload burst | the same route | 10 per minute | `RATE_LIMIT_UPLOAD_BURST` |
+| Processing cap | uploads and retries, while that many documents are still processing | 25 documents | `MAX_PENDING_DOCUMENTS` |
+| Retry | `POST /api/documents/:id/retry` | 20 per 10 minutes | `RATE_LIMIT_RETRY` |
+| Bulk approve | `POST /api/feedback/approve-suggested` | 20 per 10 minutes | `RATE_LIMIT_BULK_APPROVE` |
+| Finalize and reopen | `POST /api/compliance/filing/finalize` and `/reopen`, shared | 10 per 10 minutes | `RATE_LIMIT_FILING` |
+| Regulatory question | `POST /api/regulatory/query` | 20 per 5 minutes | `RATE_LIMIT_REGULATORY` |
+| Regulatory review | `POST /api/compliance/filing/regulatory-review` | 10 per 10 minutes | `RATE_LIMIT_REGULATORY_REVIEW` |
+| Trace | `POST /api/trace/chat` | 20 per 5 minutes | `TRACE_RATE_LIMIT` |
+| System status | `GET /api/system/status` | 30 per minute | `RATE_LIMIT_STATUS` |
+| Queue dashboard login | failed logins at `/admin/queues`, per address; locks the address out for 5 minutes | 10 failures | `RATE_LIMIT_ADMIN_FAILURES` |
+
+Rejected uploads cost nothing: the limits run before the file is written to disk.
+
+The code is in `src/lib/rate-limit.js` (the counter), `src/middleware/rate-limit.middleware.js` (the rules) and `src/middleware/queue-limit.middleware.js` (the processing cap).
 
 ## API
 

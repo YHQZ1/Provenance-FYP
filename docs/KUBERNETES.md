@@ -74,7 +74,7 @@ Every command runs against the context named by `K8S_CONTEXT` in `infra/.env`, n
 | Service addresses, model name, public links | `config:` in `values.yaml`, rendered into the `provenance-config` ConfigMap. Every pod reads it. |
 | Per-service image, port, health path, resources, volumes | `apps:` in `values.yaml`. Adding a service means adding an entry. |
 | Local overrides (smaller volumes) | `values-local.yaml` |
-| Hostname, upload size limit, timeouts | `ingress:` |
+| Hostname, upload size limit, timeouts, per-client request and connection limits | `ingress:` |
 | Cluster name, namespace, ingress chart version | `infra/.env` |
 | Supabase keys and `DATABASE_URL` | Kubernetes Secrets, created from your existing `.env` files by `make k8s-secrets`. They never go in the chart or an image. |
 
