@@ -1,6 +1,7 @@
 import axios from "axios";
 import { supabase } from "./supabase";
 import { API_URL } from "./config";
+import { reportError } from "./monitoring";
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
@@ -33,6 +34,15 @@ api.interceptors.response.use(
         : status === 429
           ? "You're doing that too quickly. Wait a moment and try again."
           : "Something went wrong. Please try again.");
+
+    if (status >= 500) {
+      reportError(error, {
+        method: error.config?.method,
+        url: error.config?.url,
+        status,
+        message,
+      });
+    }
 
     if (status === 401) {
       await supabase.auth.signOut();

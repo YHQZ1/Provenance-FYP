@@ -17,7 +17,7 @@ escape() {
 
 {
   printf 'window.__ENV__ = {\n'
-  for name in VITE_API_URL VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_SITE_URL VITE_EPR_PORTAL_URL; do
+  for name in VITE_API_URL VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY VITE_SITE_URL VITE_EPR_PORTAL_URL VITE_SENTRY_DSN VITE_SENTRY_ENVIRONMENT; do
     eval "value=\${$name:-}"
     printf '  "%s": "%s",\n' "$name" "$(escape "$value")"
   done
