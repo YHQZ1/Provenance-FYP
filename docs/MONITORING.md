@@ -27,6 +27,8 @@ make k8s-monitoring-down    # frees the memory; the data volumes are kept
 
 The app must have been deployed with `make k8s-up` after this change so the services expose `/metrics`.
 
+Once Argo CD manages the stack (see [ARGOCD.md](ARGOCD.md)), change Git instead of running these: `make k8s-monitoring-up` and `-down` refuse to run so the two don't fight.
+
 ## Dashboards
 
 | Dashboard | Answers |

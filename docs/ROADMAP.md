@@ -9,10 +9,9 @@ The plan for the coming week, in the order to do it. Each item names where it la
 | Order | Work | Lands in | Size |
 | --- | --- | --- | --- |
 | 1 | **Better regulatory search**: hybrid keyword and vector search, re-ranking, more passages for the model. Keep the 13-question graded set in the repo (`apps/rag-regulatory/eval/`) with `make eval`, and aim for 11 of 13 or better. | `apps/rag-regulatory/src/rag/`, `scripts/` | M |
-| 2 | **GitOps with Argo CD**: an `Application` for the app chart and one for the monitoring stack, so the cluster follows Git. Needs images in a registry first (see the decision below). | `infra/argocd/`; image push step in `.github/workflows/` | M |
-| 3 | **End-to-end test in CI** (Playwright: sign in, upload, review, finalize, export), if time allows. | `apps/web-app/e2e/`, `.github/workflows/ci.yml` | M |
+| 2 | **End-to-end test in CI** (Playwright: sign in, upload, review, finalize, export), if time allows. | `apps/web-app/e2e/`, `.github/workflows/ci.yml` | M |
 
-Built since this was written: rate limiting, and metrics, logs and error tracking (see [MONITORING.md](MONITORING.md)). New Make targets still to come: `make k8s-argocd-up` and `k8s-argocd` (opens the UI), plus `make eval`.
+Built since this was written: rate limiting, metrics, logs and error tracking (see [MONITORING.md](MONITORING.md)), and GitOps with Argo CD and images in GHCR (see [ARGOCD.md](ARGOCD.md)).
 
 **Memory budget.** The local cluster has 12 GB and the app already uses about 8 GB. Prometheus, Grafana, Alertmanager and Loki add roughly 2 GB, and Argo CD another 0.5 to 1 GB. Treat monitoring and Argo CD as opt-in stacks started on demand and stopped afterwards, not always on. If memory gets tight, scale the Ollama and classifier pods down while working on them.
 
@@ -22,14 +21,14 @@ Built since this was written: rate limiting, and metrics, logs and error trackin
 | --- | --- | --- |
 | Log stack | **Loki, Alloy and Grafana**, not ELK | Far lighter (a few hundred MB against several GB for Elasticsearch), and logs sit next to metrics in one Grafana. Alloy can ship to OpenSearch later if ever needed. |
 | Metrics and alerts | Prometheus, Grafana, Alertmanager (`kube-prometheus-stack`) | Standard, free, adds the metrics server Docker Desktop lacks, and carries over to EKS. |
-| GitOps | **Argo CD**, added after the registry step; Flux is the lighter alternative | The cluster follows Git, with drift correction, rollback by revert and a UI. It is most useful once there is more than one environment. |
+| GitOps | **Argo CD**, with images built by CI and pushed to GHCR | The cluster follows Git, with drift correction, rollback by revert and a UI. Built; see [ARGOCD.md](ARGOCD.md). |
 | Commercial monitoring (Datadog) | Not now | Paid, and costs grow with hosts and log volume. OpenTelemetry keeps the door open to it. |
 | Tracing | Optional: OpenTelemetry into Tempo | Useful for latency questions; metrics and structured logs answer most others first. |
 | Infrastructure as code | Terraform (or OpenTofu) when deploying; not Ansible | Terraform creates the cloud cluster and services. Ansible configures servers, and containers and Helm already do that here. |
 | Error tracking | Sentry | Frontend crashes are invisible today. |
 | Model | `llama3.2:3b` for the classifier, the regulatory service and Trace; no paid APIs | Tested larger models (Llama 3.1 8B, Qwen 2.5 7B): same accuracy on the regulatory set, so the cause is retrieval, not model size. |
 
-**Open question: where do images live for Argo CD?** Argo CD deploys images by tag from a registry, while local development builds images on the laptop. Options: GitHub Container Registry pushed by CI (free for this repo, and works for a cloud cluster later), or a small registry running in the cluster. GHCR is the one I would use. Local `make k8s-up` keeps working unchanged either way.
+**Images:** decided. CI builds each service on every green push to `main` and pushes it to GitHub Container Registry, tagged with a hash of that service's directory, so only changed services roll out. See [ARGOCD.md](ARGOCD.md).
 
 ## 1. Accuracy and trust
 
@@ -63,11 +62,10 @@ Rate limiting is built: per-address and per-user limits across the API, a cap on
 | **Observability follow-ups** | Metrics, dashboards, alerts, logs and Sentry are built. Left: deploy and tune the thresholds against real traffic, Qdrant and Ollama specific alerts, and Sentry on the Python services if wanted. | S |
 | **Tracing (optional)** | OpenTelemetry into Tempo, only if latency questions need it. | M |
 | **Email provider** | Password reset and confirmation emails use Supabase's built-in sender, which is rate-limited and meant for testing. Connect a real SMTP provider. | S |
-| **GitOps (Argo CD)** | Argo CD watches this repo and keeps the cluster in sync, with drift correction and rollback by Git revert. Needs images pushed to a registry by CI. | M |
 | **Infrastructure as code** | When deploying: Terraform (or OpenTofu) for the cloud cluster, registry, DNS, secrets and managed services, with the existing chart deployed on top. Not needed for local work. | L |
 | **Deployment** | Target undecided. The Helm chart is ready for a cloud cluster; see [KUBERNETES.md](KUBERNETES.md#moving-to-a-cloud-cluster). | L |
 
-Where these live in the repo: monitoring settings, scrape and alert rules and dashboards under `infra/monitoring/`, Argo CD applications under `infra/argocd/`, Terraform under `infra/terraform/` (modules plus one folder per environment), and install scripts in `infra/k8s/`.
+Where these live in the repo: monitoring settings, scrape and alert rules and dashboards under `infra/monitoring/`, Argo CD under `infra/argocd/`, image builds under `.github/`, Terraform under `infra/terraform/` (modules plus one folder per environment), and install scripts in `infra/k8s/`.
 
 ## 5. Product gaps
 

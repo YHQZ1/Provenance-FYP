@@ -62,6 +62,9 @@ Run `make` for the full list.
 | `make k8s-secrets` | Re-creates the Secrets after you change an `.env` file |
 | `make k8s-cache-clear` | Empties the cache (for example after editing data directly in Supabase). Queued jobs are kept. |
 | `make k8s-lint` | Lints and renders the charts and checks the alert rules, without a cluster |
+| `make k8s-argocd-up` | Hands the app and monitoring over to Argo CD, so Git drives the cluster. See [ARGOCD.md](ARGOCD.md). |
+| `make k8s-argocd` | Opens the Argo CD UI and prints the admin password |
+| `make k8s-argocd-status` | Sync and health of every Argo CD application |
 | `make k8s-monitoring-up` | Installs Prometheus, Grafana, Alertmanager, Loki and Alloy (about 2 GB). See [MONITORING.md](MONITORING.md). |
 | `make k8s-grafana` | Opens Grafana and prints the admin password |
 | `make k8s-monitoring-down` | Removes the monitoring stack to free memory |
