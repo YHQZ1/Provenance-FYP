@@ -19,4 +19,4 @@ for document in yaml.safe_load_all(open(f"{work}/rendered.yaml", encoding="utf-8
             yaml.safe_dump({"groups": document["spec"]["groups"]}, out, sort_keys=False)
 PY
 
-docker run --rm -v "$work":/work --entrypoint promtool prom/prometheus:v3.5.0 check rules /work/rules.yaml
+docker run --rm --user "$(id -u):$(id -g)" -v "$work":/work --entrypoint promtool prom/prometheus:v3.5.0 check rules /work/rules.yaml

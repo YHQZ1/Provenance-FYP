@@ -61,7 +61,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install pytest httpx python-multipart==0.0.20 pymupdf==1.24.14 pdf2image==1.17.0 Pillow==11.1.0 opencv-python-headless==4.10.0.84 numpy==1.26.4 pydantic==2.10.6 fastapi==0.115.6
+      - run: pip install pytest httpx python-multipart==0.0.20 pymupdf==1.24.14 pdf2image==1.17.0 Pillow==11.1.0 opencv-python-headless==4.10.0.84 numpy==1.26.4 pydantic==2.10.6 fastapi==0.115.6 prometheus-client==0.21.1
       - run: python -m pytest tests/unit -q
         env:
           PYTHONPATH: src
@@ -78,7 +78,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install pytest httpx==0.25.2 tenacity==8.2.3 pydantic==2.5.3 pydantic-settings==2.1.0
+      - run: pip install pytest httpx==0.25.2 tenacity==8.2.3 pydantic==2.5.3 pydantic-settings==2.1.0 fastapi==0.109.0 prometheus-client==0.21.1
       - run: python -m pytest tests -q
 
   rag-regulatory:
@@ -92,7 +92,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install pytest
+      - run: pip install pytest httpx==0.25.2 fastapi==0.110.0 prometheus-client==0.21.1
       - run: python -m pytest tests -q
       - run: python -m compileall -q src scripts
 
