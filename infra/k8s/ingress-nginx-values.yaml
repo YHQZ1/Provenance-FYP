@@ -3,6 +3,9 @@ controller:
   service:
     type: LoadBalancer
   allowSnippetAnnotations: false
+  config:
+    limit-req-status-code: "429"
+    limit-conn-status-code: "429"
   resources:
     requests:
       cpu: 50m

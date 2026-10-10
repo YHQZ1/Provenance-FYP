@@ -10,6 +10,11 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-read-timeout: {{ .Values.ingress.timeoutSeconds | quote }}
     nginx.ingress.kubernetes.io/proxy-send-timeout: {{ .Values.ingress.timeoutSeconds | quote }}
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    {{- with .Values.ingress.rateLimit }}
+    nginx.ingress.kubernetes.io/limit-rps: {{ .requestsPerSecond | quote }}
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: {{ .burstMultiplier | quote }}
+    nginx.ingress.kubernetes.io/limit-connections: {{ .connections | quote }}
+    {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:

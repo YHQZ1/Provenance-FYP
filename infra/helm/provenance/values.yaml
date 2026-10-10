@@ -45,6 +45,10 @@ ingress:
   host: provenance.localhost
   bodySize: 12m
   timeoutSeconds: 300
+  rateLimit:
+    requestsPerSecond: 30
+    burstMultiplier: 5
+    connections: 50
 
 jobs:
   ollamaPull:
@@ -85,6 +89,7 @@ apps:
       PORT: "3000"
       NODE_ENV: production
       RUN_WORKER: "false"
+      TRUST_PROXY: "1"
       USE_MOCK_SERVICES: "false"
       REGULATORY_RAG_TIMEOUT_MS: "180000"
       UPLOAD_TEMP_DIR: /app/uploads
