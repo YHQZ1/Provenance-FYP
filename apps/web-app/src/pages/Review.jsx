@@ -261,7 +261,10 @@ function DecisionPanel({ item, position, categoriesTracked, onDone, modeRequest 
           </p>
           <Badge tone={meta.tone}>{meta.label}</Badge>
         </div>
-        <p className="mt-2 text-xl font-semibold leading-snug text-neutral-950">
+        <p
+          data-testid="open-line"
+          className="mt-2 text-xl font-semibold leading-snug text-neutral-950"
+        >
           {item.line_description || "No line text recorded"}
         </p>
         <p className="mt-1 text-sm text-neutral-500">

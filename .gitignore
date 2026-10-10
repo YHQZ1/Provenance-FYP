@@ -20,6 +20,9 @@ venv/
 .ruff_cache/
 
 dist/
+dist-e2e/
+playwright-report/
+test-results/
 build/
 coverage/
 .next/

@@ -6,7 +6,7 @@ import react from "eslint-plugin-react";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  globalIgnores(["dist"]),
+  globalIgnores(["dist", "dist-e2e", "playwright-report", "test-results"]),
   {
     files: ["**/*.{js,jsx}"],
     extends: [
@@ -29,6 +29,12 @@ export default defineConfig([
       "no-empty": ["error", { allowEmptyCatch: true }],
       "react/jsx-no-undef": "error",
       "react/jsx-uses-vars": "error",
+    },
+  },
+  {
+    files: ["playwright.config.js", "e2e/**/*.js"],
+    languageOptions: {
+      globals: globals.node,
     },
   },
   {

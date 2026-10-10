@@ -3,6 +3,7 @@
 COMPOSE := docker compose --env-file infra/.env -f infra/compose/docker-compose.yaml
 KUBECTL = kubectl --context $(K8S_CONTEXT) -n $(K8S_NAMESPACE)
 s ?=
+SUPABASE ?= npx --yes supabase@2.120.0
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -11,7 +12,7 @@ DB_URL := $$(grep -E '^DATABASE_URL=' apps/rag-classify/.env 2>/dev/null | cut -
 .DEFAULT_GOAL := help
 .PHONY: help env setup k8s-bootstrap k8s-secrets k8s-up k8s-status k8s-logs k8s-restart k8s-shell k8s-models k8s-ingest k8s-lint k8s-cache-clear k8s-stop k8s-start k8s-down k8s-purge k8s-argocd-up k8s-argocd-down k8s-argocd k8s-argocd-status k8s-argocd-sync k8s-monitoring-up k8s-monitoring-down k8s-monitoring-status k8s-grafana k8s-prometheus k8s-alertmanager install venv up down stop start restart rebuild logs ps status shell \
 	models ingest cache-clear db-shell db-migrate test test-web test-backend test-ocr test-classify \
-	test-regulatory lint format build check bench clean
+	test-regulatory e2e e2e-stop lint format build check bench clean
 
 help:
 	@awk 'BEGIN {FS = ":.*## "} /^## / {printf "\n\033[1m%s\033[0m\n", substr($$0, 4)} /^[a-z0-9-]+:.*## / {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -218,6 +219,14 @@ test-classify: ## Classifier tests (needs `make venv`)
 
 test-regulatory: ## Regulatory RAG tests (needs `make venv`)
 	cd apps/rag-regulatory && ../../$(PY) -m pytest tests -q
+
+e2e: ## End-to-end test: local Supabase in Docker, then the whole flow in a browser
+	$(SUPABASE) start
+	cd apps/web-app && npx playwright install chromium
+	set -a; eval "$$(SUPABASE='$(SUPABASE)' sh apps/web-app/e2e/stack-env.sh)"; set +a; cd apps/web-app && npx playwright test
+
+e2e-stop: ## Stop the local Supabase that make e2e started
+	$(SUPABASE) stop
 
 lint: ## Lint the web app and the Python services
 	cd apps/web-app && npm run lint
