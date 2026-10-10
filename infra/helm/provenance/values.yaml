@@ -44,6 +44,10 @@ ollama:
 
 imagePullPolicy: IfNotPresent
 
+imagePullSecrets: []
+
+gitops: false
+
 ingress:
   enabled: true
   className: nginx

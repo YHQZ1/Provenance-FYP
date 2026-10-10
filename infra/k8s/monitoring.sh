@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 . "$(dirname "$0")/env.sh"
+. "$(dirname "$0")/monitoring-lib.sh"
 
-: "${MONITORING_NAMESPACE:=monitoring}"
 : "${PROMETHEUS_REPO:=https://prometheus-community.github.io/helm-charts}"
 : "${PROMETHEUS_STACK_VERSION:=91.4.1}"
 : "${GRAFANA_REPO:=https://grafana.github.io/helm-charts}"
@@ -14,81 +14,16 @@ set -eu
 
 monitoring="$root/infra/monitoring"
 
-mkube() {
-  kube -n "$MONITORING_NAMESPACE" "$@"
-}
-
-mhelm() {
-  helm --kube-context "$K8S_CONTEXT" --namespace "$MONITORING_NAMESPACE" "$@"
-}
-
-smtp_ready() {
-  [ -n "${ALERT_EMAIL_TO:-}" ] && [ -n "${SMTP_SMARTHOST:-}" ] && [ -n "${SMTP_USER:-}" ] && [ -n "${SMTP_PASSWORD:-}" ]
-}
-
-ensure_namespace() {
-  kube get namespace "$MONITORING_NAMESPACE" >/dev/null 2>&1 || kube create namespace "$MONITORING_NAMESPACE" >/dev/null
-}
-
-ensure_grafana_secret() {
-  if ! mkube get secret grafana-admin >/dev/null 2>&1; then
-    password=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)
-    mkube create secret generic grafana-admin \
-      --from-literal=admin-user=admin --from-literal=admin-password="$password" >/dev/null
-  fi
-}
-
-ensure_smtp_secret() {
-  printf '%s' "${SMTP_PASSWORD:-unused}" |
-    mkube create secret generic alertmanager-smtp --from-file=password=/dev/stdin \
-      --dry-run=client -o yaml | mkube apply -f - >/dev/null
-}
-
-render_alertmanager() {
-  if smtp_ready; then
-    cat >"$1" <<YAML
-alertmanager:
-  config:
-    global:
-      resolve_timeout: 5m
-      smtp_smarthost: "$SMTP_SMARTHOST"
-      smtp_from: "${ALERT_EMAIL_FROM:-$SMTP_USER}"
-      smtp_auth_username: "$SMTP_USER"
-      smtp_auth_password_file: /etc/alertmanager/secrets/alertmanager-smtp/password
-      smtp_require_tls: true
-    route:
-      receiver: email
-      group_by: [alertname, namespace, pod, job]
-      group_wait: 30s
-      group_interval: 5m
-      repeat_interval: 12h
-      routes:
-        - receiver: "null"
-          matchers:
-            - alertname = "Watchdog"
-    receivers:
-      - name: "null"
-      - name: email
-        email_configs:
-          - to: "$ALERT_EMAIL_TO"
-            send_resolved: true
-YAML
-  else
-    cat >"$1" <<'YAML'
-alertmanager:
-  config:
-    route:
-      receiver: "null"
-      group_by: [alertname, namespace, pod, job]
-      routes: []
-    receivers:
-      - name: "null"
-YAML
+guard_argocd() {
+  if kube -n "${ARGOCD_NAMESPACE:-argocd}" get application monitoring-stack >/dev/null 2>&1; then
+    echo "monitoring: Argo CD manages the monitoring stack. Change Git and let it sync, or remove Argo CD first with: make k8s-argocd-down" >&2
+    exit 1
   fi
 }
 
 up() {
-  ensure_namespace
+  guard_argocd
+  ensure_monitoring_namespace
   ensure_grafana_secret
   ensure_smtp_secret
 
@@ -126,6 +61,7 @@ up() {
 }
 
 down() {
+  guard_argocd
   for release in provenance-monitoring alloy loki monitoring; do
     mhelm uninstall "$release" >/dev/null 2>&1 && echo "removed $release" || true
   done

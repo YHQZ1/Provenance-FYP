@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-rules
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: provenance
+  source:
+    repoURL: https://github.com/YHQZ1/Provenance.git
+    targetRevision: main
+    path: infra/monitoring/chart
+    helm:
+      releaseName: provenance-monitoring
+      parameters:
+        - name: appNamespace
+          value: provenance
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true

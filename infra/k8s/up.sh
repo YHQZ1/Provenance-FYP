@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 . "$(dirname "$0")/env.sh"
+"$(dirname "$0")/argocd.sh" guard provenance
 
 apps="backend worker frontend ocr-service rag-classify rag-regulatory"
 

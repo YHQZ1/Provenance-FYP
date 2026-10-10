@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: provenance
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: provenance
+  source:
+    repoURL: https://github.com/YHQZ1/Provenance.git
+    targetRevision: main
+    path: infra/helm/provenance
+    helm:
+      releaseName: provenance
+      valueFiles:
+        - values.yaml
+        - values-local.yaml
+        - values-images.yaml
+        - values-gitops.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: provenance
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true

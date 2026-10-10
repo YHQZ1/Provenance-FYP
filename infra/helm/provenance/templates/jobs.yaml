@@ -6,9 +6,13 @@ metadata:
   labels:
     {{- include "provenance.labels" . | nindent 4 }}
   annotations:
+    {{- if .Values.gitops }}
+    argocd.argoproj.io/sync-options: Replace=true
+    {{- else }}
     helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-weight: "0"
     helm.sh/hook-delete-policy: before-hook-creation
+    {{- end }}
 spec:
   backoffLimit: 3
   activeDeadlineSeconds: {{ .Values.jobs.ollamaPull.timeoutSeconds }}
@@ -41,9 +45,13 @@ metadata:
   labels:
     {{- include "provenance.labels" . | nindent 4 }}
   annotations:
+    {{- if .Values.gitops }}
+    argocd.argoproj.io/sync-options: Replace=true
+    {{- else }}
     helm.sh/hook: {{ ternary "post-install,post-upgrade" "post-install" .Values.jobs.ingest.onUpgrade }}
     helm.sh/hook-weight: "1"
     helm.sh/hook-delete-policy: before-hook-creation
+    {{- end }}
 spec:
   backoffLimit: 6
   activeDeadlineSeconds: {{ .Values.jobs.ingest.timeoutSeconds }}
@@ -53,6 +61,10 @@ spec:
         {{- include "provenance.selector" (dict "name" "regulatory-ingest" "root" .) | nindent 8 }}
     spec:
       restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: ingest
           image: {{ index .Values.apps "rag-regulatory" "image" }}

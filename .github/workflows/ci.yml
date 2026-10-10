@@ -105,6 +105,10 @@ jobs:
       - run: helm template provenance infra/helm/provenance -f infra/helm/provenance/values-local.yaml > /dev/null
       - run: |
           helm template provenance infra/helm/provenance -f infra/helm/provenance/values-local.yaml --set jobs.ingest.force=true --set jobs.ingest.onUpgrade=true > /dev/null
+      - run: helm template provenance infra/helm/provenance -f infra/helm/provenance/values-local.yaml -f infra/helm/provenance/values-images.yaml -f infra/helm/provenance/values-gitops.yaml > /dev/null
+      - run: python3 .github/scripts/images.py values > /dev/null
+        env:
+          IMAGE_OWNER: ${{ github.repository_owner }}
       - run: helm lint infra/monitoring/chart
       - run: python3 -m pip install --quiet pyyaml
       - run: infra/monitoring/check-rules.sh

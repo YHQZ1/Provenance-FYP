@@ -9,7 +9,7 @@ PY := $(VENV)/bin/python
 DB_URL := $$(grep -E '^DATABASE_URL=' apps/rag-classify/.env 2>/dev/null | cut -d= -f2- | tr -d '"')
 
 .DEFAULT_GOAL := help
-.PHONY: help env setup k8s-bootstrap k8s-secrets k8s-up k8s-status k8s-logs k8s-restart k8s-shell k8s-models k8s-ingest k8s-lint k8s-cache-clear k8s-stop k8s-start k8s-down k8s-purge k8s-monitoring-up k8s-monitoring-down k8s-monitoring-status k8s-grafana k8s-prometheus k8s-alertmanager install venv up down stop start restart rebuild logs ps status shell \
+.PHONY: help env setup k8s-bootstrap k8s-secrets k8s-up k8s-status k8s-logs k8s-restart k8s-shell k8s-models k8s-ingest k8s-lint k8s-cache-clear k8s-stop k8s-start k8s-down k8s-purge k8s-argocd-up k8s-argocd-down k8s-argocd k8s-argocd-status k8s-argocd-sync k8s-monitoring-up k8s-monitoring-down k8s-monitoring-status k8s-grafana k8s-prometheus k8s-alertmanager install venv up down stop start restart rebuild logs ps status shell \
 	models ingest cache-clear db-shell db-migrate test test-web test-backend test-ocr test-classify \
 	test-regulatory lint format build check bench clean
 
@@ -110,6 +110,7 @@ k8s-ingest: ## Re-index the regulatory sources
 k8s-lint: ## Lint the Helm charts and render them, and check the alert rules
 	helm lint infra/helm/provenance -f infra/helm/provenance/values-local.yaml
 	helm template $(K8S_RELEASE) infra/helm/provenance -f infra/helm/provenance/values-local.yaml > /dev/null
+	helm template $(K8S_RELEASE) infra/helm/provenance -f infra/helm/provenance/values-local.yaml -f infra/helm/provenance/values-images.yaml -f infra/helm/provenance/values-gitops.yaml > /dev/null
 	helm lint infra/monitoring/chart
 	infra/monitoring/check-rules.sh
 
@@ -135,7 +136,23 @@ k8s-prometheus: ## Open Prometheus at http://localhost:9090 (targets, queries, r
 k8s-alertmanager: ## Open Alertmanager at http://localhost:9093
 	infra/k8s/monitoring.sh alertmanager
 
+k8s-argocd-up: ## Install Argo CD and hand the app and monitoring over to Git (about 0.5 GB)
+	infra/k8s/argocd.sh up
+
+k8s-argocd-down: ## Remove Argo CD; the app and monitoring keep running
+	infra/k8s/argocd.sh down
+
+k8s-argocd: ## Open the Argo CD UI at http://localhost:8081 (prints the admin password)
+	infra/k8s/argocd.sh ui
+
+k8s-argocd-status: ## Sync and health of every Argo CD application
+	infra/k8s/argocd.sh status
+
+k8s-argocd-sync: ## Ask Argo CD to check Git now instead of waiting for its poll
+	infra/k8s/argocd.sh sync
+
 k8s-stop: ## Pause everything to free memory (data and config stay in the cluster)
+	infra/k8s/argocd.sh pause
 	$(KUBECTL) scale deployment --all --replicas=0
 	$(KUBECTL) scale statefulset --all --replicas=0
 	@echo "Stopped. Start again with: make k8s-start"
@@ -145,13 +162,16 @@ k8s-start: ## Resume after k8s-stop and wait until everything is ready
 	$(KUBECTL) scale deployment --all --replicas=1
 	$(KUBECTL) rollout status statefulset --timeout=300s
 	$(KUBECTL) wait --for=condition=available deployment --all --timeout=300s
+	infra/k8s/argocd.sh resume
 	@echo "Running at http://$(INGRESS_HOST)"
 
 k8s-down: ## Remove the app from the cluster (volumes, models and the ingest are kept)
+	infra/k8s/argocd.sh guard provenance
 	helm --kube-context $(K8S_CONTEXT) uninstall $(K8S_RELEASE) -n $(K8S_NAMESPACE)
 
 k8s-purge: ## Delete the app AND all its data. Needs CONFIRM=yes
 	@test "$(CONFIRM)" = "yes" || { echo "This deletes volumes, including the downloaded model and the regulatory index. Run: make k8s-purge CONFIRM=yes"; exit 1; }
+	infra/k8s/argocd.sh guard provenance
 	-helm --kube-context $(K8S_CONTEXT) uninstall $(K8S_RELEASE) -n $(K8S_NAMESPACE)
 	$(KUBECTL) delete pvc --all
 	kubectl --context $(K8S_CONTEXT) delete namespace $(K8S_NAMESPACE)
