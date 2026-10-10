@@ -42,7 +42,7 @@ check_images() {
     for reference in $missing; do
       echo "  $reference" >&2
     done
-    echo "Wait for the Images workflow to finish, and make each package public in GitHub (Packages, Package settings, Change visibility)." >&2
+    echo "Wait for the Images workflow to finish. If the packages are private, make each one public in GitHub (Packages, Package settings, Change visibility)." >&2
     exit 1
   fi
   echo "all images are published"

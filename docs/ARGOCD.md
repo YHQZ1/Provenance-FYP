@@ -45,7 +45,7 @@ Not managed, on purpose: the NGINX ingress controller (a cluster prerequisite, i
 ## First time
 
 1. **Push to `main`.** The CI workflow runs, then the Images workflow builds everything and commits `values-images.yaml`. The first run is long (the classifier and regulatory images are about 2 GB each); later runs only build what changed.
-2. **Make the five packages public**, once. GitHub creates container packages private. For each of `provenance-backend`, `provenance-web`, `provenance-ocr`, `provenance-rag-classify` and `provenance-rag-regulatory`: GitHub profile, Packages, the package, Package settings, Change visibility, Public. The repository is public, so this exposes nothing new.
+2. **Check the packages are public.** Packages published from a public repository are public too, and the first run confirmed all five can be pulled without logging in. If you fork this into a private repository, set each package (`provenance-backend`, `provenance-web`, `provenance-ocr`, `provenance-rag-classify`, `provenance-rag-regulatory`) to Public under Package settings, Change visibility, or add an `imagePullSecrets` entry.
 3. **Run `make k8s-argocd-up`.** It checks that every image in `values-images.yaml` can be pulled, installs Argo CD, prepares the monitoring secrets, and registers the project and the root application.
 4. **Watch it settle** with `make k8s-argocd-status` or `make k8s-argocd` (UI).
 
@@ -87,7 +87,7 @@ Argo CD adds about 150 MB idle (the application controller and repo server rise 
 
 | Symptom | Likely cause |
 | --- | --- |
-| `make k8s-argocd-up` says images can't be pulled anonymously | The Images workflow hasn't finished, or the packages are still private (step 2 above). |
+| `make k8s-argocd-up` says images can't be pulled anonymously | The Images workflow hasn't finished, or the packages are private (step 2 above). |
 | A pod sits in `ImagePullBackOff` | The same: the package is private. Make it public, or add an `imagePullSecrets` entry in `values-gitops.yaml` and create the secret. |
 | The Images workflow fails on a push | Read the failing build in the Actions tab. The tags are only committed when every build succeeded, so the cluster keeps the previous images. |
 | Application stuck `OutOfSync` on a job | Jobs are immutable; `Replace=true` should recreate them. Delete the job and sync. |
