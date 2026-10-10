@@ -57,3 +57,18 @@ test("Trace requires a signed-in user", async () => {
     assert.equal(response.status, 401);
   });
 });
+
+test("rate limit headers are readable by the browser app", async () => {
+  await withServer(async (base) => {
+    const response = await fetch(`${base}/api/documents`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "http://app.test",
+        "Access-Control-Request-Method": "GET",
+      },
+    });
+    assert.equal(response.status, 204);
+    const exposed = response.headers.get("access-control-expose-headers") || "";
+    assert.match(exposed, /Retry-After/);
+  });
+});

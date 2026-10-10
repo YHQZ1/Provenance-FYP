@@ -30,7 +30,9 @@ api.interceptors.response.use(
       error.response?.data?.message ||
       (error.code === "ERR_NETWORK"
         ? "Can't reach the Provenance server. Check that the backend is running."
-        : "Something went wrong. Please try again.");
+        : status === 429
+          ? "You're doing that too quickly. Wait a moment and try again."
+          : "Something went wrong. Please try again.");
 
     if (status === 401) {
       await supabase.auth.signOut();

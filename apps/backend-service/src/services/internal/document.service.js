@@ -129,6 +129,15 @@ export const documentService = {
     return toListItem({ ...document, document_classifications: [] }, await finalizedYears(userId));
   },
 
+  async countProcessing(userId) {
+    const { count } = await supabaseAdmin
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", userId)
+      .in("status", PROCESSING_STATUSES);
+    return count ?? 0;
+  },
+
   async retryDocument(documentId, userId) {
     const { data: document } = await supabaseAdmin
       .from("documents")

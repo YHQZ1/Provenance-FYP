@@ -17,7 +17,12 @@ export const askTrace = async ({ message, history, context, signal, onToken }) =
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.message || "Trace couldn't answer right now.");
+    throw new Error(
+      body.message ||
+        (response.status === 429
+          ? "You're asking too quickly. Wait a moment and try again."
+          : "Trace couldn't answer right now."),
+    );
   }
 
   let result = { links: [], sources: [] };
