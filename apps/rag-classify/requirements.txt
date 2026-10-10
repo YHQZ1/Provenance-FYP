@@ -24,3 +24,4 @@ httpx==0.25.2
 tenacity==8.2.3
 python-dateutil==2.8.2
 regex==2023.12.25
+prometheus-client==0.21.1

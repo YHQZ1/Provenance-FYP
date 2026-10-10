@@ -15,6 +15,7 @@ from src.config import (
     QDRANT_HOST,
     QDRANT_PORT,
 )
+from src.observability import instrument
 from src.rag.chatbot import chat
 from src.rag.retrieval import client, ensure_collection, retrieve
 from src.rag.text import cite, group_sources
@@ -28,6 +29,8 @@ app = FastAPI(
     version="0.1.0",
     description="Source-grounded regulatory research for Indian ESG and EPR workflows.",
 )
+
+instrument(app, "rag-regulatory")
 
 app.add_middleware(
     CORSMiddleware,

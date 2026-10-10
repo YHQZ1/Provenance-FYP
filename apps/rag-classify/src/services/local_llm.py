@@ -1,14 +1,23 @@
 import json
 import logging
 import re
+import time
 from typing import Dict, List, Optional, Any
 
 import httpx
+from prometheus_client import Histogram
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from src.config import settings
 
 logger = logging.getLogger(__name__)
+
+LLM_CALL = Histogram(
+    "llm_call_duration_seconds",
+    "Language model call duration",
+    ["outcome"],
+    buckets=(0.5, 1, 2, 5, 10, 20, 30, 60, 120, 180),
+)
 
 
 from src.services.taxonomy import CANONICAL_NAMES, CPCB_MATERIALS, DETAILED, resolve
@@ -72,16 +81,22 @@ class LocalLLMService:
         try:
             logger.debug(f"Sending classification request")
 
-            response = self.client.post(
-                f"{self.base_url}/api/generate",
-                json={
-                    "model": self.model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0.1, "top_p": 0.9, "num_predict": 400},
-                },
-            )
-            response.raise_for_status()
+            started = time.perf_counter()
+            outcome = "error"
+            try:
+                response = self.client.post(
+                    f"{self.base_url}/api/generate",
+                    json={
+                        "model": self.model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"temperature": 0.1, "top_p": 0.9, "num_predict": 400},
+                    },
+                )
+                response.raise_for_status()
+                outcome = "ok"
+            finally:
+                LLM_CALL.labels(outcome).observe(time.perf_counter() - started)
 
             result = response.json()
             raw_output = result.get("response", "")

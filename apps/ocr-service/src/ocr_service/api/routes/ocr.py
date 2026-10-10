@@ -1,10 +1,12 @@
 import os
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
+from prometheus_client import Histogram
 
 from ocr_service.core.config import settings
 from ocr_service.pipeline import OCRPipeline
@@ -16,10 +18,24 @@ SUPPORTED_TYPES = {"application/pdf", "image/png", "image/jpeg", "image/tiff"}
 
 _engine_lock = threading.Lock()
 
+ENGINE_WAIT = Histogram(
+    "ocr_engine_wait_seconds",
+    "Time a document waits for the OCR engine, which reads one at a time",
+    buckets=(0.1, 0.5, 1, 5, 10, 30, 60, 120, 300),
+)
+ENGINE_TIME = Histogram(
+    "ocr_processing_seconds",
+    "Time the OCR engine takes to read one document",
+    buckets=(1, 2, 5, 10, 20, 30, 60, 120, 300),
+)
+
 
 def _process_exclusively(path: str, filename: str | None) -> OCRResponse:
+    waiting_since = time.perf_counter()
     with _engine_lock:
-        return pipeline.process(path, filename)
+        ENGINE_WAIT.observe(time.perf_counter() - waiting_since)
+        with ENGINE_TIME.time():
+            return pipeline.process(path, filename)
 
 
 @router.post("/ocr", response_model=OCRResponse, status_code=status.HTTP_200_OK)

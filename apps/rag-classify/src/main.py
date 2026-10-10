@@ -5,11 +5,9 @@ from fastapi import FastAPI
 
 from src.routers import health, classify, seed
 from src.config import settings
+from src.observability import instrument
 from src.services.rag_pipeline import get_pipeline
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -19,6 +17,8 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+instrument(app, "rag-classify")
 
 app.include_router(health.router)
 app.include_router(classify.router)
