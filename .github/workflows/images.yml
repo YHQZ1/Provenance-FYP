@@ -99,7 +99,7 @@ jobs:
         with:
           ref: main
           path: main
-      - run: python3 source/.github/scripts/images.py values --output "$GITHUB_WORKSPACE/main/infra/helm/provenance/values-images.yaml"
+      - run: python3 .github/scripts/images.py values --output "$GITHUB_WORKSPACE/main/infra/helm/provenance/values-images.yaml"
         working-directory: source
       - name: Commit the tags
         working-directory: main
