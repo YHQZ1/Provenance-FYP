@@ -1,10 +1,10 @@
 apps:
   backend:
-    image: ghcr.io/yhqz1/provenance-backend:56145228e96e
+    image: ghcr.io/yhqz1/provenance-backend:9c7e15d61124
   worker:
-    image: ghcr.io/yhqz1/provenance-backend:56145228e96e
+    image: ghcr.io/yhqz1/provenance-backend:9c7e15d61124
   frontend:
-    image: ghcr.io/yhqz1/provenance-web:e50b7a053eaf
+    image: ghcr.io/yhqz1/provenance-web:4c64f1499f07
   ocr-service:
     image: ghcr.io/yhqz1/provenance-ocr:5369137004c5
   rag-classify:
