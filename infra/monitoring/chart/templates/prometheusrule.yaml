@@ -1,0 +1,139 @@
+{{- $app := printf "namespace=%q" .Values.appNamespace }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: provenance
+  labels:
+    app.kubernetes.io/part-of: provenance-monitoring
+spec:
+  groups:
+    - name: provenance.availability
+      rules:
+        - alert: ProvenanceTargetDown
+          expr: up{ {{ $app }}, job=~"backend|worker|ocr-service|rag-classify|rag-regulatory|qdrant|redis"} == 0
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ "{{ $labels.job }}" }} can't be scraped"
+            description: "Prometheus has not been able to scrape {{ "{{ $labels.job }}" }} for 3 minutes. The service is down or not answering."
+        - alert: RedisDown
+          expr: redis_up{ {{ $app }} } == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Redis is down
+            description: The queue and cache are unavailable. Documents are not being processed and rate limits are not enforced.
+    - name: provenance.api
+      rules:
+        - alert: BackendHighErrorRate
+          expr: |
+            sum(rate(http_request_duration_seconds_count{ {{ $app }}, job="backend", status=~"5.."}[5m]))
+              / sum(rate(http_request_duration_seconds_count{ {{ $app }}, job="backend"}[5m]))
+              > {{ .Values.thresholds.errorRatio }}
+            and sum(rate(http_request_duration_seconds_count{ {{ $app }}, job="backend"}[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: The API is returning errors
+            description: "More than {{ mulf .Values.thresholds.errorRatio 100 }} percent of API requests have failed for 5 minutes."
+        - alert: BackendSlowRequests
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{ {{ $app }}, job="backend", route!~"/api/regulatory/query|/api/trace/chat|/api/documents/upload|/api/compliance/filing/regulatory-review"}[5m])))
+              > {{ .Values.thresholds.p95Seconds }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: The API is slow
+            description: "The 95th percentile of ordinary API requests has been above {{ .Values.thresholds.p95Seconds }} seconds for 10 minutes."
+        - alert: RateLimitRejectionsHigh
+          expr: sum(increase(rate_limit_rejections_total{ {{ $app }} }[10m])) > {{ .Values.thresholds.rateLimitRejections }}
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: Many requests are being rate limited
+            description: "More than {{ .Values.thresholds.rateLimitRejections }} requests were refused with 429 in 10 minutes. A client may be misbehaving, or the limits may be too tight."
+    - name: provenance.pipeline
+      rules:
+        - alert: DocumentQueueStuck
+          expr: max(document_queue_oldest_waiting_seconds{ {{ $app }} }) > {{ .Values.thresholds.queueOldestSeconds }}
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Documents are waiting too long to be processed
+            description: "The oldest waiting document has been queued for more than {{ div .Values.thresholds.queueOldestSeconds 60 }} minutes. The worker may be down or stuck."
+        - alert: DocumentQueueBacklog
+          expr: max(document_queue_jobs{ {{ $app }}, state="waiting"}) > {{ .Values.thresholds.queueWaiting }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: The processing queue is backing up
+            description: "More than {{ .Values.thresholds.queueWaiting }} documents have been waiting for 10 minutes."
+        - alert: DocumentProcessingFailing
+          expr: sum(increase(documents_processed_total{ {{ $app }}, outcome="error"}[30m])) >= 3
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: Documents are failing to process
+            description: "At least 3 processing attempts failed in the last 30 minutes. Check the logs for the document IDs."
+        - alert: DownstreamErrors
+          expr: |
+            sum by (service) (rate(downstream_request_duration_seconds_count{ {{ $app }}, outcome="error"}[10m]))
+              / sum by (service) (rate(downstream_request_duration_seconds_count{ {{ $app }} }[10m]))
+              > {{ .Values.thresholds.downstreamErrorRatio }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Calls to {{ "{{ $labels.service }}" }} are failing"
+            description: "More than {{ mulf .Values.thresholds.downstreamErrorRatio 100 }} percent of calls from the backend to {{ "{{ $labels.service }}" }} failed for 10 minutes."
+        - alert: LanguageModelSlow
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(downstream_request_duration_seconds_bucket{ {{ $app }}, service="ollama"}[10m])))
+              > {{ .Values.thresholds.ollamaP95Seconds }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Trace answers are slow
+            description: "The 95th percentile of language model answers has been above {{ .Values.thresholds.ollamaP95Seconds }} seconds for 10 minutes."
+    - name: provenance.pods
+      rules:
+        - alert: ProvenancePodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{ {{ $app }} }[30m]) > 2
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ "{{ $labels.pod }}" }} keeps restarting"
+            description: "Container {{ "{{ $labels.container }}" }} restarted more than twice in 30 minutes."
+        - alert: ProvenancePodOOMKilled
+          expr: |
+            increase(kube_pod_container_status_restarts_total{ {{ $app }} }[10m]) > 0
+              and on (namespace, pod, container)
+            kube_pod_container_status_last_terminated_reason{ {{ $app }}, reason="OOMKilled"} == 1
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ "{{ $labels.pod }}" }} ran out of memory"
+            description: "Container {{ "{{ $labels.container }}" }} was killed for exceeding its memory limit. Raise the limit in the chart or reduce its load."
+        - alert: ProvenanceMemoryNearLimit
+          expr: |
+            sum by (namespace, pod) (container_memory_working_set_bytes{ {{ $app }}, container=""})
+              / on (namespace, pod)
+            sum by (namespace, pod) (kube_pod_container_resource_limits{ {{ $app }}, resource="memory"})
+              > {{ .Values.thresholds.memoryRatio }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ "{{ $labels.pod }}" }} is close to its memory limit"
+            description: "Pod {{ "{{ $labels.pod }}" }} has used more than {{ mulf .Values.thresholds.memoryRatio 100 }} percent of its memory limit for 10 minutes."

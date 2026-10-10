@@ -17,6 +17,11 @@ redis:
   enabled: true
   image: redis:7.4-alpine
   storage: 1Gi
+  exporter:
+    image: oliver006/redis_exporter:v1.67.0
+    resources:
+      requests: { cpu: 10m, memory: 16Mi }
+      limits: { memory: 64Mi }
   resources:
     requests: { cpu: 50m, memory: 64Mi }
     limits: { memory: 256Mi }
@@ -84,6 +89,7 @@ apps:
     image: provenance/backend:local
     port: 3000
     probePath: /health
+    metrics: true
     secrets: [provenance-backend-secrets]
     env:
       PORT: "3000"
@@ -103,9 +109,13 @@ apps:
   worker:
     image: provenance/backend:local
     command: ["node", "src/worker.js"]
+    port: 9464
+    metrics: true
     secrets: [provenance-backend-secrets]
     env:
       PORT: "3000"
+      SERVICE_NAME: worker
+      METRICS_PORT: "9464"
       NODE_ENV: production
       USE_MOCK_SERVICES: "false"
       PROCESSING_CONCURRENCY: "2"
@@ -121,6 +131,7 @@ apps:
     image: provenance/ocr:local
     port: 8000
     probePath: /health
+    metrics: true
     startupFailureThreshold: 36
     volumes:
       - { name: paddle-models, type: pvc, size: 256Mi, mountPath: /home/appuser/.paddleocr }
@@ -133,6 +144,7 @@ apps:
     image: provenance/rag-classify:local
     port: 8001
     probePath: /health
+    metrics: true
     startupFailureThreshold: 60
     secrets: [provenance-classifier-secrets]
     volumes:
@@ -145,6 +157,7 @@ apps:
     image: provenance/rag-regulatory:local
     port: 8002
     probePath: /health
+    metrics: true
     startupFailureThreshold: 60
     env:
       QDRANT_COLLECTION: regulatory_docs

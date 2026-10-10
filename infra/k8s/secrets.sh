@@ -29,11 +29,13 @@ for line in open(source, encoding="utf-8"):
         value = value[1:-1]
     values[key.strip()] = value
 
-missing = [key for key in wanted if not values.get(key)]
+required = [key for key in wanted if not key.endswith("?")]
+optional = [key[:-1] for key in wanted if key.endswith("?") and values.get(key[:-1])]
+missing = [key for key in required if not values.get(key)]
 if missing:
     sys.exit("secrets: " + ", ".join(missing) + " missing from " + source)
 with open(target, "w", encoding="utf-8") as out:
-    for key in wanted:
+    for key in required + optional:
         out.write(f"{key}={values[key]}\n")
 PY
   status=0
@@ -45,7 +47,7 @@ PY
 }
 
 create_secret provenance-backend-secrets "$root/apps/backend-service/.env.development" \
-  SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY
+  SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY "SENTRY_DSN?"
 create_secret provenance-classifier-secrets "$root/apps/rag-classify/.env" DATABASE_URL
 create_secret provenance-web-config "$root/apps/web-app/.env.development" \
-  VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY
+  VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY "VITE_SENTRY_DSN?"

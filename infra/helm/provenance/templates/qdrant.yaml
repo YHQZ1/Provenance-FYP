@@ -5,6 +5,7 @@ metadata:
   name: qdrant
   labels:
     {{- include "provenance.labels" . | nindent 4 }}
+    provenance/metrics: "true"
 spec:
   selector:
     {{- include "provenance.selector" (dict "name" "qdrant" "root" .) | nindent 4 }}

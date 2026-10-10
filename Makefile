@@ -9,7 +9,7 @@ PY := $(VENV)/bin/python
 DB_URL := $$(grep -E '^DATABASE_URL=' apps/rag-classify/.env 2>/dev/null | cut -d= -f2- | tr -d '"')
 
 .DEFAULT_GOAL := help
-.PHONY: help env setup k8s-bootstrap k8s-secrets k8s-up k8s-status k8s-logs k8s-restart k8s-shell k8s-models k8s-ingest k8s-lint k8s-cache-clear k8s-stop k8s-start k8s-down k8s-purge install venv up down stop start restart rebuild logs ps status shell \
+.PHONY: help env setup k8s-bootstrap k8s-secrets k8s-up k8s-status k8s-logs k8s-restart k8s-shell k8s-models k8s-ingest k8s-lint k8s-cache-clear k8s-stop k8s-start k8s-down k8s-purge k8s-monitoring-up k8s-monitoring-down k8s-monitoring-status k8s-grafana k8s-prometheus k8s-alertmanager install venv up down stop start restart rebuild logs ps status shell \
 	models ingest cache-clear db-shell db-migrate test test-web test-backend test-ocr test-classify \
 	test-regulatory lint format build check bench clean
 
@@ -32,7 +32,8 @@ venv: ## Create .venv with what the Python service tests need
 	python3 -m venv $(VENV)
 	$(PY) -m pip install -q --upgrade pip
 	$(PY) -m pip install -q pytest httpx fastapi pydantic pydantic-settings tenacity \
-		python-multipart pymupdf pdf2image pillow numpy opencv-python-headless black ruff
+		python-multipart pymupdf pdf2image pillow numpy opencv-python-headless black ruff \
+		prometheus-client
 
 ## Stack (Docker)
 
@@ -106,13 +107,33 @@ k8s-models: ## Pull the Ollama model again
 k8s-ingest: ## Re-index the regulatory sources
 	infra/k8s/ingest.sh
 
-k8s-lint: ## Lint the Helm chart and render it
+k8s-lint: ## Lint the Helm charts and render them, and check the alert rules
 	helm lint infra/helm/provenance -f infra/helm/provenance/values-local.yaml
 	helm template $(K8S_RELEASE) infra/helm/provenance -f infra/helm/provenance/values-local.yaml > /dev/null
+	helm lint infra/monitoring/chart
+	infra/monitoring/check-rules.sh
 
 k8s-cache-clear: ## Empty the cache in the cluster (the processing queue is kept)
 	$(KUBECTL) exec redis-0 -- sh -c "redis-cli --scan --pattern 'prov:*' | xargs -r redis-cli del" > /dev/null
 	@echo "Cache cleared."
+
+k8s-monitoring-up: ## Install Prometheus, Grafana, Alertmanager, Loki and Alloy (about 2 GB)
+	infra/k8s/monitoring.sh up
+
+k8s-monitoring-down: ## Remove the monitoring stack to free memory (data volumes are kept)
+	infra/k8s/monitoring.sh down
+
+k8s-monitoring-status: ## Pods in the monitoring namespace
+	infra/k8s/monitoring.sh status
+
+k8s-grafana: ## Open Grafana at http://localhost:3001 (prints the admin password)
+	infra/k8s/monitoring.sh grafana
+
+k8s-prometheus: ## Open Prometheus at http://localhost:9090 (targets, queries, rules)
+	infra/k8s/monitoring.sh prometheus
+
+k8s-alertmanager: ## Open Alertmanager at http://localhost:9093
+	infra/k8s/monitoring.sh alertmanager
 
 k8s-stop: ## Pause everything to free memory (data and config stay in the cluster)
 	$(KUBECTL) scale deployment --all --replicas=0

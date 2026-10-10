@@ -5,12 +5,15 @@ metadata:
   name: redis
   labels:
     {{- include "provenance.labels" . | nindent 4 }}
+    provenance/metrics: "true"
 spec:
   selector:
     {{- include "provenance.selector" (dict "name" "redis" "root" .) | nindent 4 }}
   ports:
     - name: redis
       port: 6379
+    - name: metrics
+      port: 9121
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -56,6 +59,22 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+        - name: exporter
+          image: {{ .Values.redis.exporter.image }}
+          env:
+            - name: REDIS_ADDR
+              value: redis://localhost:6379
+          ports:
+            - name: metrics
+              containerPort: 9121
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 59000
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.redis.exporter.resources | nindent 12 }}
   volumeClaimTemplates:
     - metadata:
         name: data

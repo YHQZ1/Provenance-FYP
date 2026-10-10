@@ -138,6 +138,9 @@ metadata:
   name: {{ $name }}
   labels:
     {{- include "provenance.labels" $ | nindent 4 }}
+    {{- if $app.metrics }}
+    provenance/metrics: "true"
+    {{- end }}
 spec:
   selector:
     {{- include "provenance.selector" (dict "name" $name "root" $) | nindent 4 }}

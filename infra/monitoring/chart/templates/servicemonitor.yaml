@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: provenance
+  labels:
+    app.kubernetes.io/part-of: provenance-monitoring
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.appNamespace }}
+  selector:
+    matchLabels:
+      provenance/metrics: "true"
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.scrapeInterval }}
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.scrapeInterval }}

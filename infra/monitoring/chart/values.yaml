@@ -1,0 +1,12 @@
+appNamespace: provenance
+scrapeInterval: 30s
+
+thresholds:
+  errorRatio: 0.05
+  p95Seconds: 3
+  queueOldestSeconds: 900
+  queueWaiting: 20
+  ollamaP95Seconds: 60
+  downstreamErrorRatio: 0.2
+  rateLimitRejections: 50
+  memoryRatio: 0.9
